@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
-import '../../services/auth_service.dart';
-import '../auth/login_screen.dart';
+import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
+import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dart';
+import 'package:manajemen_tahsin_app/features/santri/presentation/data_santri_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final UserModel user;
@@ -29,14 +30,14 @@ class HomeScreen extends StatelessWidget {
     );
 
     if (confirm == true) {
-      await AuthService().logout();
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      }
+      await ApiService.logout(); // ✅ DIGANTI DARI AuthService().logout()
+      if (!context.mounted) return; // ✅ PENAMBAHAN KEAMANAN ASYNC
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
     }
   }
 
@@ -71,18 +72,25 @@ class HomeScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 30,
                       backgroundColor: Colors.green[100],
-                      child:
-                          Icon(Icons.person, size: 36, color: Colors.green[800]),
+                      child: Icon(
+                        Icons.person,
+                        size: 36,
+                        color: Colors.green[800],
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize
+                            .min, // <--- 🌟 WAJIB TAMBAHKAN BARIS INI
                         children: [
                           Text(
                             'Selamat datang,',
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey[600]),
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
                           ),
                           Text(
                             user.username,
@@ -94,7 +102,9 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(height: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 3),
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.green[700],
                               borderRadius: BorderRadius.circular(20),
@@ -136,7 +146,7 @@ class HomeScreen extends StatelessWidget {
                     icon: Icons.people_alt,
                     label: 'Data Santri',
                     color: Colors.blue[700]!,
-                    onTap: () {},
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DataSantriScreen())),
                   ),
                   _MenuCard(
                     icon: Icons.check_circle_outline,
@@ -186,8 +196,9 @@ class _MenuCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          border: Border.all(color: color.withOpacity(0.3)),
+          // ✅ DIGANTI MENJADI withValues() AGAR TIDAK MUNCUL WARNING BIRU
+          color: color.withValues(alpha: 0.1),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -198,7 +209,10 @@ class _MenuCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                  fontWeight: FontWeight.bold, color: color, fontSize: 14),
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 14,
+              ),
             ),
           ],
         ),

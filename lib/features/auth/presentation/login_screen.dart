@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/user_model.dart';
-import '../../services/api_service.dart';
-import '../../utils/api_config.dart';
-import '../home/dashboard_screen.dart';
+import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
+import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
+import 'package:manajemen_tahsin_app/features/beranda/presentation/dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,8 +73,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ─── Login Logic ─────────────────────────────────────────────────────────────
+  // ─── Login Logic (SUDAH DIPERBAIKI) ─────────────────────────────────────────
   Future<void> _handleLogin() async {
+    // 🌟 1. WAJIB: Tutup keyboard paksa saat tombol ditekan
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final identity = _identityController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -96,9 +99,14 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => DashboardScreen(user: user)),
         (route) => false,
       );
-    } catch (e) {
+    } catch (e, stacktrace) {
+      // 🌟 2. JEBAKAN ERROR: Print ke console agar kita tahu persis masalahnya
+      debugPrint('=== ERROR LOGIN TERDEKTEKSI ===');
+      debugPrint(e.toString());
+      debugPrint(stacktrace.toString());
+
       if (!mounted) return;
-      // Tampilkan pesan error dari API / jaringan dalam Bahasa Indonesia
+      // Tampilkan pesan error dari API / jaringan di layar HP
       final message = e.toString().replaceFirst('Exception: ', '');
       _showSnackBar(message, isError: true);
     } finally {
@@ -112,6 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
         content: Text(message),
         backgroundColor: isError ? Colors.red[700] : Colors.green[700],
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -121,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Login QTC Khadijah Al-Kubra'),
+        title: const Text('Halaman Login'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -147,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Manajemen Tahsin',
+                'SIM Lembaga',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -156,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'QTC Khadijah Al-Kubra',
+                'ZhaaL v1.2',
                 style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
               const SizedBox(height: 36),
@@ -222,7 +231,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       : const Text(
                           'Masuk',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/features/absensi/domain/repositories/absensi_repository.dart';
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
       providers: [
         RepositoryProvider<AbsensiRepository>(
           create: (_) => AbsensiRepository(
-            networkInfo: NetworkInfoImpl(InternetConnectionChecker.createInstance()),
+            networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
             localDataSource: LocalDataSourceImpl(),
           ),
         ),

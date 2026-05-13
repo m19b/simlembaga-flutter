@@ -155,11 +155,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                child: Image.asset(
-                  'assets/icon/logoo.png',
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.contain,
+                child: Icon(
+                  Icons.menu_book_rounded,
+                  size: 70,
+                  color: Colors.green[800],
                 ),
               ),
               const SizedBox(height: 16),

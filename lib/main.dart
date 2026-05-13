@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:manajemen_tahsin_app/app.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/utils/sync_manager.dart';
 
 void main() async {
@@ -11,13 +11,11 @@ void main() async {
   // 2. Inisialisasi locale Indonesia agar DateFormat(..., 'id_ID') tidak error
   await initializeDateFormatting('id_ID', null);
 
-  // Inisialisasi Hive untuk Offline-First Architecture
-  await Hive.initFlutter();
-  await Hive.openBox('cacheBox');
-  await Hive.openBox('queueBox');
+  // Inisialisasi Isar Database untuk Offline-First Architecture
+  await IsarDb.init();
 
   // Mulai Sync Manager di background
-  SyncManager().startSyncMonitor();
+  OfflineSyncManager().startSyncMonitor();
 
   // 3. Pasang "CCTV" untuk menangkap layar putih (Render Crash) di APK
   ErrorWidget.builder = (FlutterErrorDetails details) {

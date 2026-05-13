@@ -88,7 +88,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ],
               ),
-              child: Icon(Icons.mosque, size: 80, color: Colors.green[800]),
+              child: Icon(Icons.menu_book_rounded, size: 80, color: Colors.green[800]),
             ),
             const SizedBox(height: 24),
             Text(

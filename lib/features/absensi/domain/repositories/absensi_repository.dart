@@ -4,7 +4,7 @@ import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 
 /// Aturan Triage Offline (HARGA MATI):
 /// - [getAbsenHarian]   → OFFLINE-FIRST (Cache-Then-Network)
-/// - [getRekapAbsen]    → NETWORK-ONLY (100% real-time, dilarang Hive)
+/// - [getRekapAbsen]    → NETWORK-ONLY (100% real-time, dilarang cache)
 /// - [simpanAbsenMassal] / [scanAbsen] → Optimistic Queue Box
 class AbsensiRepository {
   final NetworkInfo networkInfo;

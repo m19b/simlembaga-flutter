@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 
 class GlobalNetworkIndicator extends StatefulWidget {
   final Widget child;
@@ -19,7 +19,7 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
   @override
   void initState() {
     super.initState();
-    _networkInfo = NetworkInfoImpl(InternetConnectionChecker.instance);
+    _networkInfo = NetworkInfoImpl(LocalNetworkChecker());
     _checkConnection();
 
     // Polling setiap 3 detik agar lebih responsif terhadap perubahan status server lokal

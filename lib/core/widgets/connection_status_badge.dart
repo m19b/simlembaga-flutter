@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
+import 'package:isar/isar.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
 
 class ConnectionStatusBadge extends StatefulWidget {
   const ConnectionStatusBadge({Key? key}) : super(key: key);
@@ -11,22 +13,25 @@ class ConnectionStatusBadge extends StatefulWidget {
 
 class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
   bool _isOnline = true;
+  late Stream<void> _queueStream;
 
   @override
   void initState() {
     super.initState();
     _checkInitialConnection();
-    InternetConnectionChecker.instance.onStatusChange.listen((status) {
+    LocalNetworkChecker().onStatusChange.listen((status) {
       if (mounted) {
         setState(() {
-          _isOnline = status == InternetConnectionStatus.connected;
+          _isOnline = status == LocalNetworkStatus.online;
         });
       }
     });
+
+    _queueStream = IsarDb.instance.offlineQueues.watchLazy(fireImmediately: true);
   }
 
   Future<void> _checkInitialConnection() async {
-    final hasConn = await InternetConnectionChecker.instance.hasConnection;
+    final hasConn = LocalNetworkChecker().currentStatus == LocalNetworkStatus.online;
     if (mounted) {
       setState(() {
         _isOnline = hasConn;
@@ -36,10 +41,11 @@ class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<Box>(
-      valueListenable: Hive.box('queueBox').listenable(),
-      builder: (context, box, _) {
-        final pendingCount = box.length;
+    return StreamBuilder<void>(
+      stream: _queueStream,
+      builder: (context, snapshot) {
+        // Query current count synchronously when stream fires
+        final pendingCount = IsarDb.instance.offlineQueues.countSync();
 
             return Row(
               mainAxisSize: MainAxisSize.min,
@@ -77,7 +83,7 @@ class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
                           const Icon(Icons.hourglass_empty, size: 12, color: Colors.orange),
                           const SizedBox(width: 4),
                           Text(
-                            '\$pendingCount tertunda',
+                            '$pendingCount tertunda',
                             style: const TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold),
                           ),
                         ],

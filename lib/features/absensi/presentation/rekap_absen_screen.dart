@@ -6,7 +6,7 @@ import 'package:manajemen_tahsin_app/features/absensi/presentation/bloc/absensi_
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/custom_date_range_field.dart';
 
-/// Halaman Rekap Absensi (NETWORK-ONLY — Dilarang Hive/Cache).
+/// Halaman Rekap Absensi (NETWORK-ONLY — Dilarang Cache).
 /// Data real-time untuk pimpinan. Jika offline, tampilkan [ErrorStateWidget].
 class RekapAbsenScreen extends StatelessWidget {
   const RekapAbsenScreen({super.key});

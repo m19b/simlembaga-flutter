@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
 const Color _kText1 = Color(0xFF111827);
-const Color _kText2 = Color(0xFF6B7280);
+
 
 /// Custom widget: Progress Stepper + TM input dalam SATU baris horizontal.
 class EvaluasiInputRow extends StatelessWidget {
@@ -184,17 +184,7 @@ class EvaluasiInputRow extends StatelessWidget {
     return v.toString();
   }
 
-  Widget _stepperBtn(VoidCallback? onTap, IconData icon, {bool disabled = false}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 40,
-        alignment: Alignment.center,
-        child: Icon(icon, size: 18, color: disabled ? Colors.grey.shade300 : _kText1),
-      ),
-    );
-  }
+
 
   Widget _infoCol(BuildContext context, String label, String val, {Color? color, bool disabled = false}) {
     return SizedBox(

@@ -61,7 +61,6 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
         (double.tryParse(row.santri['capai_aks']?.toString() ?? '0') ?? 0) >= totalHal);
 
     bool isTerkunci = false;
-    String alasanKunci = '';
 
     final bool isAkselerasiSantri = (jmlTes > 0) ||
         (double.tryParse((s['capai_aks'] ?? s['capaiAks'])?.toString() ?? '0') ?? 0) > 0 ||
@@ -73,7 +72,6 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
       modeBg = isDark ? Colors.red.withOpacity(0.2) : Colors.red.shade50;
       if (aksSelesai) {
         isTerkunci = true;
-        alasanKunci = 'Target Akselerasi telah selesai.';
       }
     } else if (modeBelajar == 'latihan') {
       modeText = isAtCP ? 'LATIHAN (CHKP)' : 'LATIHAN';
@@ -81,9 +79,6 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
       modeBg = isAtCP ? (isDark ? Colors.orange.withOpacity(0.2) : Colors.orange.shade50) : (isDark ? Colors.teal.withOpacity(0.2) : Colors.teal.shade50);
       if (latihanSelesai) {
         isTerkunci = true;
-        alasanKunci = isFinishedReg
-            ? 'Target Reguler dan Target Latihan tercapai.'
-            : 'Target Checkpoint dan Target Latihan tercapai.';
       }
     }
 

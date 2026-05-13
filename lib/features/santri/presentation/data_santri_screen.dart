@@ -1,4 +1,4 @@
-﻿import 'widgets/santri_card_widget.dart';
+import 'widgets/santri_card_widget.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 // import 'package:google_fonts/google_fonts.dart';
@@ -9,7 +9,7 @@ import 'package:manajemen_tahsin_app/features/santri/domain/repositories/santri_
 
 // --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
-const Color _kBg = Color(0xFFF3F4F6);
+
 const Color _kText1 = Color(0xFF111827);
 const Color _kText2 = Color(0xFF6B7280);
 const Color _kAccent = Color(0xFF16A34A);

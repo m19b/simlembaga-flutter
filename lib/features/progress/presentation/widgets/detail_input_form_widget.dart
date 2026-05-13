@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
@@ -26,6 +26,7 @@ class DetailInputFormWidget extends StatefulWidget {
   final VoidCallback onSuccess;
 
   const DetailInputFormWidget({
+    super.key,
     required this.nis,
     required this.initialHalAwal,
     required this.isLatihan,
@@ -68,7 +69,6 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
   DateTime _tgl = DateTime.now();
   bool _saving = false;
   String _msg = '';
-  bool _success = false;
   bool _isDecimalMode = false;
 
   @override
@@ -124,21 +124,6 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
     }
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _tgl,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (ctx, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(primary: _kAccent),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) setState(() => _tgl = picked);
-  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -160,7 +145,6 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
     setState(() {
       _saving = true;
       _msg = '';
-      _success = false;
     });
     try {
       final tglStr = DateFormat('yyyy-MM-dd').format(_tgl);
@@ -192,7 +176,6 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
 
       setState(() {
         _saving = false;
-        _success = true;
       });
 
       _halTotalCtrl.text = '1';

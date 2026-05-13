@@ -1,11 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+// import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/features/masalah/presentation/bloc/masalah_cubit.dart';
+import 'package:manajemen_tahsin_app/features/masalah/presentation/widgets/masalah_widgets.dart';
+import 'package:manajemen_tahsin_app/core/network/network_info.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+import 'package:manajemen_tahsin_app/features/masalah/domain/repositories/masalah_repository.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 
-// ─── Design Tokens ─────────────────────────────────────────────────────────────
+// --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
 const Color _kBg = Color(0xFFF3F4F6);
 const Color _kText1 = Color(0xFF111827);
@@ -13,7 +21,7 @@ const Color _kText2 = Color(0xFF6B7280);
 const Color _kAccent = Color(0xFF16A34A);
 
 // Warna per jenis masalah
-Color _jenisColor(String? jenis) {
+Color masalahJenisColor(String? jenis) {
   switch (jenis) {
     case 'Kehadiran':
       return const Color(0xFFEF4444);
@@ -41,16 +49,36 @@ IconData _jenisIcon(String? jenis) {
 
 String _jenisLabel(String? jenis) => jenis ?? 'Lainnya';
 
-// ─── Screen ────────────────────────────────────────────────────────────────────
-class MasalahScreen extends StatefulWidget {
+// --- Screen --------------------------------------------------------------------
+// --- Screen --------------------------------------------------------------------
+class MasalahScreen extends StatelessWidget {
   final bool isAdmin;
   const MasalahScreen({super.key, this.isAdmin = false});
 
   @override
-  State<MasalahScreen> createState() => _MasalahScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => MasalahCubit(
+        repository: MasalahRepository(
+          networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
+          localDataSource: LocalDataSourceImpl(),
+        ),
+        activeKelompokCubit: context.read<ActiveKelompokCubit>(),
+      ),
+      child: _MasalahView(isAdmin: isAdmin),
+    );
+  }
 }
 
-class _MasalahScreenState extends State<MasalahScreen>
+class _MasalahView extends StatefulWidget {
+  final bool isAdmin;
+  const _MasalahView({this.isAdmin = false});
+
+  @override
+  State<_MasalahView> createState() => _MasalahViewState();
+}
+
+class _MasalahViewState extends State<_MasalahView>
     with SingleTickerProviderStateMixin {
   // Toggle aktif vs selesai
   bool _showAktif = true;
@@ -81,7 +109,10 @@ class _MasalahScreenState extends State<MasalahScreen>
       curve: Curves.easeOutCubic,
     );
     _searchCtrl.addListener(_onSearch);
-    _load();
+    // Trigger fetch via Cubit setelah frame pertama selesai
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.read<MasalahCubit>().fetchMasalah(),
+    );
   }
 
   @override
@@ -93,46 +124,9 @@ class _MasalahScreenState extends State<MasalahScreen>
     super.dispose();
   }
 
-  // ─── Load ────────────────────────────────────────────────────────────────────
-  Future<void> _load() async {
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-    try {
-      final results = await Future.wait([
-        ApiService.getMasalahAktif(),
-        ApiService.getMasalahSelesai(),
-      ]);
+  // --- Load (via Cubit) ------------------------------------------------------
+  Future<void> _load() async { context.read<MasalahCubit>().fetchMasalah(forceRefresh: true); }
 
-      List<Map<String, dynamic>> _parse(dynamic resp) {
-        final raw = resp['data'];
-        if (raw is Map) {
-          final list = raw['masalah'];
-          if (list is List)
-            return list
-                .map((e) => Map<String, dynamic>.from(e as Map))
-                .toList();
-        }
-        return [];
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _allAktif = _parse(results[0]);
-        _allSelesai = _parse(results[1]);
-        _filtered = _showAktif ? _allAktif : _allSelesai;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _loading = false;
-      });
-    }
-  }
 
   void _switchTab(bool aktif) {
     if (_showAktif == aktif) return;
@@ -181,23 +175,43 @@ class _MasalahScreenState extends State<MasalahScreen>
     }
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────────
+  // --- Build ----------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _kBg,
-      appBar: _buildAppBar(),
-      body: _loading
-          ? _buildSkeleton()
-          : _error.isNotEmpty
-          ? _buildError()
-          : _buildBody(),
-      floatingActionButton: _buildFabs(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    return BlocConsumer<MasalahCubit, MasalahState>(
+      listener: (context, state) {
+        if (state is MasalahLoaded) {
+          setState(() {
+            _allAktif   = state.aktif;
+            _allSelesai = state.selesai;
+            _filtered   = _showAktif ? _allAktif : _allSelesai;
+            _loading    = false;
+            _error      = '';
+          });
+          if (_searchCtrl.text.isNotEmpty) _applySearch(_searchCtrl.text);
+        } else if (state is MasalahError) {
+          setState(() { _error = state.message; _loading = false; });
+        } else if (state is MasalahLoading) {
+          setState(() { _loading = true; _error = ''; });
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: _buildAppBar(),
+          body: _loading
+              ? _buildSkeleton()
+              : _error.isNotEmpty
+                  ? _buildError()
+                  : _buildBody(),
+          floatingActionButton: _buildFabs(),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        );
+      },
     );
   }
 
-  // ─── AppBar ───────────────────────────────────────────────────────────────────
+  // --- AppBar -------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar() {
     final aktifCount = _allAktif.length;
     final selesaiCount = _allSelesai.length;
@@ -234,7 +248,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                             children: [
                               Text(
                                 'Masalah Santri',
-                                style: GoogleFonts.plusJakartaSans(
+                                style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
@@ -242,7 +256,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                               ),
                               Text(
                                 'Pantau & tangani permasalahan',
-                                style: GoogleFonts.dmSans(
+                                style: TextStyle(
                                   color: Colors.white60,
                                   fontSize: 12,
                                 ),
@@ -271,7 +285,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                                 const SizedBox(width: 4),
                                 Text(
                                   '$aktifCount aktif',
-                                  style: GoogleFonts.dmMono(
+                                  style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
                                   ),
@@ -287,7 +301,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                   // Toggle Pill
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _TogglePill(
+                    child: MasalahTogglePill(
                       isAktif: _showAktif,
                       aktifCount: aktifCount,
                       selesaiCount: selesaiCount,
@@ -313,7 +327,7 @@ class _MasalahScreenState extends State<MasalahScreen>
     ),
   );
 
-  // ─── FABs ─────────────────────────────────────────────────────────────────────
+  // --- FABs ---------------------------------------------------------------------
   Widget _buildFabs() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -343,10 +357,10 @@ class _MasalahScreenState extends State<MasalahScreen>
                 ),
                 child: TextField(
                   controller: _searchCtrl,
-                  style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
+                  style: TextStyle(fontSize: 14, color: _kText1),
                   decoration: InputDecoration(
-                    hintText: 'Cari nama, NIS, atau jenis…',
-                    hintStyle: GoogleFonts.dmSans(color: _kText2, fontSize: 13),
+                    hintText: 'Cari nama, NIS, atau jenisï¿½',
+                    hintStyle: TextStyle(color: _kText2, fontSize: 13),
                     prefixIcon: const Icon(
                       Icons.search_rounded,
                       color: _kAccent,
@@ -384,7 +398,7 @@ class _MasalahScreenState extends State<MasalahScreen>
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Tambah masalah — hanya di tab aktif
+            // Tambah masalah ï¿½ hanya di tab aktif
             if (!_searchOpen && _showAktif)
               FloatingActionButton.extended(
                 heroTag: 'tambah',
@@ -398,7 +412,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                 ),
                 label: Text(
                   'Tambah Masalah',
-                  style: GoogleFonts.plusJakartaSans(
+                  style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
@@ -427,16 +441,16 @@ class _MasalahScreenState extends State<MasalahScreen>
     );
   }
 
-  // ─── Skeleton ─────────────────────────────────────────────────────────────────
+  // --- Skeleton -----------------------------------------------------------------
   Widget _buildSkeleton() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       itemCount: 6,
-      itemBuilder: (_, i) => _MasalahSkeletonCard(key: ValueKey(i)),
+      itemBuilder: (_, i) => MasalahSkeletonCard(key: ValueKey(i)),
     );
   }
 
-  // ─── Error ────────────────────────────────────────────────────────────────────
+  // --- Error --------------------------------------------------------------------
   Widget _buildError() {
     final isSession =
         _error.toLowerCase().contains('sesi') ||
@@ -456,7 +470,7 @@ class _MasalahScreenState extends State<MasalahScreen>
             Text(
               _error,
               textAlign: TextAlign.center,
-              style: GoogleFonts.dmSans(color: _kText2),
+              style: TextStyle(color: _kText2),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -471,7 +485,7 @@ class _MasalahScreenState extends State<MasalahScreen>
               icon: const Icon(Icons.refresh_rounded, color: Colors.white),
               label: Text(
                 'Coba Lagi',
-                style: GoogleFonts.plusJakartaSans(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -483,7 +497,7 @@ class _MasalahScreenState extends State<MasalahScreen>
     );
   }
 
-  // ─── Body ─────────────────────────────────────────────────────────────────────
+  // --- Body ---------------------------------------------------------------------
   Widget _buildBody() {
     if (_filtered.isEmpty) {
       return Center(
@@ -502,7 +516,7 @@ class _MasalahScreenState extends State<MasalahScreen>
               _showAktif
                   ? 'Tidak ada masalah aktif'
                   : 'Belum ada masalah selesai',
-              style: GoogleFonts.plusJakartaSans(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: _kText1,
@@ -513,7 +527,7 @@ class _MasalahScreenState extends State<MasalahScreen>
               _showAktif
                   ? 'Alhamdulillah, semua santri dalam kondisi baik!'
                   : '',
-              style: GoogleFonts.dmSans(fontSize: 12, color: _kText2),
+              style: TextStyle(fontSize: 12, color: _kText2),
               textAlign: TextAlign.center,
             ),
             if (_showAktif) ...[
@@ -530,7 +544,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                 icon: const Icon(Icons.add_rounded, color: _kAccent, size: 18),
                 label: Text(
                   'Tambah Masalah',
-                  style: GoogleFonts.dmSans(
+                  style: TextStyle(
                     color: _kAccent,
                     fontWeight: FontWeight.w600,
                   ),
@@ -548,7 +562,7 @@ class _MasalahScreenState extends State<MasalahScreen>
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         itemCount: _filtered.length,
-        itemBuilder: (_, i) => _MasalahCard(
+        itemBuilder: (_, i) => MasalahCard(
           item: _filtered[i],
           isAktif: _showAktif,
           onTap: () => _showDetailSheet(_filtered[i]),
@@ -557,7 +571,7 @@ class _MasalahScreenState extends State<MasalahScreen>
     );
   }
 
-  // ─── Bottom Sheet: Detail & Aksi ──────────────────────────────────────────────
+  // --- Bottom Sheet: Detail & Aksi ----------------------------------------------
   void _showDetailSheet(Map<String, dynamic> item) {
     showModalBottomSheet(
       context: context,
@@ -568,7 +582,7 @@ class _MasalahScreenState extends State<MasalahScreen>
     );
   }
 
-  // ─── Bottom Sheet: Tambah Masalah ─────────────────────────────────────────────
+  // --- Bottom Sheet: Tambah Masalah ---------------------------------------------
   void _showTambahMasalahSheet() {
     showModalBottomSheet(
       context: context,
@@ -579,490 +593,7 @@ class _MasalahScreenState extends State<MasalahScreen>
   }
 }
 
-// ─── Toggle Pill ───────────────────────────────────────────────────────────────
-class _TogglePill extends StatelessWidget {
-  final bool isAktif;
-  final int aktifCount;
-  final int selesaiCount;
-  final void Function(bool) onSwitch;
-
-  const _TogglePill({
-    required this.isAktif,
-    required this.aktifCount,
-    required this.selesaiCount,
-    required this.onSwitch,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(22),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          _Pill(
-            label: 'Aktif',
-            count: aktifCount,
-            selected: isAktif,
-            dotColor: Colors.red.shade400,
-            onTap: () => onSwitch(true),
-          ),
-          _Pill(
-            label: 'Selesai',
-            count: selesaiCount,
-            selected: !isAktif,
-            dotColor: _kAccent,
-            onTap: () => onSwitch(false),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final int count;
-  final bool selected;
-  final Color dotColor;
-  final VoidCallback onTap;
-
-  const _Pill({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.dotColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeInOut,
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(17),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(24),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (selected)
-                Container(
-                  width: 7,
-                  height: 7,
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    color: dotColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              Text(
-                label,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? _kText1 : Colors.white70,
-                ),
-              ),
-              if (count > 0) ...[
-                const SizedBox(width: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? dotColor.withAlpha(26)
-                        : Colors.white.withAlpha(40),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: GoogleFonts.dmMono(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: selected ? dotColor : Colors.white70,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Masalah Card ──────────────────────────────────────────────────────────────
-class _MasalahCard extends StatelessWidget {
-  final Map<String, dynamic> item;
-  final bool isAktif;
-  final VoidCallback onTap;
-
-  const _MasalahCard({
-    required this.item,
-    required this.isAktif,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final nama = item['nama_santri']?.toString() ?? '-';
-    final nis = item['nis']?.toString() ?? '';
-    final kelas =
-        item['kelas']?.toString() ?? item['tingkat']?.toString() ?? '';
-    final jenis = item['jenis_masalah']?.toString();
-    final keterangan =
-        item['deskripsi']?.toString() ?? item['keterangan']?.toString() ?? '';
-    final tgl =
-        item['tgl_masalah']?.toString() ??
-        item['tgl_deteksi']?.toString() ??
-        '';
-    final tglSelesai = item['tgl_selesai']?.toString() ?? '';
-
-    final barClr = _jenisColor(jenis);
-
-    // Format tanggal
-    String _fmtTgl(String raw) {
-      if (raw.isEmpty) return '';
-      try {
-        final d = DateTime.parse(raw);
-        return DateFormat('d MMM yyyy', 'id_ID').format(d);
-      } catch (_) {
-        return raw;
-      }
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        clipBehavior: Clip.antiAlias,
-        elevation: 0,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: barClr.withAlpha(40), width: 1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Severity bar kiri
-                  Container(width: 4, color: barClr),
-                  // Konten
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Row 1: Nama + badge jenis
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  nama,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: _kText1,
-                                  ),
-                                ),
-                              ),
-                              _JenisBadge(jenis: jenis),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Row 2: chips NIS & kelas
-                          Wrap(
-                            spacing: 6,
-                            children: [
-                              _Chip(icon: Icons.badge_outlined, text: nis),
-                              if (kelas.isNotEmpty)
-                                _Chip(icon: Icons.school_outlined, text: kelas),
-                            ],
-                          ),
-                          if (keterangan.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                            const SizedBox(height: 8),
-                            Text(
-                              keterangan,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                fontSize: 12,
-                                color: _kText2,
-                                height: 1.4,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          // Row 3: tanggal + status selesai
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_rounded,
-                                size: 11,
-                                color: _kText2,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _fmtTgl(tgl),
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 11,
-                                  color: _kText2,
-                                ),
-                              ),
-                              const Spacer(),
-                              if (!isAktif && tglSelesai.isNotEmpty)
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle_rounded,
-                                      size: 11,
-                                      color: _kAccent,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Selesai ${_fmtTgl(tglSelesai)}',
-                                      style: GoogleFonts.dmSans(
-                                        fontSize: 11,
-                                        color: _kAccent,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              if (isAktif)
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 16,
-                                      color: _kText2,
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Jenis Badge ───────────────────────────────────────────────────────────────
-class _JenisBadge extends StatelessWidget {
-  final String? jenis;
-  const _JenisBadge({this.jenis});
-
-  @override
-  Widget build(BuildContext context) {
-    final clr = _jenisColor(jenis);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: clr.withAlpha(20),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(_jenisIcon(jenis), size: 11, color: clr),
-          const SizedBox(width: 5),
-          Text(
-            _jenisLabel(jenis),
-            style: GoogleFonts.dmSans(
-              fontSize: 11,
-              color: clr,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Info Chip ─────────────────────────────────────────────────────────────────
-class _Chip extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _Chip({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: _kText2),
-          const SizedBox(width: 4),
-          Text(
-            text,
-            style: GoogleFonts.dmMono(
-              fontSize: 10,
-              color: _kText2,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Skeleton Card ─────────────────────────────────────────────────────────────
-class _MasalahSkeletonCard extends StatefulWidget {
-  const _MasalahSkeletonCard({super.key});
-
-  @override
-  State<_MasalahSkeletonCard> createState() => _MasalahSkeletonCardState();
-}
-
-class _MasalahSkeletonCardState extends State<_MasalahSkeletonCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) {
-        final opacity = 0.06 + 0.08 * _anim.value;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  width: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            _SkelBox(w: 140, h: 14, opacity: opacity),
-                            const Spacer(),
-                            _SkelBox(w: 80, h: 22, opacity: opacity, r: 20),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            _SkelBox(w: 70, h: 22, opacity: opacity, r: 6),
-                            const SizedBox(width: 8),
-                            _SkelBox(w: 60, h: 22, opacity: opacity, r: 6),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _SkelBox(w: double.infinity, h: 12, opacity: opacity),
-                        const SizedBox(height: 6),
-                        _SkelBox(w: 200, h: 12, opacity: opacity),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SkelBox extends StatelessWidget {
-  final double w, h, opacity;
-  final double r;
-  const _SkelBox({
-    required this.w,
-    required this.h,
-    required this.opacity,
-    this.r = 6,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: w,
-    height: h,
-    decoration: BoxDecoration(
-      color: Colors.grey.withOpacity(opacity),
-      borderRadius: BorderRadius.circular(r),
-    ),
-  );
-}
-
-// ─── Detail Bottom Sheet ────────────────────────────────────────────────────────
+// --- Toggle Pill ---------------------------------------------------------------
 class _DetailSheet extends StatefulWidget {
   final Map<String, dynamic> item;
   final bool isAktif;
@@ -1094,12 +625,12 @@ class _DetailSheetState extends State<_DetailSheet> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      await ApiService.updateMasalah(
-        id: (widget.item['id_masalah'] ?? widget.item['id']).toString(),
-        status: 'selesai',
-        tglSelesai: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        catatanSelesai: _catatanCtrl.text.trim(),
-      );
+      await context.read<MasalahCubit>().repository.updateMasalah({
+        'id': (widget.item['id_masalah'] ?? widget.item['id']).toString(),
+        'status': 'selesai',
+        'tgl_selesai': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        'catatan_selesai': _catatanCtrl.text.trim(),
+      });
       if (!mounted) return;
       Navigator.pop(context);
       widget.onRefresh();
@@ -1107,7 +638,7 @@ class _DetailSheetState extends State<_DetailSheet> {
         SnackBar(
           content: Text(
             'Masalah ditandai selesai',
-            style: GoogleFonts.dmSans(color: Colors.white),
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: _kAccent,
           behavior: SnackBarBehavior.floating,
@@ -1123,7 +654,7 @@ class _DetailSheetState extends State<_DetailSheet> {
         SnackBar(
           content: Text(
             e.toString().replaceAll('Exception: ', ''),
-            style: GoogleFonts.dmSans(color: Colors.white),
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
@@ -1138,7 +669,7 @@ class _DetailSheetState extends State<_DetailSheet> {
   @override
   Widget build(BuildContext context) {
     final jenis = widget.item['jenis_masalah']?.toString();
-    final barClr = _jenisColor(jenis);
+    final barClr = masalahJenisColor(jenis);
     final nama = widget.item['nama_santri']?.toString() ?? '-';
     final nis = widget.item['nis']?.toString() ?? '';
     final kelas =
@@ -1215,7 +746,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                             children: [
                               Text(
                                 nama,
-                                style: GoogleFonts.plusJakartaSans(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                   color: _kText1,
@@ -1225,9 +756,9 @@ class _DetailSheetState extends State<_DetailSheet> {
                               Wrap(
                                 spacing: 6,
                                 children: [
-                                  _Chip(icon: Icons.badge_outlined, text: nis),
+                                  MasalahChip(icon: Icons.badge_outlined, text: nis),
                                   if (kelas.isNotEmpty)
-                                    _Chip(
+                                    MasalahChip(
                                       icon: Icons.school_outlined,
                                       text: kelas,
                                     ),
@@ -1243,7 +774,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        _JenisBadge(jenis: jenis),
+                        MasalahJenisBadge(jenis: jenis),
                         const Spacer(),
                         Icon(
                           Icons.calendar_today_rounded,
@@ -1253,7 +784,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                         const SizedBox(width: 4),
                         Text(
                           tgl,
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(
                             fontSize: 12,
                             color: _kText2,
                           ),
@@ -1271,7 +802,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                         ),
                         child: Text(
                           keterangan,
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(
                             fontSize: 13,
                             color: _kText1,
                             height: 1.5,
@@ -1283,21 +814,125 @@ class _DetailSheetState extends State<_DetailSheet> {
                 ),
               ),
               // Aksi (Hanya tampil jika masalah masih aktif DAN user adalah admin)
-              if (widget.isAktif && widget.isAdmin) ...[
+              // Histori Penanganan
+              if (widget.item['tahap_penyelesaian'] is List &&
+                  (widget.item['tahap_penyelesaian'] as List).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Histori Penanganan',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _kText1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Expandable List
+                      ...((widget.item['tahap_penyelesaian'] as List).whereType<Map>().map((tahap) {
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          child: ExpansionTile(
+                            shape: const Border(),
+                            title: Text(
+                              tahap['jenis_penyelesaian']?.toString() ?? 'Tindakan',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            subtitle: Text(
+                              tahap['tgl_penyelesaian']?.toString() ?? '',
+                              style: TextStyle(fontSize: 11, color: _kText2),
+                            ),
+                            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  tahap['keterangan']?.toString() ?? '-',
+                                  style: TextStyle(fontSize: 13, color: _kText1),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Hasil: ${tahap['hasil_tahap']?.toString() ?? '-'}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList()),
+                    ],
+                  ),
+                ),
+
+              // Aksi (Tambah Tindakan / Selesai)
+              if (widget.isAktif) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: _kAccent),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showTambahTindakanSheet(context, (widget.item['id_masalah'] ?? widget.item['id']).toString(), widget.onRefresh);
+                      },
+                      icon: const Icon(Icons.add_task_rounded, color: _kAccent, size: 18),
+                      label: Text(
+                        'Tambah Tindakan',
+                        style: TextStyle(
+                          color: _kAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (widget.isAdmin) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: TextField(
                     controller: _catatanCtrl,
                     maxLines: 3,
-                    style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
+                    style: TextStyle(fontSize: 14, color: _kText1),
                     decoration: InputDecoration(
                       labelText: 'Catatan penyelesaian (opsional)',
-                      labelStyle: GoogleFonts.dmSans(
+                      labelStyle: TextStyle(
                         color: _kText2,
                         fontSize: 13,
                       ),
-                      hintText: 'Tulis catatan atau tindakan yang dilakukan…',
-                      hintStyle: GoogleFonts.dmSans(
+                      hintText: 'Tulis catatan atau tindakan yang dilakukanï¿½',
+                      hintStyle: TextStyle(
                         color: _kText2,
                         fontSize: 12,
                       ),
@@ -1347,8 +982,8 @@ class _DetailSheetState extends State<_DetailSheet> {
                               size: 20,
                             ),
                       label: Text(
-                        _saving ? 'Menyimpan…' : 'Tandai Selesai',
-                        style: GoogleFonts.plusJakartaSans(
+                        _saving ? 'Menyimpanï¿½' : 'Tandai Selesai',
+                        style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
@@ -1357,6 +992,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                     ),
                   ),
                 ),
+                ],
               ] else
                 const SizedBox(height: 24),
             ],
@@ -1367,7 +1003,228 @@ class _DetailSheetState extends State<_DetailSheet> {
   }
 }
 
-// ─── Tambah Masalah Sheet ──────────────────────────────────────────────────────
+void _showTambahTindakanSheet(BuildContext context, String idMasalah, VoidCallback onRefresh) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => _TambahTindakanSheet(idMasalah: idMasalah, onSaved: onRefresh),
+  );
+}
+
+class _TambahTindakanSheet extends StatefulWidget {
+  final String idMasalah;
+  final VoidCallback onSaved;
+  const _TambahTindakanSheet({required this.idMasalah, required this.onSaved});
+
+  @override
+  State<_TambahTindakanSheet> createState() => _TambahTindakanSheetState();
+}
+
+class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
+  final _keteranganCtrl = TextEditingController();
+  String? _jenisPenyelesaian;
+  String? _hasilTahap;
+  DateTime _tglPenyelesaian = DateTime.now();
+  bool _saving = false;
+
+  static const _jenisOptions = [
+    'Via Chat/Telepon',
+    'Kunjungan ke Rumah',
+    'Pemanggilan Orang Tua',
+    'Konseling Langsung',
+    'Lainnya'
+  ];
+
+  static const _hasilOptions = [
+    'Belum Ada Perubahan',
+    'Ada Perbaikan',
+    'Masalah Terselesaikan'
+  ];
+
+  @override
+  void dispose() {
+    _keteranganCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_jenisPenyelesaian == null || _hasilTahap == null || _keteranganCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Lengkapi semua field!',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await context.read<MasalahCubit>().repository.storeTahapMasalah({
+        'id_masalah': widget.idMasalah,
+        'jenis_penyelesaian': _jenisPenyelesaian!,
+        'tgl_penyelesaian': DateFormat('yyyy-MM-dd').format(_tglPenyelesaian),
+        'keterangan': _keteranganCtrl.text.trim(),
+        'hasil_tahap': _hasilTahap!,
+      });
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onSaved();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Tindakan berhasil ditambahkan',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.green.shade600,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      String errMsg = e.toString().replaceAll('Exception: ', '');
+      
+      // Khusus untuk error 403 atau Akses Ditolak
+      if (errMsg.toLowerCase().contains('akses ditolak') || errMsg.contains('403')) {
+        errMsg = 'Akses Ditolak: Anda tidak memiliki izin untuk menambahkan tindakan pada masalah ini.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            errMsg,
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Tambah Tindakan",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Filter Dropdown: Jenis Penyelesaian
+              DropdownButtonFormField<String>(
+                value: _jenisPenyelesaian,
+                decoration: InputDecoration(
+                  labelText: 'Jenis Penyelesaian',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: _jenisOptions.map((e) {
+                  return DropdownMenuItem(value: e, child: Text(e));
+                }).toList(),
+                onChanged: (val) => setState(() => _jenisPenyelesaian = val),
+              ),
+              const SizedBox(height: 16),
+              // TextField: Tgl Penyelesaian
+              InkWell(
+                onTap: () async {
+                  final dt = await showDatePicker(
+                    context: context,
+                    initialDate: _tglPenyelesaian,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (dt != null) {
+                    setState(() => _tglPenyelesaian = dt);
+                  }
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Tanggal Penyelesaian',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(DateFormat('dd MMM yyyy').format(_tglPenyelesaian)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // TextField: Keterangan
+              TextField(
+                controller: _keteranganCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Keterangan / Intisari',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Dropdown: Hasil Tahap
+              DropdownButtonFormField<String>(
+                value: _hasilTahap,
+                decoration: InputDecoration(
+                  labelText: 'Hasil Tahap',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: _hasilOptions.map((e) {
+                  return DropdownMenuItem(value: e, child: Text(e));
+                }).toList(),
+                onChanged: (val) => setState(() => _hasilTahap = val),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F4C2A),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _saving ? null : _submit,
+                  child: _saving
+                      ? const SizedBox(
+                          width: 24, height: 24,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          "Simpan Tindakan",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// --- Tambah Masalah Sheet ------------------------------------------------------
 class _TambahMasalahSheet extends StatefulWidget {
   final VoidCallback onSaved;
   const _TambahMasalahSheet({required this.onSaved});
@@ -1419,7 +1276,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
       if (!mounted) return;
       setState(() => _loadingSugg = true);
       try {
-        final res = await ApiService.cariSantri(val.trim());
+        final res = await ApiService.cariSantri(val.trim()); // intentional: generic santri search
         if (!mounted) return;
         setState(() {
           _santriSuggest = res;
@@ -1451,7 +1308,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
         SnackBar(
           content: Text(
             'Pilih santri dari daftar saran',
-            style: GoogleFonts.dmSans(color: Colors.white),
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
@@ -1464,12 +1321,12 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
     }
     setState(() => _saving = true);
     try {
-      await ApiService.storeMasalah(
-        nis: _selectedNis!,
-        jenisMasalah: _jenisMasalah!,
-        deskripsi: _keteranganCtrl.text.trim(),
-        tglMasalah: DateFormat('yyyy-MM-dd').format(_tglMasalah),
-      );
+      await context.read<MasalahCubit>().repository.storeMasalah({
+        'nis': _selectedNis!,
+        'jenis_masalah': _jenisMasalah!,
+        'keterangan': _keteranganCtrl.text.trim(),
+        'tgl_masalah': DateFormat('yyyy-MM-dd').format(_tglMasalah),
+      });
       if (!mounted) return;
       Navigator.pop(context);
       widget.onSaved();
@@ -1477,7 +1334,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
         SnackBar(
           content: Text(
             'Masalah berhasil dicatat',
-            style: GoogleFonts.dmSans(color: Colors.white),
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: _kAccent,
           behavior: SnackBarBehavior.floating,
@@ -1501,7 +1358,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
             isApproval
                 ? 'Masalah diajukan dan menunggu persetujuan admin.'
                 : msg,
-            style: GoogleFonts.dmSans(color: Colors.white),
+            style: TextStyle(color: Colors.white),
           ),
           backgroundColor: isApproval
               ? Colors.orange.shade600
@@ -1574,7 +1431,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                         children: [
                           Text(
                             'Catat Masalah Baru',
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               color: _kText1,
@@ -1582,7 +1439,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                           ),
                           Text(
                             'Isi form di bawah dengan lengkap',
-                            style: GoogleFonts.dmSans(
+                            style: TextStyle(
                               fontSize: 12,
                               color: _kText2,
                             ),
@@ -1606,9 +1463,9 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                             RegExp(r'[a-zA-Z0-9 ]'),
                           ),
                         ],
-                        style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
+                        style: TextStyle(fontSize: 14, color: _kText1),
                         decoration: _inputDeco(
-                          hint: 'Ketik NIS atau nama santri…',
+                          hint: 'Ketik NIS atau nama santriï¿½',
                           icon: Icons.person_search_rounded,
                           suffix: _loadingSugg
                               ? const SizedBox(
@@ -1684,15 +1541,15 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                                             Text(
                                               nama,
                                               style:
-                                                  GoogleFonts.plusJakartaSans(
+                                                  TextStyle(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w600,
                                                     color: _kText1,
                                                   ),
                                             ),
                                             Text(
-                                              '$nis · $kelas',
-                                              style: GoogleFonts.dmSans(
+                                              '$nis ï¿½ $kelas',
+                                              style: TextStyle(
                                                 fontSize: 11,
                                                 color: _kText2,
                                               ),
@@ -1728,7 +1585,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                               const SizedBox(width: 8),
                               Text(
                                 _namaCtrl.text,
-                                style: GoogleFonts.plusJakartaSans(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: _kAccent,
@@ -1746,12 +1603,12 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                         isExpanded: true,
                         hint: Text(
                           'Pilih jenis masalah',
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(
                             color: _kText2,
                             fontSize: 13,
                           ),
                         ),
-                        style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
+                        style: TextStyle(fontSize: 14, color: _kText1),
                         decoration: _inputDeco(
                           hint: '',
                           icon: Icons.category_outlined,
@@ -1765,7 +1622,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                                     Icon(
                                       _jenisIcon(j),
                                       size: 16,
-                                      color: _jenisColor(j),
+                                      color: masalahJenisColor(j),
                                     ),
                                     const SizedBox(width: 8),
                                     Text(j),
@@ -1823,7 +1680,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                                   'EEEE, d MMMM yyyy',
                                   'id_ID',
                                 ).format(_tglMasalah),
-                                style: GoogleFonts.dmSans(
+                                style: TextStyle(
                                   fontSize: 14,
                                   color: _kText1,
                                 ),
@@ -1838,9 +1695,9 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                       TextFormField(
                         controller: _keteranganCtrl,
                         maxLines: 4,
-                        style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
+                        style: TextStyle(fontSize: 14, color: _kText1),
                         decoration: _inputDeco(
-                          hint: 'Tuliskan detail masalah yang terdeteksi…',
+                          hint: 'Tuliskan detail masalah yang terdeteksiï¿½',
                           icon: Icons.notes_rounded,
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty)
@@ -1876,8 +1733,8 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                                   size: 20,
                                 ),
                           label: Text(
-                            _saving ? 'Menyimpan…' : 'Simpan Masalah',
-                            style: GoogleFonts.plusJakartaSans(
+                            _saving ? 'Menyimpanï¿½' : 'Simpan Masalah',
+                            style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
@@ -1898,7 +1755,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
   }
 }
 
-// ─── Form helpers ──────────────────────────────────────────────────────────────
+// --- Form helpers --------------------------------------------------------------
 Widget _FormLabel(String text) {
   return Align(
     alignment: Alignment.centerLeft,
@@ -1906,7 +1763,7 @@ Widget _FormLabel(String text) {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: GoogleFonts.plusJakartaSans(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
           color: _kText2,
@@ -1924,7 +1781,7 @@ InputDecoration _inputDeco({
 }) {
   return InputDecoration(
     hintText: hint,
-    hintStyle: GoogleFonts.dmSans(color: _kText2, fontSize: 13),
+    hintStyle: TextStyle(color: _kText2, fontSize: 13),
     prefixIcon: Icon(icon, color: _kAccent, size: 18),
     suffixIcon: suffix != null
         ? Padding(padding: const EdgeInsets.all(12), child: suffix)

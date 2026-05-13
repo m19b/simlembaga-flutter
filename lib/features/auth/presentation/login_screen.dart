@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
-import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
-import 'package:manajemen_tahsin_app/features/beranda/presentation/dashboard_screen.dart';
+import 'package:manajemen_tahsin_app/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:manajemen_tahsin_app/core/widgets/settings_dialog.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,58 +24,44 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    try {
+      final results = await Future.wait([
+        const FlutterSecureStorage().read(key: 'jwt_token'),
+        SharedPreferences.getInstance().then((p) => p.getString('LOGGED_IN_USER')),
+      ]).timeout(const Duration(seconds: 3));
+
+      final token = results[0] as String?;
+      final userStr = results[1] as String?;
+
+      if (!mounted) return;
+
+      if (token != null && token.isNotEmpty && userStr != null && userStr.isNotEmpty) {
+        final user = UserModel.fromJson(json.decode(userStr));
+        
+        // Inisialisasi ActiveKelompokCubit
+        await context.read<ActiveKelompokCubit>().initialize(user.kelompokList);
+
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        );
+      }
+    } catch (e) {
+      // Jika terjadi timeout atau error, biarkan user di halaman login
+      debugPrint("Sesi check error/timeout: $e");
+    }
+  }
+
+  @override
   void dispose() {
     _identityController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // ─── Settings Dialog ────────────────────────────────────────────────────────
-  void _showSettingsDialog() {
-    final ipController = TextEditingController();
-    ApiConfig.getRawIp().then((currentIp) {
-      ipController.text = currentIp;
-    });
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Pengaturan Server'),
-        content: TextField(
-          controller: ipController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Alamat IP Server',
-            hintText: 'Contoh: 10.53.70.140',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.dns),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final ip = ipController.text.trim();
-              if (ip.isEmpty) return;
-              await ApiConfig.setIp(ip);
-              if (ctx.mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('✅ IP Server berhasil disimpan'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-            },
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
   }
 
   // ─── Login Logic (SUDAH DIPERBAIKI) ─────────────────────────────────────────
@@ -93,10 +84,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
+      // Inisialisasi ActiveKelompokCubit
+      await context.read<ActiveKelompokCubit>().initialize(user.kelompokList);
+
+      if (!mounted) return;
+
       // Navigasi ke DashboardScreen, hapus semua route sebelumnya
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => DashboardScreen(user: user)),
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
         (route) => false,
       );
     } catch (e, stacktrace) {
@@ -134,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: _showSettingsDialog,
+            onPressed: () => SettingsDialog.show(context),
             tooltip: 'Pengaturan Server',
           ),
         ],
@@ -147,12 +143,24 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // Logo / Icon
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(12), // Mengurangi padding agar logo lebih terlihat
                 decoration: BoxDecoration(
-                  color: Colors.green[50],
+                  color: Colors.white, // Mengganti background menjadi putih agar netral untuk logo
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Icon(Icons.mosque, size: 80, color: Colors.green[800]),
+                child: Image.asset(
+                  'assets/icon/logoo.png',
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.contain,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -165,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'ZhaaL v1.2',
+                'BIZA v1.3',
                 style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
               const SizedBox(height: 36),

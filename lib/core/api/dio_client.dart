@@ -12,8 +12,8 @@ class DioClient {
     
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
       headers: {
         'Accept': 'application/json',
       },
@@ -28,5 +28,15 @@ class DioClient {
   // Method untuk reset instance dio saat IP Address Server diubah di pengaturan LoginScreen
   static void reset() {
     _dio = null;
+  }
+
+  /// Membuat instance baru dengan timeout kustom (untuk cek koneksi cepat)
+  static Future<Dio> getNewInstanceWithShortTimeout(int seconds) async {
+    final baseUrl = await ApiConfig.getBaseUrl();
+    return Dio(BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 5), // Ditingkatkan ke 5 detik untuk mencegah ping gagal di jaringan lokal lambat
+      receiveTimeout: const Duration(seconds: 5),
+    ));
   }
 }

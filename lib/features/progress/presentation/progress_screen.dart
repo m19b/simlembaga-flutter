@@ -1,81 +1,593 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+// import 'package:google_fonts/google_fonts.dart';
 import 'progress_detail_screen.dart';
 import 'progress_input_screen.dart';
+import 'riwayat_global_tab.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
-import 'package:manajemen_tahsin_app/features/progress/presentation/progress_detail_screen.dart';
-import 'package:manajemen_tahsin_app/features/progress/presentation/progress_input_screen.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+import 'package:manajemen_tahsin_app/core/network/network_info.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_cubit.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_state.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/data/catatan_master_model.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/presentation/widgets/catatan_form_sheet.dart';
+import 'package:flutter/services.dart';
+import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
+import 'package:manajemen_tahsin_app/features/progress/presentation/bloc/tahsin_cubit.dart';
+import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
+import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
 const Color _kHeader = Color(0xFF0F4C2A);
-const Color _kBg     = Color(0xFFF3F4F6);
-const Color _kText1  = Color(0xFF111827);
-const Color _kText2  = Color(0xFF6B7280);
 const Color _kAccent = Color(0xFF16A34A);
 
-// ─── Progress Belajar – Daftar Santri ─────────────────────────────────────────
-class ProgressScreen extends StatefulWidget {
+class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
 
   @override
-  State<ProgressScreen> createState() => _ProgressScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => TahsinCubit(
+            repository: TahsinRepository(
+              networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
+              localDataSource: LocalDataSourceImpl(),
+            ),
+            activeKelompokCubit: context.read<ActiveKelompokCubit>(),
+          ),
+        ),
+        BlocProvider(create: (_) => CatatanMasterCubit()),
+      ],
+      child: const _ProgressView(),
+    );
+  }
 }
 
-class _ProgressScreenState extends State<ProgressScreen>
-    with SingleTickerProviderStateMixin {
-  List<Map<String, dynamic>> _allSantri = [];
-  List<Map<String, dynamic>> _filtered  = [];
-  bool   _loading = true;
-  String _error   = '';
+class _ProgressView extends StatefulWidget {
+  const _ProgressView();
 
-  // Search FAB state
-  bool _searchOpen = false;
+  @override
+  State<_ProgressView> createState() => _ProgressViewState();
+}
+
+class _ProgressViewState extends State<_ProgressView>
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+  late TabController _tabController;
+  bool _isSearchOpen = false;
   final TextEditingController _searchCtrl = TextEditingController();
-  Timer? _debounce;
-  late AnimationController _searchAnim;
-  late Animation<double> _searchScale;
+  final ValueNotifier<List<Map<String, dynamic>>> _kelasListNotifier =
+      ValueNotifier([]);
+  final ValueNotifier<int?> _selectedKelasNotifier = ValueNotifier(null);
 
   @override
   void initState() {
     super.initState();
-    _searchAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
-    _searchScale = CurvedAnimation(parent: _searchAnim, curve: Curves.easeOutCubic);
-    _searchCtrl.addListener(_onSearch);
-    _load();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (_isSearchOpen && _tabController.index != 0) {
+        setState(() => _isSearchOpen = false);
+      }
+      setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    _searchCtrl.removeListener(_onSearch);
+    _tabController.dispose();
     _searchCtrl.dispose();
-    _debounce?.cancel();
-    _searchAnim.dispose();
+    _kelasListNotifier.dispose();
+    _selectedKelasNotifier.dispose();
     super.dispose();
   }
 
-  void _toggleSearch() {
-    setState(() => _searchOpen = !_searchOpen);
-    if (_searchOpen) {
-      _searchAnim.forward();
-    } else {
-      _searchAnim.reverse();
-      _searchCtrl.clear();
-      setState(() => _filtered = _allSantri);
+  void _showCatatanForm(BuildContext context, {
+    CatatanMaster? item,
+    required Map<String, dynamic> filterMeta,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BlocProvider.value(
+        value: context.read<CatatanMasterCubit>(),
+        child: CatatanFormSheet(item: item, filterMeta: filterMeta),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // Required by AutomaticKeepAliveClientMixin
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            appBar: _tabController.index == 1
+                ? null
+                : AppBar(
+              backgroundColor: _kHeader,
+              foregroundColor: Colors.white,
+              iconTheme: const IconThemeData(color: Colors.white),
+              actionsIconTheme: const IconThemeData(color: Colors.white),
+              centerTitle: false,
+              title: _isSearchOpen && _tabController.index == 0
+                  ? TextField(
+                      controller: _searchCtrl,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Cari Santri...',
+                        hintStyle: const TextStyle(color: Colors.white70),
+                        border: InputBorder.none,
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _isSearchOpen = false);
+                          },
+                        ),
+                      ),
+                    )
+                  : Text(
+                      _tabController.index == 0
+                          ? 'Progres'
+                          : (_tabController.index == 1
+                                ? 'Input Evaluasi'
+                                : (_tabController.index == 2
+                                      ? 'Riwayat Kelas'
+                                      : 'Catatan')),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+              actions: [
+                if (_tabController.index == 0) ...[
+                  ValueListenableBuilder<List<Map<String, dynamic>>>(
+                    valueListenable: _kelasListNotifier,
+                    builder: (context, kelasList, child) {
+                      if (kelasList.length <= 1) return const SizedBox.shrink();
+                      return ValueListenableBuilder<int?>(
+                        valueListenable: _selectedKelasNotifier,
+                        builder: (context, selectedKelasId, child) {
+                          return Container(
+                            height: 26,
+                            margin: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 8,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int?>(
+                                value: selectedKelasId,
+                                isDense: true,
+                                icon: const Icon(
+                                  Icons.arrow_drop_down,
+                                  size: 16,
+                                  color: _kHeader,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                                onChanged: (val) {
+                                  _selectedKelasNotifier.value = val;
+                                },
+                                items: [
+                                  const DropdownMenuItem<int?>(
+                                    value: null,
+                                    child: Text('Semua'),
+                                  ),
+                                  ...kelasList.map((k) {
+                                    final id =
+                                        int.tryParse(
+                                          k['id_kelas']?.toString() ?? '0',
+                                        ) ??
+                                        0;
+                                    final t = k['tingkat']?.toString() ?? '-';
+                                    return DropdownMenuItem<int?>(
+                                      value: id,
+                                      child: Text(t),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
+                if (_tabController.index == 2)
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf),
+                    tooltip: 'Kirim Laporan Perbandingan ke WA Saya',
+                    onPressed: () => _showSendReportSheet(context),
+                  ),
+                // Icon Search di pojok kanan atas, hanya tampil saat Tab 0 (Progress List) aktif
+                if (!_isSearchOpen && _tabController.index == 0)
+                  IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () => setState(() => _isSearchOpen = true),
+                  ),
+                if (_tabController.index == 3)
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+                    tooltip: 'Tambah Catatan',
+                    onPressed: () {
+                      final state = context.read<CatatanMasterCubit>().state;
+                      if (state is CatatanMasterLoaded) {
+                        _showCatatanForm(context, filterMeta: state.filterMeta);
+                      } else if (state is CatatanMasterActionProgress) {
+                        _showCatatanForm(context, filterMeta: state.filterMeta);
+                      }
+                    },
+                  ),
+              ],
+            ),
+      body: TabBarView(
+        controller: _tabController,
+        physics:
+            const NeverScrollableScrollPhysics(), // Prevent horizontal swipe to avoid chart conflicts
+        children: [
+          _SantriListTab(
+            searchCtrl: _searchCtrl,
+            kelasListNotifier: _kelasListNotifier,
+            selectedKelasNotifier: _selectedKelasNotifier,
+          ),
+          const ProgressInputScreen(), // Component tab Input
+          RiwayatGlobalTab(repository: context.read<TahsinCubit>().repository),
+          const _CatatanEmbeddedTab(),
+        ],
+      ),
+      bottomNavigationBar: _buildCustomBottomNav(),
+    );
+  }
+
+  Widget _buildCustomBottomNav() {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom,
+        top: 2,
+        left: 4,
+        right: 4,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavItem(0, Icons.bar_chart_rounded, 'Progress'),
+          _buildNavItem(1, Icons.edit_document, 'Input Evaluasi'),
+          _buildNavItem(2, Icons.history_edu, 'Riwayat Kelas'),
+          _buildNavItem(3, Icons.sticky_note_2_outlined, 'Catatan'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _tabController.index == index;
+    return InkWell(
+      onTap: () => setState(() => _tabController.index = index),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (Theme.of(context).brightness == Brightness.dark
+                    ? _kHeader.withOpacity(0.4)
+                    : const Color(0xFFF0FDF4))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? const Color(0xFF0F4C2A) : Colors.grey,
+              size: 22,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? const Color(0xFF0F4C2A) : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSendReportSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const _SendReportBottomSheet(),
+    );
+  }
+}
+
+class _SendReportBottomSheet extends StatefulWidget {
+  const _SendReportBottomSheet();
+
+  @override
+  State<_SendReportBottomSheet> createState() => _SendReportBottomSheetState();
+}
+
+class _SendReportBottomSheetState extends State<_SendReportBottomSheet> {
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
+  DateTime _endDate = DateTime.now();
+  bool _sending = false;
+
+  Future<void> _pickRange() async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: _kHeader,
+              onPrimary: Colors.white,
+              onSurface: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (range != null) {
+      setState(() {
+        _startDate = range.start;
+        _endDate = range.end;
+      });
     }
+  }
+
+  Future<void> _send() async {
+    setState(() => _sending = true);
+    try {
+      final df = DateFormat('yyyy-MM-dd');
+      final res = await ApiService.sendKolektifWaReport(
+        tglMulai: df.format(_startDate),
+        tglAkhir: df.format(_endDate),
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['message'] ?? 'Laporan berhasil dikirim!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengirim: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dfDisplay = DateFormat('dd MMM yyyy');
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 24,
+        left: 24,
+        right: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.picture_as_pdf, color: Colors.red),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Kirim Laporan Perbandingan',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Laporan ini berisi perbandingan performa seluruh santri di kelas Anda dalam periode tertentu.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Periode Laporan:',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: _pickRange,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today, size: 18, color: _kHeader),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '${dfDisplay.format(_startDate)} - ${dfDisplay.format(_endDate)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const Icon(Icons.edit, size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kHeader,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              onPressed: _sending ? null : _send,
+              child: _sending
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Kirim Laporan ke WA Saya',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- TAB 1: LIST SANTRI (PROGRESS) ------------------------------------------
+class _SantriListTab extends StatefulWidget {
+  final TextEditingController searchCtrl;
+  final ValueNotifier<List<Map<String, dynamic>>> kelasListNotifier;
+  final ValueNotifier<int?> selectedKelasNotifier;
+
+  const _SantriListTab({
+    required this.searchCtrl,
+    required this.kelasListNotifier,
+    required this.selectedKelasNotifier,
+  });
+
+  @override
+  State<_SantriListTab> createState() => _SantriListTabState();
+}
+
+class _SantriListTabState extends State<_SantriListTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+  List<Map<String, dynamic>> _allSantri = [];
+  List<Map<String, dynamic>> _filtered = [];
+  List<Map<String, dynamic>> _kelompokList = [];
+  List<Map<String, dynamic>> _kelasList = [];
+  int? _selectedKelompokId;
+  int? _selectedKelasId;
+  bool _loading = true;
+  String _error = '';
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.searchCtrl.addListener(_onSearch);
+    widget.selectedKelasNotifier.addListener(_onKelasFilterChanged);
+    _load();
+  }
+
+  void _onKelasFilterChanged() {
+    if (_selectedKelasId != widget.selectedKelasNotifier.value) {
+      setState(() {
+        _selectedKelasId = widget.selectedKelasNotifier.value;
+        _allSantri = [];
+        _filtered = [];
+        _loading = true;
+      });
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.searchCtrl.removeListener(_onSearch);
+    widget.selectedKelasNotifier.removeListener(_onKelasFilterChanged);
+    _debounce?.cancel();
+    super.dispose();
   }
 
   void _onSearch() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      final q = _searchCtrl.text.trim().toLowerCase();
+      final q = widget.searchCtrl.text.trim().toLowerCase();
       if (!mounted) return;
       setState(() {
         _filtered = q.isEmpty
             ? _allSantri
             : _allSantri.where((s) {
                 final nama = (s['nama_santri'] ?? '').toString().toLowerCase();
-                final nis  = (s['nis']         ?? '').toString().toLowerCase();
+                final nis = (s['nis'] ?? '').toString().toLowerCase();
                 return nama.contains(q) || nis.contains(q);
               }).toList();
       });
@@ -83,303 +595,310 @@ class _ProgressScreenState extends State<ProgressScreen>
   }
 
   Future<void> _load() async {
-    if (!mounted) return;
-    setState(() { _loading = true; _error = ''; });
-    try {
-      final resp = await ApiService.getProgressList();
-      // Response envelope: { status:200, error:null, message:'...', data:{ santri_list:[], ... } }
-      final raw = resp['data'];
-      List<Map<String, dynamic>> list = [];
-
-      if (raw is Map) {
-        final rawList = raw['santri_list'];
-        if (rawList is List && rawList.isNotEmpty) {
-          list = rawList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-        }
-      } else if (raw is List) {
-        list = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _allSantri = list;
-        _filtered  = list;
-        _loading   = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error   = e.toString().replaceAll('Exception: ', '');
-        _loading = false;
-      });
-    }
+    await context.read<TahsinCubit>().fetchProgressList(
+      idKelompok: _selectedKelompokId,
+      idKelas: _selectedKelasId,
+      forceRefresh: true, // Make sure to force refresh on pull!
+    );
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _kBg,
-      // Header FIXED — tidak hilang saat scroll
-      appBar: _buildAppBar(),
-      body: _loading ? _buildSkeleton() : _error.isNotEmpty ? _buildError() : _buildBody(),
-      // Floating search FAB
-      floatingActionButton: _buildSearchFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    super.build(context);
+    return BlocConsumer<TahsinCubit, TahsinState>(
+      listener: (context, state) {
+        if (state is TahsinLoaded) {
+          final raw = state.data['data'] ?? state.data;
+          List<Map<String, dynamic>> list = [];
+          
+          if (raw is Map) {
+            final fm = raw['filter_meta'];
+            if (fm is Map) {
+              final kl = fm['kelompok_list'];
+              if (kl is List) {
+                _kelompokList = kl.whereType<Map>().map((e) {
+                  final Map<String, dynamic> m = {};
+                  e.forEach((k, v) => m[k.toString()] = v);
+                  return m;
+                }).toList();
+                if (_selectedKelompokId == null && _kelompokList.isNotEmpty) {
+                  _selectedKelompokId = int.tryParse(
+                    _kelompokList.first['id_kelompok']?.toString() ?? '0',
+                  );
+                }
+              }
+              final kelasL = fm['kelas_list'];
+              if (kelasL is List) {
+                _kelasList = kelasL.whereType<Map>().map((e) {
+                  final Map<String, dynamic> m = {};
+                  e.forEach((k, v) => m[k.toString()] = v);
+                  return m;
+                }).toList();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  widget.kelasListNotifier.value = _kelasList;
+                });
+              }
+            }
+
+            dynamic globalCheckpoints = raw['checkpoints'] ?? raw['t_kelas_checkpoint'];
+            if (globalCheckpoints is String) {
+              try { globalCheckpoints = jsonDecode(globalCheckpoints); } catch (_) {}
+            }
+
+            final rawList = raw['santri_list'];
+            if (rawList is List && rawList.isNotEmpty) {
+              list = rawList.whereType<Map>().map((e) {
+                final Map<String, dynamic> safeMap = {};
+                e.forEach((k, v) => safeMap[k.toString()] = v);
+                if (globalCheckpoints != null && safeMap['checkpoints'] == null) {
+                  safeMap['checkpoints'] = globalCheckpoints;
+                }
+                return safeMap;
+              }).toList();
+            }
+          } else if (raw is List) {
+            list = raw.whereType<Map>().map((e) {
+              final Map<String, dynamic> safeMap = {};
+              e.forEach((k, v) => safeMap[k.toString()] = v);
+              return safeMap;
+            }).toList();
+          }
+          setState(() {
+            _allSantri = list;
+            _filtered = list;
+            _loading = false;
+            _error = '';
+          });
+          _onSearch();
+        } else if (state is TahsinError) {
+          setState(() {
+            _error = state.message;
+            _loading = false;
+          });
+        } else if (state is TahsinLoading) {
+          setState(() {
+            _loading = true;
+            _error = '';
+          });
+        }
+      },
+      builder: (context, state) {
+        if (_loading && _allSantri.isEmpty) return _buildSkeleton();
+        if (_error.isNotEmpty && _allSantri.isEmpty) return _buildError();
+        return _buildBody();
+      },
     );
   }
 
-  // ─── Fixed AppBar ─────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar() {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(100),
-      child: Container(
-        color: _kHeader,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              // Decorative circles
-              Positioned(right: -30, top: -30, child: _deco(150, 22)),
-              Positioned(left: -20, bottom: -20, child: _deco(100, 16)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Progres Belajar',
-                              style: GoogleFonts.plusJakartaSans(
-                                  color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                          Text('Pantau simakan setiap santri',
-                              style: GoogleFonts.dmSans(color: Colors.white60, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(30),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(children: [
-                        const Icon(Icons.people_outline, color: Colors.white70, size: 14),
-                        const SizedBox(width: 4),
-                        Text('${_allSantri.length} Santri',
-                            style: GoogleFonts.dmMono(color: Colors.white70, fontSize: 11)),
-                      ]),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _deco(double size, double borderW) => Container(
-    width: size, height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white.withAlpha(20), width: borderW),
-    ),
-  );
-
-  // ─── Search FAB (ngambang) ─────────────────────────────────────────────────
-  Widget _buildSearchFab() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Search bar yang muncul di atas FAB (animasi scale + fade)
-        AnimatedBuilder(
-          animation: _searchScale,
-          builder: (_, __) => Transform.scale(
-            scale: _searchScale.value,
-            alignment: Alignment.bottomRight,
-            child: Opacity(
-              opacity: _searchScale.value.clamp(0.0, 1.0),
-              child: Container(
-                width: 280,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 16, offset: const Offset(0, 4))],
-                ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama atau NIS…',
-                    hintStyle: GoogleFonts.dmSans(color: _kText2, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search_rounded, color: _kAccent, size: 20),
-                    suffixIcon: _searchCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 18, color: _kText2),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _filtered = _allSantri);
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // FAB utama
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (!_searchOpen)
-              FloatingActionButton.extended(
-                heroTag: 'eval',
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProgressInputScreen())),
-                backgroundColor: _kHeader,
-                elevation: 4,
-                icon: const Icon(Icons.playlist_add_check_rounded, color: Colors.white, size: 20),
-                label: Text('Input Evaluasi', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
-            if (!_searchOpen) const SizedBox(width: 12),
-            FloatingActionButton(
-              heroTag: 'search',
-              onPressed: _toggleSearch,
-              backgroundColor: _searchOpen ? Colors.red.shade400 : _kAccent,
-              elevation: 4,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  _searchOpen ? Icons.close_rounded : Icons.search_rounded,
-                  key: ValueKey(_searchOpen),
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ─── Skeleton Loading ─────────────────────────────────────────────────────
   Widget _buildSkeleton() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 8,
-      itemBuilder: (_, i) => _SkeletonCard(key: ValueKey(i)),
+      itemBuilder: (_, i) => const _SkeletonCard(),
     );
   }
 
-  // ─── Error State ──────────────────────────────────────────────────────────
   Widget _buildError() {
-    final isSession = _error.toLowerCase().contains('sesi') ||
-        _error.toLowerCase().contains('habis') ||
-        _error.toLowerCase().contains('login');
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(isSession ? Icons.lock_outline_rounded : Icons.wifi_off_rounded,
-              size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(_error, textAlign: TextAlign.center, style: GoogleFonts.dmSans(color: _kText2)),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: _kAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            label: Text('Coba Lagi',
-                style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-          if (isSession) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: _kAccent),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
-              onPressed: () =>
-                  Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false),
-              icon: const Icon(Icons.login_rounded, color: _kAccent),
-              label: Text('Ke Halaman Login',
-                  style: GoogleFonts.plusJakartaSans(
-                      color: _kAccent, fontWeight: FontWeight.bold)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              _error,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: _kAccent),
+              onPressed: _load,
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+              label: Text('Coba Lagi', style: TextStyle(color: Colors.white)),
             ),
           ],
-        ]),
-      ),
-    );
-  }
-
-  // ─── Body / List ──────────────────────────────────────────────────────────
-  Widget _buildBody() {
-    if (_filtered.isEmpty && _searchCtrl.text.isNotEmpty) {
-      return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.search_off_rounded, size: 64, color: Colors.grey),
-          const SizedBox(height: 12),
-          Text('Santri "${_searchCtrl.text}" tidak ditemukan',
-              textAlign: TextAlign.center, style: GoogleFonts.dmSans(color: _kText2)),
-        ]),
-      );
-    }
-
-    if (_filtered.isEmpty) {
-      return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.person_off_outlined, size: 64, color: Colors.grey),
-          const SizedBox(height: 12),
-          Text('Belum ada data santri', style: GoogleFonts.dmSans(color: _kText2)),
-          const SizedBox(height: 8),
-          Text('Periksa koneksi atau coba refresh', style: GoogleFonts.dmSans(color: _kText2, fontSize: 12)),
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(side: const BorderSide(color: _kAccent)),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh_rounded, color: _kAccent, size: 18),
-            label: Text('Refresh', style: GoogleFonts.dmSans(color: _kAccent)),
-          ),
-        ]),
-      );
-    }
-
-    return RefreshIndicator(
-      color: _kAccent,
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96), // 96 agar tidak tertutup FAB
-        itemCount: _filtered.length,
-        itemBuilder: (_, i) => _SantriCard(
-          santri: _filtered[i],
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(
-              builder: (_) => ProgressDetailScreen(santri: _filtered[i]),
-            ));
-          },
         ),
       ),
     );
   }
+
+  Widget _buildFilterBar() {
+    if (_kelompokList.length <= 1 && _kelasList.length <= 1)
+      return const SizedBox.shrink();
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_kelompokList.length > 1)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _kelompokList.map((k) {
+                  final id =
+                      int.tryParse(k['id_kelompok']?.toString() ?? '0') ?? 0;
+                  final nama = k['kelompok']?.toString() ?? '-';
+                  final isSel = _selectedKelompokId == id;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8, bottom: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        if (!isSel) {
+                          setState(() {
+                            _selectedKelompokId = id;
+                            _selectedKelasId = null;
+                            _allSantri = [];
+                            _filtered = [];
+                          });
+                          _load();
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSel
+                              ? _kHeader
+                              : (Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF374151)
+                                    : Colors.grey.shade100),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSel
+                                ? _kHeader
+                                : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFF4B5563)
+                                      : Colors.grey.shade300),
+                          ),
+                        ),
+                        child: Text(
+                          nama,
+                          style: TextStyle(
+                            color: isSel
+                                ? Colors.white
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
+                            fontWeight: isSel
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    return Column(
+      children: [
+        _buildFilterBar(),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error.isNotEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(_error, style: const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _load,
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  color: _kAccent,
+                  backgroundColor: Theme.of(context).cardColor,
+                  child: _filtered.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            const SizedBox(height: 100),
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.person_off_outlined,
+                                    size: 64,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Tidak ada data santri.',
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface.withOpacity(0.6),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  OutlinedButton.icon(
+                                    onPressed: _load,
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      color: _kAccent,
+                                      size: 18,
+                                    ),
+                                    label: Text(
+                                      'Refresh',
+                                      style: TextStyle(color: _kAccent),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                          itemCount: _filtered.length,
+                          itemBuilder: (context, i) {
+                            return _SantriCard(
+                              santri: _filtered[i],
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProgressDetailScreen(
+                                      santri: _filtered[i],
+                                    ),
+                                  ),
+                                ).then((_) => _load());
+                              },
+                            );
+                          },
+                        ),
+                ),
+        ),
+      ],
+    );
+  }
 }
 
-// ─── Santri Card ─────────────────────────────────────────────────────────────
 class _SantriCard extends StatelessWidget {
   final Map<String, dynamic> santri;
   final VoidCallback onTap;
@@ -388,53 +907,104 @@ class _SantriCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String kelompok = santri['kelompok']?.toString() ?? '-';
-    final String kelas    = santri['kelas']?.toString()    ?? '-';
+    final String kelas = santri['kelas']?.toString() ?? '-';
+
+    String _f(num v) => v.toString().replaceAll(RegExp(r'\.0$'), '');
 
     // Halaman
-    final int capaiHal = int.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
-    final int totalHal = int.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
-    final int pctHal   = int.tryParse(santri['pctHal']?.toString() ?? '0') ?? 0;
-    final double halProgress = totalHal > 0 ? (capaiHal / totalHal).clamp(0.0, 1.0) : 0.0;
-    
-    final int cntLulus = int.tryParse(santri['cnt_lulus']?.toString() ?? '0') ?? 0;
-    final int cntUlang = int.tryParse(santri['cnt_ulang']?.toString() ?? '0') ?? 0;
-    final String lastHal = santri['lastHal']?.toString() ?? '';
+    final double capaiHal =
+        double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
+    final double totalHal =
+        double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
+    // ignore: unused_local_variable
+    final int pctHal = int.tryParse(santri['pctHal']?.toString() ?? '0') ?? 0;
+    // halProgress computed but not used directly in current layout
+    // ignore: unused_local_variable
+    final double halProgress = totalHal > 0
+        ? (capaiHal / totalHal).clamp(0.0, 1.0)
+        : 0.0;
+
+    final int cntLulus =
+        int.tryParse(santri['cnt_lulus']?.toString() ?? '0') ?? 0;
+    final int cntUlang =
+        int.tryParse(santri['cnt_ulang']?.toString() ?? '0') ?? 0;
 
     // Latihan
-    final int latSek    = int.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
-    final int targetLat = int.tryParse(santri['target_latihan']?.toString() ?? '0') ?? 0;
-    final int pctLat    = int.tryParse(santri['pctLat']?.toString() ?? '0') ?? 0;
-    final double latProgress = targetLat > 0 ? (latSek / targetLat).clamp(0.0, 1.0) : 0.0;
+    final double latSek =
+        double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
+    final double _parsedTargetLat =
+        double.tryParse(santri['target_latihan']?.toString() ?? '0') ?? 0;
+    final double targetLat = _parsedTargetLat > 0 ? _parsedTargetLat : totalHal;
+    // ignore: unused_local_variable
+    final double latProgress = targetLat > 0
+        ? (latSek / targetLat).clamp(0.0, 1.0)
+        : 0.0;
     final bool modeIsLatihan = santri['modeIsLatihan'] == true;
 
-    // Kecepatan & Badge
-    final String kLabel = santri['kLabel']?.toString() ?? '-';
-    final String kClr   = santri['kClr']?.toString() ?? 'primary';
-    final double kecAktTotal = double.tryParse(santri['kecAktTotal']?.toString() ?? '0') ?? 0.0;
-    final bool hasCepat = santri['hasCepat'] == true;
+    // Akselerasi
+    final int jmlTes = int.tryParse(santri['jml_tes']?.toString() ?? '0') ?? 0;
+    final List<dynamic> aksHistory = santri['aks_history'] is List
+        ? santri['aks_history']
+        : [];
+    final double capaiAks =
+        double.tryParse(santri['capai_aks']?.toString() ?? '0') ?? 0;
+    final double aksProgress = totalHal > 0
+        ? (capaiAks / totalHal).clamp(0.0, 1.0)
+        : 0.0;
+    // ignore: unused_local_variable
+    final int pctAks = (aksProgress * 100).round();
 
-    // Helper color
+    // Kecepatan & Badge
+    // Catatan: santri dengan sesi < 3 harus muncul "Belum Terukur" badge grey
+    final int totalSesi =
+        int.tryParse(santri['total_sesi']?.toString() ?? '0') ??
+        (cntLulus + cntUlang);
+    final bool isBelumTerukur = totalSesi < 3;
+    final String kLabel = isBelumTerukur
+        ? 'Belum Terukur'
+        : (santri['kLabel']?.toString() ?? '-');
+
+    // Tentukan warna kClr
+    String kClrStr = 'grey';
+    if (!isBelumTerukur) {
+      kClrStr = (santri['kClr']?.toString() ?? 'primary').toLowerCase();
+    }
+
+    final double kecAktTotal =
+        double.tryParse(santri['kecAktTotal']?.toString() ?? '0') ?? 0.0;
+
     Color getBadgeColor(String c) {
+      if (isBelumTerukur) return Colors.grey.shade600;
       switch (c) {
-        case 'success': return Colors.green.shade600;
-        case 'info':    return Colors.teal.shade500;
-        case 'warning': return Colors.orange.shade600;
-        case 'danger':  return Colors.red.shade600;
+        case 'success':
+          return Colors.green.shade600;
+        case 'info':
+          return Colors.teal.shade500;
+        case 'warning':
+          return Colors.orange.shade600;
+        case 'danger':
+          return Colors.red.shade600;
         case 'primary':
-        default:        return Colors.blue.shade600;
+        default:
+          return Colors.blue.shade600;
       }
     }
-    
+
+    // ignore: unused_local_variable
     const Color kBlue = Color(0xFF3B82F6);
     const Color kTeal = Color(0xFF14B8A6);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Material(
@@ -448,20 +1018,23 @@ class _SantriCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Avatar
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: _kAccent.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    (santri['nama_santri'] ?? 'S')[0].toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20, fontWeight: FontWeight.bold, color: _kAccent),
-                  ),
-                ),
+                // Container(
+                //   width: 48,
+                //   height: 48,
+                //   decoration: BoxDecoration(
+                //     color: _kAccent.withValues(alpha: 0.1),
+                //     shape: BoxShape.circle,
+                //   ),
+                //   alignment: Alignment.center,
+                //   child: Text(
+                //     (santri['nama_santri'] ?? 'S')[0].toUpperCase(),
+                //     style: TextStyle(
+                //       fontSize: 20,
+                //       fontWeight: FontWeight.bold,
+                //       color: _kAccent,
+                //     ),
+                //   ),
+                // ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -470,8 +1043,11 @@ class _SantriCard extends StatelessWidget {
                       // --- HEADER ---
                       Text(
                         santri['nama_santri'] ?? '-',
-                        style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.bold, fontSize: 14, color: _kText1),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Wrap(
@@ -479,160 +1055,205 @@ class _SantriCard extends StatelessWidget {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Text(santri['nis'] ?? '-', style: GoogleFonts.dmMono(fontSize: 11, color: _kText2)),
-                          const SizedBox(width: 4),
+                          Text(
+                            santri['nis'] ?? '-',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
+                            ),
+                          ),
                           _chip(kelompok, _kAccent),
                           _chip(kelas, Colors.indigo.shade400),
                         ],
                       ),
-
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Divider(height: 1, color: Color(0xFFF3F4F6)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Divider(
+                          height: 1,
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
 
                       // --- HALAMAN ---
-                      Row(
-                        children: [
-                          const Icon(Icons.menu_book_rounded, size: 14, color: kBlue),
-                          const SizedBox(width: 4),
-                          Text('Halaman', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: kBlue)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Flexible(
-                                  child: Text('$capaiHal/$totalHal', style: GoogleFonts.dmMono(fontSize: 11, fontWeight: FontWeight.bold, color: _kText1), overflow: TextOverflow.ellipsis),
-                                ),
-                                const SizedBox(width: 4),
-                                Text('$pctHal%', style: GoogleFonts.dmMono(fontSize: 11, color: _kText2)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: halProgress,
-                          minHeight: 5,
-                          backgroundColor: kBlue.withOpacity(0.1),
-                          valueColor: const AlwaysStoppedAnimation<Color>(kBlue),
+                      MultiSegmentProgressBar(
+                        title: 'Halaman',
+                        icon: Icons.menu_book_rounded,
+                        capai: capaiHal,
+                        total: totalHal,
+                        checkpoints: santri['checkpoints'] ?? santri['checkpoint'] ?? santri['t_kelas_checkpoint'] ?? santri['check_points'],
+                        baseColor: const Color(0xFF6610F2),
+                        trailingText: Text(
+                          '(${santri['sisa_tm_baku'] ?? 0} TM)',
+                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text('Lulus: $cntLulus TM', style: GoogleFonts.dmSans(fontSize: 11, color: _kText2)),
-                          if (cntUlang > 0)
-                            _chip('${cntUlang}x ulang', Colors.orange.shade700, bgOpacity: 0.1),
-                          if (lastHal.isNotEmpty)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.access_time_rounded, size: 10, color: _kText2),
-                                const SizedBox(width: 2),
-                                Text(lastHal, style: GoogleFonts.dmSans(fontSize: 10, color: _kText2)),
-                              ],
-                            ),
-                        ],
-                      ),
-
                       const SizedBox(height: 16),
 
                       // --- LATIHAN ---
-                      Row(
-                        children: [
-                          const Icon(Icons.edit_note_rounded, size: 16, color: kTeal),
-                          const SizedBox(width: 4),
-                          Text('Latihan', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: kTeal)),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                if (!modeIsLatihan && latSek == 0)
-                                  Flexible(child: Text('Selesaikan halaman dulu', style: GoogleFonts.dmSans(fontSize: 11, color: _kText2), overflow: TextOverflow.ellipsis))
-                                else ...[
-                                  Flexible(child: Text('$latSek/$targetLat', style: GoogleFonts.dmMono(fontSize: 11, fontWeight: FontWeight.bold, color: _kText1), overflow: TextOverflow.ellipsis)),
-                                  const SizedBox(width: 4),
-                                  Text('$pctLat%', style: GoogleFonts.dmMono(fontSize: 11, color: _kText2)),
-                                ]
-                              ],
+                      if (!modeIsLatihan && latSek == 0) ...[
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.edit_note_rounded,
+                              size: 16,
+                              color: kTeal,
                             ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Latihan',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: kTeal,
+                              ),
+                            ),
+                            const Spacer(),
+                            Flexible(
+                              child: Text(
+                                'Selesaikan halaman dulu',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.6),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        MultiSegmentProgressBar(
+                          title: 'Latihan',
+                          icon: Icons.edit_note_rounded,
+                          capai: latSek,
+                          total: targetLat,
+                          checkpoints: santri['checkpoints'] ?? santri['checkpoint'] ?? santri['t_kelas_checkpoint'] ?? santri['check_points'],
+                          baseColor: const Color(0xFF14B8A6),
+                        ),
+                      ],
+
+                      // --- AKSELERASI (HISTORI) ---
+                      if (aksHistory.isNotEmpty) ...[
+                        for (var item in aksHistory) ...[
+                          Builder(
+                            builder: (context) {
+                              final int sCycle =
+                                  int.tryParse(
+                                    item['jml_tes']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+                              final double sHal =
+                                  double.tryParse(
+                                    item['hal_aks']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+                              final int sTm =
+                                  int.tryParse(
+                                    item['tm_aks']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: MultiSegmentProgressBar(
+                                  title: 'Akselerasi $sCycle ($sTm TM)',
+                                  icon: Icons.rocket_launch_rounded,
+                                  capai: sHal,
+                                  total: totalHal,
+                                  baseColor: const Color(0xFFEA5455),
+                                ),
+                              );
+                            },
                           ),
                         ],
-                      ),
-                      if (modeIsLatihan || latSek > 0) ...[
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: latProgress,
-                            minHeight: 5,
-                            backgroundColor: kTeal.withOpacity(0.1),
-                            valueColor: const AlwaysStoppedAnimation<Color>(kTeal),
-                          ),
+                      ] else if (jmlTes > 0) ...[
+                        const SizedBox(height: 16),
+                        MultiSegmentProgressBar(
+                          title: 'Akselerasi $jmlTes',
+                          icon: Icons.rocket_launch_rounded,
+                          capai: capaiAks,
+                          total: totalHal,
+                          baseColor: const Color(0xFFEA5455),
                         ),
                       ],
 
                       const SizedBox(height: 16),
 
-                      // --- KECEPATAN ---
+                      // --- KECEPATAN (PREDIKSI GABUNGAN) ---
                       Row(
                         children: [
-                          const Icon(Icons.speed_rounded, size: 14, color: Colors.indigo),
+                          const Icon(
+                            Icons.speed_rounded,
+                            size: 14,
+                            color: Colors.indigo,
+                          ),
                           const SizedBox(width: 4),
-                          Text('Kecepatan', style: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                          const SizedBox(width: 8),
+                          Text(
+                            'Kcpt',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo,
+                            ),
+                          ),
                           Expanded(
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                if (!hasCepat)
+                                if (kecAktTotal > 0)
                                   Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-                                      child: Text('Belum cukup data', style: GoogleFonts.dmSans(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                    child: Text(
+                                      '${_f(double.parse(kecAktTotal.toStringAsFixed(2)))} hal/TM',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  )
-                                else ...[
-                                  Flexible(
-                                    child: Text('${kecAktTotal.toStringAsFixed(2)} hal/TM', style: GoogleFonts.dmMono(fontSize: 11, fontWeight: FontWeight.bold, color: _kText1), overflow: TextOverflow.ellipsis),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(color: getBadgeColor(kClr).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-                                    child: Text(kLabel, style: GoogleFonts.dmSans(fontSize: 10, color: getBadgeColor(kClr), fontWeight: FontWeight.bold)),
+                                if (!isBelumTerukur) const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
                                   ),
-                                ]
+                                  decoration: BoxDecoration(
+                                    color: getBadgeColor(
+                                      kClrStr,
+                                    ).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    kLabel,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: getBadgeColor(kClrStr),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ],
                       ),
-                      if (!hasCepat)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, right: 6),
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Text('Min. 3 sesi lulus', style: GoogleFonts.dmSans(fontSize: 10, color: _kText2)),
-                          ),
-                        ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade300),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey.shade300,
+                  ),
                 ),
               ],
             ),
@@ -642,18 +1263,21 @@ class _SantriCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(String label, Color color, {double bgOpacity = 0.1}) => Container(
+  Widget _chip(String label, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     decoration: BoxDecoration(
-      color: color.withOpacity(bgOpacity), borderRadius: BorderRadius.circular(6)),
-    child: Text(label,
-        style: GoogleFonts.dmSans(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+    ),
   );
 }
 
-// ─── Skeleton Card ────────────────────────────────────────────────────────────
 class _SkeletonCard extends StatefulWidget {
-  const _SkeletonCard({super.key});
+  const _SkeletonCard();
   @override
   State<_SkeletonCard> createState() => _SkeletonCardState();
 }
@@ -662,14 +1286,14 @@ class _SkeletonCardState extends State<_SkeletonCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
-
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-        ..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.3, end: 0.9)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.3, end: 0.9).animate(_ctrl);
   }
 
   @override
@@ -686,39 +1310,603 @@ class _SkeletonCardState extends State<_SkeletonCard>
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [
-          Container(
-              width: 48, height: 48,
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey.withOpacity(_anim.value * 0.3))),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+                shape: BoxShape.circle,
+                color: Colors.grey.withValues(alpha: _anim.value * 0.3),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                      height: 14,
-                      decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(_anim.value * 0.4),
-                          borderRadius: BorderRadius.circular(6))),
+                    height: 14,
+                    color: Colors.grey.withValues(alpha: _anim.value * 0.4),
+                  ),
                   const SizedBox(height: 8),
                   Container(
-                      height: 10,
-                      width: 160,
-                      decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(_anim.value * 0.3),
-                          borderRadius: BorderRadius.circular(6))),
-                  const SizedBox(height: 12),
-                  Container(
-                      height: 6,
-                      decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(_anim.value * 0.35),
-                          borderRadius: BorderRadius.circular(4))),
-                ]),
+                    height: 10,
+                    width: 160,
+                    color: Colors.grey.withValues(alpha: _anim.value * 0.3),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- Tab Catatan (Embedded tanpa UserModel, konten sama dengan CatatanMasterScreen) ------
+class _CatatanEmbeddedTab extends StatefulWidget {
+  const _CatatanEmbeddedTab();
+
+  @override
+  State<_CatatanEmbeddedTab> createState() => _CatatanEmbeddedTabState();
+}
+
+class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  int? _selectedKelasId;
+  int? _selectedKelompokId;
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<CatatanMaster> _filteredList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<CatatanMasterCubit>().loadCatatan();
+    _searchCtrl.addListener(
+      () => _updateFilteredList(context.read<CatatanMasterCubit>().state),
+    );
+  }
+
+  void _updateFilteredList(dynamic state) {
+    if (state is CatatanMasterLoaded) {
+      final query = _searchCtrl.text.toLowerCase();
+      setState(() {
+        _filteredList = query.isEmpty
+            ? state.catatan
+            : state.catatan
+                  .where((c) => c.teksCatatan.toLowerCase().contains(query))
+                  .toList();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _showForm({
+    CatatanMaster? item,
+    required Map<String, dynamic> filterMeta,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BlocProvider.value(
+        value: context.read<CatatanMasterCubit>(),
+        child: CatatanFormSheet(item: item, filterMeta: filterMeta),
+      ),
+    );
+  }
+
+  void _confirmDelete(CatatanMaster item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Hapus Catatan?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus catatan "${item.teksCatatan}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
           ),
-        ]),
+          ElevatedButton(
+            onPressed: () {
+              HapticFeedback.heavyImpact();
+              context.read<CatatanMasterCubit>().deleteCatatan(item.idCatatan);
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: BlocConsumer<CatatanMasterCubit, dynamic>(
+        listener: (context, state) {
+          if (state is CatatanMasterLoaded && state.message != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message!),
+                backgroundColor: state.message!.contains('Error')
+                    ? Colors.red
+                    : _kAccent,
+              ),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is CatatanMasterLoading || state is CatatanMasterInitial) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SkeletonListWidget(itemCount: 8, itemHeight: 80),
+            );
+          }
+          if (state is CatatanMasterError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 64,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    state.message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () =>
+                        context.read<CatatanMasterCubit>().loadCatatan(),
+                    style: ElevatedButton.styleFrom(backgroundColor: _kAccent),
+                    child: const Text(
+                      'Coba Lagi',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          Map<String, dynamic> filterMeta = {};
+
+          if (state is CatatanMasterLoaded ||
+              state is CatatanMasterActionProgress) {
+            filterMeta = state is CatatanMasterLoaded
+                ? state.filterMeta
+                : (state as CatatanMasterActionProgress).filterMeta;
+
+            if (state is CatatanMasterLoaded) {
+              final query = _searchCtrl.text.toLowerCase();
+              _filteredList = query.isEmpty
+                  ? state.catatan
+                  : state.catatan
+                        .where(
+                          (c) => c.teksCatatan.toLowerCase().contains(query),
+                        )
+                        .toList();
+            }
+          }
+
+          return Column(
+            children: [
+              // -- Filter Bar --
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildFilters(filterMeta),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: SizedBox(
+                        height: 36,
+                        child: TextField(
+                          controller: _searchCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Cari catatan...',
+                            hintStyle: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
+                            filled: true,
+                            fillColor: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? const Color(0xFF374151)
+                                : Colors.grey.shade100,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                              horizontal: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // -- List --
+              Expanded(
+                child: _filteredList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.notes_rounded,
+                              size: 64,
+                              color: Colors.grey.shade300,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Tidak ada catatan ditemukan',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        color: _kAccent,
+                        onRefresh: () =>
+                            context.read<CatatanMasterCubit>().loadCatatan(
+                              idKelas: _selectedKelasId,
+                              idKelompok: _selectedKelompokId,
+                            ),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+                          itemCount: _filteredList.length,
+                          itemBuilder: (context, index) {
+                            final item = _filteredList[index];
+                            return Card(
+                              elevation: 0,
+                              margin: const EdgeInsets.only(bottom: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: InkWell(
+                                onTap: () => _showForm(
+                                  item: item,
+                                  filterMeta: filterMeta,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item.teksCatatan,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  (item.aktif
+                                                          ? Colors.green
+                                                          : Colors.grey)
+                                                      .withValues(alpha: 0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color:
+                                                    (item.aktif
+                                                            ? Colors.green
+                                                            : Colors.grey)
+                                                        .withValues(alpha: 0.4),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              item.aktif ? 'AKTIF' : 'NONAKTIF',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: item.aktif
+                                                    ? Colors.green.shade700
+                                                    : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.school_outlined,
+                                            size: 12,
+                                            color: Colors.grey,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${item.namaKelompok} • ${item.namaKelas}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withOpacity(0.6),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              'Urutan: ${item.urutan}',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: Colors.blue.shade700,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
+                                        child: Divider(height: 1),
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          TextButton.icon(
+                                            onPressed: () =>
+                                                _confirmDelete(item),
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red,
+                                              size: 16,
+                                            ),
+                                            label: const Text(
+                                              'Hapus',
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                            style: TextButton.styleFrom(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 0,
+                                                  ),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          ElevatedButton.icon(
+                                            onPressed: () => _showForm(
+                                              item: item,
+                                              filterMeta: filterMeta,
+                                            ),
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                              size: 14,
+                                              color: Colors.white,
+                                            ),
+                                            label: const Text(
+                                              'Edit',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: _kHeader,
+                                              elevation: 0,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 6,
+                                                  ),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFilters(Map<String, dynamic> meta) {
+    List<Map<String, dynamic>> safeMeta(dynamic raw) {
+      if (raw is! List) return [];
+      return raw.whereType<Map>().map((e) {
+        final Map<String, dynamic> m = {};
+        e.forEach((k, v) => m[k.toString()] = v);
+        return m;
+      }).toList();
+    }
+
+    final isAdmin = meta['is_admin'] == true;
+    final kelompokList = safeMeta(meta['kelompok_list']);
+    final kelasList = safeMeta(meta['kelas_list']);
+
+    return Row(
+      children: [
+        if (isAdmin) ...[
+          Expanded(
+            child: _buildDropdown(
+              'Kelompok',
+              _selectedKelompokId,
+              kelompokList,
+              'id_kelompok',
+              (v) {
+                setState(() {
+                  _selectedKelompokId = v;
+                  _selectedKelasId = null;
+                });
+                context.read<CatatanMasterCubit>().loadCatatan(idKelompok: v);
+              },
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
+        Expanded(
+          child: _buildDropdown(
+            'Kelas',
+            _selectedKelasId,
+            kelasList,
+            'id_kelas',
+            (v) {
+              setState(() => _selectedKelasId = v);
+              context.read<CatatanMasterCubit>().loadCatatan(
+                idKelompok: _selectedKelompokId,
+                idKelas: v,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown(
+    String label,
+    int? value,
+    List<Map<String, dynamic>> items,
+    String idField,
+    ValueChanged<int?> onChanged,
+  ) {
+    final bool valueExists =
+        value == null ||
+        items.any(
+          (item) => int.tryParse(item[idField]?.toString() ?? '') == value,
+        );
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF374151)
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: valueExists ? value : null,
+          isExpanded: true,
+          isDense: true,
+          hint: Text('Semua $label', style: const TextStyle(fontSize: 11)),
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+          items: [
+            DropdownMenuItem<int>(
+              value: null,
+              child: Text('Semua $label', style: const TextStyle(fontSize: 11)),
+            ),
+            ...items.map(
+              (item) => DropdownMenuItem<int>(
+                value: int.tryParse(item[idField]?.toString() ?? '0'),
+                child: Text(
+                  item['kelompok']?.toString() ??
+                      item['tingkat']?.toString() ??
+                      '-',
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+            ),
+          ],
+          onChanged: onChanged,
+        ),
       ),
     );
   }

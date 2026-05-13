@@ -291,6 +291,12 @@ class _AbsenScreenState extends State<AbsenScreen>
       _tts.speak('Akses ditolak.');
     } else if (msg.toLowerCase().contains('belum absen masuk')) {
       _tts.speak('Belum absen masuk.');
+    } else if (msg.toLowerCase().contains('jadwal kelas')) {
+      _tts.speak(msg); // Bacakan langsung pesan dari backend: "Nama tidak memiliki jadwal..."
+    } else if (msg.toLowerCase().contains('luar jendela')) {
+      _tts.speak('Di luar jam absen.');
+    } else if (msg.length < 60) {
+      _tts.speak(msg); // Bacakan pesan jika tidak terlalu panjang
     } else {
       _tts.speak('Terjadi kesalahan. Gagal absen.');
     }
@@ -865,39 +871,58 @@ class _AbsenScreenState extends State<AbsenScreen>
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 1. FOTO BESAR DI KIRI
               Container(
-                width: 50,
-                height: 50,
+                width: 150,
+                height: 220,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   color: Colors.grey.shade200,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 clipBehavior: Clip.hardEdge,
                 child: user['foto_url'] == null
-                    ? const Icon(Icons.person, color: Colors.grey, size: 30)
+                    ? const Icon(Icons.person, color: Colors.grey, size: 50)
                     : Image.network(
                         user['foto_url'],
                         fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) =>
-                            const Icon(Icons.person, color: Colors.grey),
+                        errorBuilder: (c, e, s) => const Icon(
+                          Icons.person,
+                          color: Colors.grey,
+                          size: 50,
+                        ),
                       ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
+
+              // 2. IDENTITAS DI KANAN
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Nama
                     Text(
                       user['nama_lengkap'],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: Colors.black87,
+                        height: 1.2,
                       ),
                     ),
+                    const SizedBox(height: 4),
                     Text(
                       'Panggilan: ${user['nama_panggilan']}',
                       style: GoogleFonts.dmSans(
@@ -905,134 +930,156 @@ class _AbsenScreenState extends State<AbsenScreen>
                         color: Colors.grey.shade600,
                       ),
                     ),
+                    const SizedBox(height: 8),
+
+                    // NIS Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F5E9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        user['identitas'],
+                        style: GoogleFonts.dmMono(
+                          color: const Color(0xFF166534),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Divider(
+                      color: Colors.grey.shade200,
+                      thickness: 1,
+                      height: 1,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Info Grid (Kelas & Jam)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'KELAS',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user['kelas'],
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF16A34A),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'JAM ABSEN',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user['jam'],
+                                style: GoogleFonts.dmMono(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Status
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'STATUS',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            isWarning
+                                ? const Icon(
+                                    Icons.warning,
+                                    color: Colors.orange,
+                                    size: 12,
+                                  )
+                                : AnimatedBuilder(
+                                    animation: _successBlinkController,
+                                    builder: (ctx, child) {
+                                      return Opacity(
+                                        opacity:
+                                            0.3 +
+                                            (0.7 *
+                                                _successBlinkController.value),
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF16A34A),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isWarning ? 'Sudah Absen' : 'Hadir',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isWarning
+                                    ? Colors.orange.shade800
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  user['identitas'],
-                  style: GoogleFonts.dmMono(
-                    color: const Color(0xFF166534),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 20),
-          Divider(color: Colors.grey.shade200, thickness: 1.5),
+
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'KELAS',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user['kelas'],
-                    style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF16A34A),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'JAM ABSEN',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    user['jam'],
-                    style: GoogleFonts.dmMono(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'STATUS',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      isWarning
-                          ? const Icon(
-                              Icons.warning,
-                              color: Colors.orange,
-                              size: 12,
-                            )
-                          : AnimatedBuilder(
-                              animation: _successBlinkController,
-                              builder: (ctx, child) {
-                                return Opacity(
-                                  opacity:
-                                      0.3 +
-                                      (0.7 * _successBlinkController.value),
-                                  child: Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF16A34A),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isWarning ? 'Sudah Absen' : 'Hadir',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: isWarning
-                              ? Colors.orange.shade800
-                              : Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+          Divider(color: Colors.grey.shade200, thickness: 1.5),
+          const SizedBox(height: 12),
+
+          // Dicatat Oleh (Bottom section)
           Row(
             children: [
               Container(
@@ -1041,7 +1088,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                   color: Colors.blue.shade50,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person, color: Colors.blue, size: 18),
+                child: const Icon(Icons.person, color: Colors.blue, size: 16),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1060,7 +1107,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                       user['user_absen'],
                       style: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -1079,7 +1126,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                   'Operator',
                   style: GoogleFonts.dmSans(
                     color: Colors.orange.shade800,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1092,6 +1139,9 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Widget _buildCustomBottomNav() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).padding.bottom + 6,
@@ -1100,10 +1150,10 @@ class _AbsenScreenState extends State<AbsenScreen>
         right: 20,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).scaffoldBackgroundColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: textColor.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -1121,6 +1171,8 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).colorScheme.onSurface;
     final isSelected = _tabController.index == index;
     return InkWell(
       onTap: () => setState(() => _tabController.index = index),
@@ -1129,7 +1181,11 @@ class _AbsenScreenState extends State<AbsenScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0FDF4) : Colors.transparent,
+          color: isSelected
+              ? (isDark
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest
+                    : const Color(0xFFF0FDF4))
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -1137,7 +1193,9 @@ class _AbsenScreenState extends State<AbsenScreen>
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF16A34A) : Colors.grey,
+              color: isSelected
+                  ? (isDark ? Colors.green.shade400 : const Color(0xFF16A34A))
+                  : textColor.withValues(alpha: 0.5),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -1146,7 +1204,9 @@ class _AbsenScreenState extends State<AbsenScreen>
               style: GoogleFonts.dmSans(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? const Color(0xFF166534) : Colors.grey,
+                color: isSelected
+                    ? (isDark ? Colors.green.shade300 : const Color(0xFF166534))
+                    : textColor.withValues(alpha: 0.5),
               ),
             ),
           ],

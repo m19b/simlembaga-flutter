@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+// // import 'package:google_fonts/google_fonts.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 
 class CatatMasalahBottomSheet extends StatefulWidget {
@@ -97,7 +97,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
   @override
   Widget build(BuildContext context) {
     // Styling constants
-    final labelStyle = GoogleFonts.inter(
+    final labelStyle = TextStyle(
       fontSize: 13,
       fontWeight: FontWeight.w600,
       color: Colors.grey.shade600,
@@ -119,7 +119,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5),
       ),
-      hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
     );
 
     return Container(
@@ -174,7 +174,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                     children: [
                       Text(
                         'Catat Masalah Baru',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
@@ -182,7 +182,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                       ),
                       Text(
                         'Isi form di bawah dengan lengkap',
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade500,
                         ),
@@ -232,7 +232,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                               color: Color(0xFF16A34A),
                             ),
                           ),
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             fontSize: 14,
                             color: Colors.black87,
                           ),
@@ -268,14 +268,14 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                                 ),
                                 title: Text(
                                   option['nama_santri'] as String,
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                   ),
                                 ),
                                 subtitle: Text(
                                   '${option['nis']} • ${option['kelas']}',
-                                  style: GoogleFonts.inter(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade600,
                                   ),
@@ -304,7 +304,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                         backgroundColor: Colors.white,
                         child: Text(
                           _selectedSantri!['nama_santri'][0].toUpperCase(),
-                          style: GoogleFonts.inter(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue.shade700,
                           ),
@@ -317,7 +317,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                           children: [
                             Text(
                               _selectedSantri!['nama_santri'],
-                              style: GoogleFonts.inter(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: Colors.black87,
@@ -326,7 +326,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                             const SizedBox(height: 4),
                             Text(
                               'NIS: ${_selectedSantri!['nis']} • Kelas: ${_selectedSantri!['kelas']}',
-                              style: GoogleFonts.inter(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade700,
                               ),
@@ -354,7 +354,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                 value: _selectedJenisMasalah,
                 hint: Text(
                   'Pilih jenis masalah',
-                  style: GoogleFonts.inter(
+                  style: TextStyle(
                     color: Colors.grey.shade400,
                     fontSize: 14,
                   ),
@@ -369,7 +369,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                 items: _listJenisMasalah.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,
-                    child: Text(value, style: GoogleFonts.inter(fontSize: 14)),
+                    child: Text(value, style: TextStyle(fontSize: 14)),
                   );
                 }).toList(),
                 onChanged: (newValue) {
@@ -405,7 +405,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                       const SizedBox(width: 12),
                       Text(
                         _formatDate(_selectedDate),
-                        style: GoogleFonts.inter(
+                        style: TextStyle(
                           fontSize: 14,
                           color: Colors.black87,
                         ),
@@ -429,7 +429,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                     child: Icon(Icons.notes, color: Color(0xFF16A34A)),
                   ),
                 ),
-                style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+                style: TextStyle(fontSize: 14, color: Colors.black87),
               ),
               const SizedBox(height: 24),
 
@@ -476,7 +476,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                   icon: const Icon(Icons.save_outlined, size: 20),
                   label: Text(
                     'Simpan Masalah',
-                    style: GoogleFonts.inter(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),

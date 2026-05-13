@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
+// import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class BottomEdit extends StatefulWidget {
   final Map<String, dynamic> dataPrestasi;
   final Function(Map<String, dynamic>) onSave;
+  /// Jika true, hanya field tanggal yang bisa diubah (riwayat lama)
+  final bool onlyEditDate;
 
-  const BottomEdit({Key? key, required this.dataPrestasi, required this.onSave})
-    : super(key: key);
+  const BottomEdit({
+    Key? key,
+    required this.dataPrestasi,
+    required this.onSave,
+    this.onlyEditDate = false,
+  }) : super(key: key);
 
   @override
   State<BottomEdit> createState() => _BottomEditState();
@@ -15,30 +23,35 @@ class _BottomEditState extends State<BottomEdit> {
   late int halAwal;
   late int halAkhir;
   late int halTotal;
+  late int jmlKehadiran;
+  late DateTime tanggal;
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi data dari riwayat yang diklik, gunakan nilai default jika null
     halAwal = int.tryParse(widget.dataPrestasi['hal_awal'].toString()) ?? 1;
     halAkhir = int.tryParse(widget.dataPrestasi['hal_akhir'].toString()) ?? 1;
     halTotal = int.tryParse(widget.dataPrestasi['hal_total'].toString()) ?? 1;
-    _hitungTotal();
+    jmlKehadiran = int.tryParse(widget.dataPrestasi['jml_kehadiran'].toString()) ?? 1;
+
+    // Parse tanggal dari tgl_simak
+    final tglStr = widget.dataPrestasi['tgl_simak']?.toString() ?? '';
+    tanggal = DateTime.tryParse(tglStr.split(' ').first) ?? DateTime.now();
+
+    if (!widget.onlyEditDate) _hitungTotal();
   }
 
   void _hitungTotal() {
-    // Logika perhitungan total halaman sesuai instruksi
     int total = (halAkhir - halAwal);
     setState(() {
-      halTotal = total < 1 ? 1 : total; // Minimal total halaman adalah 1
+      halTotal = total < 1 ? 1 : total;
     });
   }
-
 
   void _tambahHalAkhir() {
     setState(() {
       halAkhir++;
-      _hitungTotal(); // Total akan otomatis bertambah
+      _hitungTotal();
     });
   }
 
@@ -51,16 +64,32 @@ class _BottomEditState extends State<BottomEdit> {
     }
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: tanggal,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: Color(0xFF2ECC71)),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => tanggal = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final String judulMode = widget.onlyEditDate ? 'Edit Tanggal Riwayat' : 'Edit Progres Santri';
+
     return Container(
       padding: EdgeInsets.only(
         top: 20,
         left: 20,
         right: 20,
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-            20, // Agar tidak tertutup keyboard
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -70,97 +99,157 @@ class _BottomEditState extends State<BottomEdit> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Edit Progres Santri",
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+
+          Text(
+            judulMode,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
+
+          if (widget.onlyEditDate) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Hanya perubahan tanggal yang diizinkan untuk riwayat lama.',
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade700, fontStyle: FontStyle.italic),
+            ),
+          ],
+
           const SizedBox(height: 20),
 
-          // --- KONTROL HALAMAN AWAL ---
+          // --- FIELD TANGGAL --- (selalu tampil)
+          InkWell(
+            onTap: _pickDate,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today_outlined, size: 18, color: Colors.grey.shade600),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      DateFormat('dd MMMM yyyy', 'id_ID').format(tanggal),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Icon(Icons.edit_outlined, size: 16, color: Colors.grey.shade500),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // --- KONTROL TATAP MUKA (TM) ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Halaman Awal", style: TextStyle(fontSize: 16)),
+              Text('Tatap Muka (TM)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               Row(
                 children: [
-                  Text(
-                    "$halAwal",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey, // Indikasi readonly
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.orange),
+                    onPressed: () { if (jmlKehadiran > 1) setState(() => jmlKehadiran--); },
                   ),
-                  const SizedBox(width: 48), // Padding pengganti icon
+                  Text(
+                    '$jmlKehadiran',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange.shade800),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.orange),
+                    onPressed: () => setState(() => jmlKehadiran++),
+                  ),
                 ],
               ),
             ],
           ),
 
-          // --- KONTROL HALAMAN AKHIR ---
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Halaman Akhir", style: TextStyle(fontSize: 16)),
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.remove_circle_outline,
-                      color: Colors.red,
-                    ),
-                    onPressed: _kurangHalAkhir,
-                  ),
-                  Text(
-                    "$halAkhir",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.add_circle_outline,
-                      color: Colors.blue,
-                    ),
-                    onPressed: _tambahHalAkhir,
-                  ),
-                ],
-              ),
-            ],
-          ),
+          const Divider(height: 24),
 
-          const Divider(height: 30),
+          // Tampilkan kontrol hal awal/akhir hanya jika bukan mode onlyEditDate
+          if (!widget.onlyEditDate) ...[
+            const SizedBox(height: 16),
 
-          // --- TOTAL HALAMAN ---
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Total Halaman",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
+            // --- KONTROL HALAMAN AWAL ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Halaman Awal', style: TextStyle(fontSize: 15)),
+                Row(
+                  children: [
+                    Text(
+                      '$halAwal',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(10),
+              ],
+            ),
+
+            const SizedBox(height: 8),
+
+            // --- KONTROL HALAMAN AKHIR ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Halaman Akhir', style: TextStyle(fontSize: 15)),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                      onPressed: _kurangHalAkhir,
+                    ),
+                    Text(
+                      '$halAkhir',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, color: Colors.blue),
+                      onPressed: _tambahHalAkhir,
+                    ),
+                  ],
                 ),
-                child: Text(
-                  "$halTotal",
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+              ],
+            ),
+
+            const Divider(height: 24),
+
+            // --- TOTAL HALAMAN ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total Halaman', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$halTotal',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 30),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 24),
 
           // --- TOMBOL SIMPAN ---
           SizedBox(
@@ -168,25 +257,24 @@ class _BottomEditState extends State<BottomEdit> {
             height: 50,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                backgroundColor: const Color(0xFF2ECC71),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
-                // Update map dengan data baru dan kirim ke parent screen
-                Map<String, dynamic> updatedData = Map.from(
-                  widget.dataPrestasi,
-                );
-                updatedData['hal_awal'] = halAwal;
-                updatedData['hal_akhir'] = halAkhir;
-                updatedData['hal_total'] = halTotal;
-
+                final Map<String, dynamic> updatedData = Map.from(widget.dataPrestasi);
+                updatedData['tgl_simak'] = DateFormat('yyyy-MM-dd').format(tanggal);
+                if (!widget.onlyEditDate) {
+                  updatedData['hal_awal'] = halAwal;
+                  updatedData['hal_akhir'] = halAkhir;
+                  updatedData['hal_total'] = halTotal;
+                }
+                updatedData['jml_kehadiran'] = jmlKehadiran;
                 widget.onSave(updatedData);
-                Navigator.pop(context); // Tutup bottom sheet
+                Navigator.pop(context);
               },
-              child: const Text(
-                "Simpan Perubahan",
-                style: TextStyle(fontSize: 16),
+              child: Text(
+                'Simpan Perubahan',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
           ),

@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
+import 'package:manajemen_tahsin_app/features/auth/data/general_settings_model.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'dio_client.dart';
 
 /// Centralized API service. Menggunakan Dio dan Stateless Token Authentication.
@@ -12,29 +15,55 @@ class ApiService {
   static const _storage = FlutterSecureStorage();
 
   static void _handleDioError(DioException e) {
-    // 1. Siapkan wadah untuk menampung semua rahasia error
-    String debugMsg = "TIPE: ${e.type.name}\n";
-    debugMsg += "PESAN: ${e.message}\n";
+    String humanReadableMsg = "Terjadi kesalahan jaringan.";
+    if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+      humanReadableMsg = "Koneksi ke server timeout. Gagal terhubung, pastikan server aktif atau IP benar.";
+    } else if (e.type == DioExceptionType.connectionError) {
+      humanReadableMsg = "Koneksi ditolak oleh server. Pastikan HP dan PC (server) terhubung di jaringan WiFi yang sama, dan IP server benar.";
+    } else if (e.response != null) {
+      // 1. Coba ambil error spesifik dari backend CI4 (seperti 'Password Salah', 'User tidak ditemukan')
+      bool messageExtracted = false;
+      try {
+        final data = e.response?.data;
+        if (data is Map && data.containsKey('message') && data['message'] != null) {
+          humanReadableMsg = data['message'];
+          messageExtracted = true;
+        } else if (data is Map && data.containsKey('error') && data['error'] != null) {
+          humanReadableMsg = data['error'].toString();
+          messageExtracted = true;
+        }
+      } catch (_) {}
 
-    // 2. Jika server CI4 sempat menjawab (meskipun error 500/404)
-    if (e.response != null) {
-      debugMsg += "STATUS: ${e.response?.statusCode}\n";
-
-      // Ambil isi balasan CI4
-      String rawData = e.response?.data.toString() ?? 'Tidak ada data';
-
-      // Potong jika terlalu panjang agar muat di layar HP
-      if (rawData.length > 200) {
-        rawData = rawData.substring(0, 200) + '...';
+      // 2. Jika backend tdk mengirim message khusus, gunakan pesan standar sesuai status error
+      if (!messageExtracted) {
+        if (e.response?.statusCode == 400) {
+          humanReadableMsg = "Permintaan tidak valid (400 Bad Request). Periksa isian Anda.";
+        } else if (e.response?.statusCode == 401) {
+          humanReadableMsg = "Sesi telah berakhir atau akses ditolak (401). Silakan login kembali.";
+        } else if (e.response?.statusCode == 403) {
+          humanReadableMsg = "Anda tidak memiliki izin (403 Forbidden).";
+        } else if (e.response?.statusCode == 404) {
+          humanReadableMsg = "Endpoint (Alamat API) tidak ditemukan di server (404).";
+        } else if (e.response?.statusCode == 500) {
+          humanReadableMsg = "Terjadi kesalahan sistem internal di aplikasi server (500).";
+        } else {
+          humanReadableMsg = "Server mengembalikan status: ${e.response?.statusCode}";
+        }
       }
-      debugMsg += "BALASAN: $rawData";
     } else {
-      // 3. Jika server CI4 mati, salah IP, atau tidak merespon sama sekali
-      debugMsg += "STATUS: Server tidak merespon sama sekali (Response Null).";
+      humanReadableMsg = "Tidak bisa menghubungi server sama sekali. Periksa kembali IP Server dan pastikan HP terkoneksi WiFi.";
     }
-
-    // MUNTAHKAN SEMUANYA KE LAYAR FLUTTER!
-    throw Exception(debugMsg);
+    
+    // Log detail error ke console developer (biar tidak hilang untuk debugging programmer)
+    debugPrint("=== DETAIL DIO ERROR ===");
+    debugPrint("TIPE: ${e.type.name}");
+    debugPrint("PESAN: ${e.message}");
+    if (e.response != null) {
+      debugPrint("STATUS: ${e.response?.statusCode}");
+      debugPrint("BALASAN: ${e.response?.data}");
+    }
+    
+    throw Exception(humanReadableMsg);
   }
 
   // ─── Auth ──────────────────────────────────────────────────────────────────
@@ -43,7 +72,7 @@ class ApiService {
     try {
       final client = await DioClient.dio;
       final response = await client.post(
-        '/api/login',
+        'api/login',
         data: {'identity': identity, 'password': password},
         options: Options(contentType: Headers.formUrlEncodedContentType),
       );
@@ -66,6 +95,11 @@ class ApiService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_userKey, json.encode(user.toJson()));
 
+        // 🌟 PERBAIKAN STUCK DI DASHBOARD LINUX: 
+        // Force reset instance Dio/TCP Pool setelah POST login. Caddy di Linux terkadang nge-hang 
+        // kalau kita reuse connection yang sama persis sedetik setelah request yang intens.
+        DioClient.reset();
+
         return user;
       } else {
         throw Exception(
@@ -84,16 +118,61 @@ class ApiService {
     try {
       final client = await DioClient.dio;
       // Opsional: beritahu server untuk mematikan token jika server mendukung blacklist token
-      await client.post('/api/logout');
+      client.post('api/logout').then((_) {}).catchError((_) {}); // Fire and forget agar UI tidak hang
     } catch (_) {
       // Abaikan error jaringan saat logout
     } finally {
-      // Hapus token JWT lokal
-      await _storage.delete(key: 'jwt_token');
+      try {
+        // Hapus token JWT lokal
+        await _storage.delete(key: 'jwt_token');
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_userKey);
-      DioClient.reset(); // Reset Dio (misal user ganti server IP saat di login screen)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_userKey);
+        ActiveKelompokCubit.activeKelompokId = 0; // Bersihkan state kelompk
+        DioClient.reset(); // Reset Dio (misal user ganti server IP saat di login screen)
+      } catch (e) {
+        debugPrint("Gagal membersihkan cache lokal saat logout: $e");
+      }
+    }
+  }
+
+  // ─── Settings & Connection ──────────────────────────────────────────────────
+
+  static Future<GeneralSettings> getGeneralSettings() async {
+    try {
+      final result = await _get('guru/settings');
+      return GeneralSettings.fromJson(result['data']);
+    } catch (e) {
+      // Return default branding if settings fail to load
+      return GeneralSettings(
+        namaAplikasi: 'SIM Lembaga',
+        namaLembaga: '',
+      );
+    }
+  }
+
+  /// Memanggil endpoint FilterHelperApi untuk mendapatkan daftar kelas (dan kelompok) milik user
+  static Future<Map<String, dynamic>> getFilterKelas({int? idKelompok}) async {
+    final Map<String, dynamic> q = {};
+    if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
+    return _get('guru/filter/kelas', queryParameters: q.isEmpty ? null : q);
+  }
+
+  /// Memeriksa apakah server bisa dijangkau dengan timeout pendek (2 detik)
+  static Future<void> checkConnection() async {
+    try {
+      final client = await DioClient.getNewInstanceWithShortTimeout(2);
+      // Jika server memberikan status code apapun (bahkan 404 / 500), berarti server HIDUP dan nyambung!
+      client.options.validateStatus = (status) => true;
+      
+      final response = await client.get('api/guru/settings'); 
+      debugPrint("Ping Server Sukses. Status Code: ${response.statusCode}");
+    } on DioException catch (e) {
+      debugPrint("Ping Server Gagal (DioException): ${e.message}");
+      _handleDioError(e); // Ini akan melemparkan pesan yang sudah kita buat sebelumnya
+    } catch (e) {
+      debugPrint("Ping Server Error Umum: $e");
+      throw Exception("Gagal menghubungi server. Eror: $e");
     }
   }
 
@@ -110,7 +189,7 @@ class ApiService {
     String kode,
     String waktu,
   ) async {
-    return _post('guru/absen/scan', {'kode': kode, 'waktu': waktu});
+    return _post('guru/absen-santri/scan', {'kode': kode, 'waktu': waktu});
   }
 
   /// GET /api/guru/absen/rekap — Mengambil Rekap Absensi
@@ -130,10 +209,34 @@ class ApiService {
       queryParams['tgl_akhir'] = tglAkhir;
 
     return _get(
-      'guru/absen/rekap',
+      'guru/absen-santri/rekap',
       queryParameters: queryParams.isEmpty ? null : queryParams,
     );
   }
+
+  /// GET /api/guru/absen-mandiri — Status absen hari ini + riwayat bulan ini
+  static Future<Map<String, dynamic>> getStatusAbsenMandiri(int idKelompok) async {
+    return _get(
+      'guru/absen-guru',
+      queryParameters: idKelompok > 0 ? {'id_kelompok': idKelompok} : null,
+    );
+  }
+
+  /// POST /api/guru/absen-mandiri/store — Simpan absen datang/pulang
+  static Future<Map<String, dynamic>> postAbsenMandiri({
+    required String tipe,
+    required int idKelompok,
+    double? lat,
+    double? lng,
+  }) async {
+    return _post('guru/absen-guru/store', {
+      'tipe': tipe,
+      'id_kelompok': idKelompok,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+    });
+  }
+
 
   // ─── Fungsi Baru Untuk Tab Absen Massal ────────────────────────────────────
 
@@ -146,7 +249,7 @@ class ApiService {
     if (idKelas != null) queryParams['id_kelas'] = idKelas;
 
     return _get(
-      'guru/absen',
+      'guru/absen-santri',
       queryParameters: queryParams.isEmpty ? null : queryParams,
     );
   }
@@ -154,15 +257,20 @@ class ApiService {
   static Future<Map<String, dynamic>> simpanAbsenMassal(
     Map<String, dynamic> payload,
   ) async {
-    return _post('guru/absen/simpan', payload);
+    return _post('guru/absen-santri/simpan', payload);
   }
 
   // ─── Progres Belajar ───────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getProgressList({String? cari}) async {
-    final Map<String, dynamic> q = {};
+  static Future<Map<String, dynamic>> getProgressList({String? cari, int? idKelompok, int? idKelas, int page = 1, int limit = 20, String? filterKehadiran, String? tanggal, int? sesi}) async {
+    final Map<String, dynamic> q = {'id_kategori': 1, 'page': page, 'limit': limit};
     if (cari != null && cari.isNotEmpty) q['cari'] = cari;
-    return _get('guru/progress', queryParameters: q.isEmpty ? null : q);
+    if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
+    if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
+    if (filterKehadiran != null && filterKehadiran.isNotEmpty && filterKehadiran != 'semua') q['filter_kehadiran'] = filterKehadiran;
+    if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
+    if (sesi != null) q['sesi'] = sesi;
+    return _get('guru/progress', queryParameters: q);
   }
 
   static Future<Map<String, dynamic>> getProgressDetail(String nis) async {
@@ -181,12 +289,46 @@ class ApiService {
     return _post('guru/progress/input-massal', payload);
   }
 
+  // ─── Riwayat Global ───────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getRiwayatGlobal(String tanggal, {int page = 1, int limit = 20}) async {
+    return _get('guru/riwayat-global', queryParameters: {'tanggal': tanggal, 'id_kategori': 1, 'page': page, 'limit': limit});
+  }
+
+  static Future<Map<String, dynamic>> getRiwayatGlobalChart(String tglMulai, String tglAkhir) async {
+    return _get('guru/riwayat-global/chart', queryParameters: {'tgl_mulai': tglMulai, 'tgl_akhir': tglAkhir});
+  }
+
+  // ─── Laporan Prestasi ──────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getLaporanPrestasi({
+    String? tglMulai,
+    String? tglAkhir,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final Map<String, dynamic> q = {'id_kategori': 1, 'page': page, 'limit': limit};
+    if (tglMulai != null && tglMulai.isNotEmpty) q['tgl_mulai'] = tglMulai;
+    if (tglAkhir != null && tglAkhir.isNotEmpty) q['tgl_akhir'] = tglAkhir;
+    return _get('guru/laporan', queryParameters: q);
+  }
+
+  static Future<Map<String, dynamic>> getLaporanDetail(String nis) async {
+    return _get('guru/laporan/detail/$nis');
+  }
+
+  // ─── Prediksi Khataman ─────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getPrediksiKhataman() async {
+    return _get('guru/prediksi');
+  }
+
   // ─── Data Santri ────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getSantriList({String? cari}) async {
-    final Map<String, dynamic> q = {};
+  static Future<Map<String, dynamic>> getSantriList({String? cari, int page = 1, int limit = 20}) async {
+    final Map<String, dynamic> q = {'id_kategori': 1, 'page': page, 'limit': limit};
     if (cari != null && cari.isNotEmpty) q['cari'] = cari;
-    return _get('guru/santri', queryParameters: q.isEmpty ? null : q);
+    return _get('guru/santri', queryParameters: q);
   }
 
   // PERBAIKAN: Tambahkan kata /show/ agar cocok dengan rute CI4
@@ -194,14 +336,61 @@ class ApiService {
     return _get('guru/santri/show/$nis');
   }
 
-  // ── MASALAH SANTRI ─────────────────────────────────────────────────────────────
+  // ── DAFTAR TES ─────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getMasalahAktif() async {
-    return _get('guru/masalah');
+  static Future<Map<String, dynamic>> getCalonTes() async {
+    return _get('guru/tes/calon');
   }
 
-  static Future<Map<String, dynamic>> getMasalahSelesai() async {
-    return _get('guru/masalah/selesai');
+  static Future<Map<String, dynamic>> daftarkanTes({
+    required String nis,
+    required String idKelas,
+    required String idKelompok,
+  }) async {
+    return _post('guru/tes/daftarkan', {
+      'nis': nis,
+      'id_kelas': idKelas,
+      'id_kelompok': idKelompok,
+    });
+  }
+
+  static Future<Map<String, dynamic>> getAntrianTes() async {
+    return _get('guru/tes/antrian');
+  }
+
+  static Future<Map<String, dynamic>> batalkanTes({required String idDaftar}) async {
+    return _post('guru/tes/batalkan', {
+      'id_daftar': idDaftar,
+    });
+  }
+
+  static Future<Map<String, dynamic>> getRiwayatTes({
+    String? status,
+    required String tglMulai,
+    required String tglAkhir,
+  }) async {
+    final Map<String, dynamic> q = {
+      'tgl_mulai': tglMulai,
+      'tgl_akhir': tglAkhir,
+    };
+    if (status != null && status.isNotEmpty) q['status'] = status;
+    return _get('guru/tes/riwayat', queryParameters: q);
+  }
+
+  // ── MASALAH SANTRI ─────────────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getMasalahAktif({int? idKelompok, int? idKelas}) async {
+    final Map<String, dynamic> q = {};
+    if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
+    if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
+    return _get('guru/masalah', queryParameters: q.isEmpty ? null : q);
+  }
+
+  static Future<Map<String, dynamic>> getMasalahSelesai({int? idKelompok, int? idKelas}) async {
+    final Map<String, dynamic> q = {};
+    if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
+    if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
+    return _get('guru/masalah/selesai', queryParameters: q.isEmpty ? null : q);
   }
 
   static Future<Map<String, dynamic>> getMasalahPendingApproval() async {
@@ -211,15 +400,17 @@ class ApiService {
   static Future<Map<String, dynamic>> storeMasalah({
     required String nis,
     required String jenisMasalah,
-    required String deskripsi,
+    required String keterangan,
     required String tglMasalah,
   }) async {
-    return _post('guru/masalah/store', {
+    final payload = {
       'nis': nis,
       'jenis_masalah': jenisMasalah,
-      'deskripsi': deskripsi,
-      'tgl_masalah': tglMasalah,
-    });
+      'keterangan': keterangan,
+      'tgl_deteksi': tglMasalah,
+    };
+    print("Payload Masalah: $payload");
+    return _post('guru/masalah/store', payload);
   }
 
   static Future<Map<String, dynamic>> updateMasalah({
@@ -233,6 +424,22 @@ class ApiService {
       'status': status,
       if (tglSelesai != null) 'tgl_selesai': tglSelesai,
       if (catatanSelesai != null) 'catatan_selesai': catatanSelesai,
+    });
+  }
+
+  static Future<Map<String, dynamic>> storeTahapMasalah({
+    required String idMasalah,
+    required String jenisPenyelesaian,
+    required String tglPenyelesaian,
+    required String keterangan,
+    required String hasilTahap,
+  }) async {
+    return _post('guru/masalah/storeTahap', {
+      'id_masalah': idMasalah,
+      'jenis_penyelesaian': jenisPenyelesaian,
+      'tgl_penyelesaian': tglPenyelesaian,
+      'keterangan': keterangan,
+      'hasil_tahap': hasilTahap,
     });
   }
 
@@ -265,7 +472,7 @@ class ApiService {
       if (queryParameters != null) debugPrint("🔍 PARAMS: $queryParameters");
 
       final response = await client.get(
-        '/api/$endpoint',
+        'api/$endpoint',
         queryParameters: queryParameters,
       );
       return _parseResponseData(response);
@@ -285,7 +492,7 @@ class ApiService {
       debugPrint("📡 API_POST: $fullUrl");
       debugPrint("📦 BODY: $body");
 
-      final response = await client.post('/api/$endpoint', data: body);
+      final response = await client.post('api/$endpoint', data: body);
       return _parseResponseData(response);
     } on DioException catch (e) {
       _handleDioError(e);
@@ -295,15 +502,24 @@ class ApiService {
 
   static Map<String, dynamic> _parseResponseData(Response response) {
     final data = response.data;
+    Map<String, dynamic> parsedData;
+    
     if (data is Map<String, dynamic>) {
-      final isSuccess = data['status'] == 200 || data['status'] == true;
-      if (!isSuccess || data['error'] == true) {
-        throw Exception(data['message'] ?? 'Gagal memproses permintaan.');
-      }
-      return data;
+      parsedData = data;
+    } else if (data is Map) {
+      parsedData = {};
+      data.forEach((key, value) {
+        parsedData[key.toString()] = value;
+      });
     } else {
       throw Exception('Format respons tidak valid: Bukan JSON Object');
     }
+
+    final isSuccess = parsedData['status'] == 200 || parsedData['status'] == true;
+    if (!isSuccess || parsedData['error'] == true) {
+      throw Exception(parsedData['message'] ?? 'Gagal memproses permintaan.');
+    }
+    return parsedData;
   }
 
   // pencarian santri (untuk form Catat Masalah)
@@ -315,7 +531,13 @@ class ApiService {
       );
       final data = result['data'];
       if (data is List) {
-        return data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        return data.whereType<Map>().map((e) {
+          final Map<String, dynamic> safeMap = {};
+          e.forEach((key, value) {
+            safeMap[key.toString()] = value;
+          });
+          return safeMap;
+        }).toList();
       }
       return [];
     } catch (e) {
@@ -339,7 +561,85 @@ class ApiService {
     Map<String, dynamic> data,
   ) async {
     data['id_prestasi'] = idPrestasi;
-    // Sesuaikan endpoint ini dengan backend (contoh: guru/progress/update)
     return _post('guru/progress/update', data);
+  }
+
+  // ─── Catatan Master ────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> getCatatanMaster({
+    int? idKelompok,
+    int? idKelas,
+  }) async {
+    final Map<String, dynamic> q = {};
+    if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
+    if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
+    return _get('guru/catatan-master', queryParameters: q.isEmpty ? null : q);
+  }
+
+  static Future<Map<String, dynamic>> storeCatatanMaster(Map<String, dynamic> data) async {
+    return _post('guru/catatan-master/store', data);
+  }
+
+  static Future<Map<String, dynamic>> updateCatatanMaster(Map<String, dynamic> data) async {
+    return _post('guru/catatan-master/update', data);
+  }
+
+  static Future<Map<String, dynamic>> deleteCatatanMaster(int idCatatan) async {
+    return _post('guru/catatan-master/hapus', {'id_catatan': idCatatan});
+  }
+
+  // ─── Profile ────────────────────────────────────────────────────────────────
+
+  /// GET /api/guru/profile — Ambil data profil pengguna yang sedang login
+  static Future<Map<String, dynamic>> getProfile() async {
+    return _get('guru/profile');
+  }
+
+  /// POST /api/guru/profile/update — Perbarui profil via FormData (multipart)
+  static Future<Map<String, dynamic>> updateProfile({
+    required Map<String, String> fields,
+    File? fotoFile,
+  }) async {
+    try {
+      final client = await DioClient.dio;
+      final formData = FormData.fromMap({
+        ...fields,
+        if (fotoFile != null)
+          'foto': await MultipartFile.fromFile(
+            fotoFile.path,
+            filename: fotoFile.path.split('/').last,
+          ),
+      });
+      debugPrint('📡 API_POST_MULTIPART: api/guru/profile/update');
+      final response = await client.post('api/guru/profile/update', data: formData);
+      return _parseResponseData(response);
+    } on DioException catch (e) {
+      _handleDioError(e);
+      rethrow;
+    }
+  }
+
+  // =========================================================
+  // SEND WA REPORT
+  // =========================================================
+  static Future<Map<String, dynamic>> sendWaReport({
+    required String nis,
+    required String target,
+  }) async {
+    return _post('guru/progress/send-wa', {
+      'nis': nis,
+      'target': target,
+    });
+  }
+
+  static Future<Map<String, dynamic>> sendKolektifWaReport({
+    required String tglMulai,
+    required String tglAkhir,
+    int? idKelompok,
+  }) async {
+    return _post('guru/progress/send-kolektif-wa', {
+      'tgl_mulai': tglMulai,
+      'tgl_akhir': tglAkhir,
+      if (idKelompok != null) 'id_kelompok': idKelompok,
+    });
   }
 }

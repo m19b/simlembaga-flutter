@@ -1,10 +1,13 @@
+﻿import 'widgets/santri_card_widget.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+// import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manajemen_tahsin_app/features/santri/presentation/bloc/santri_cubit.dart';
+import 'package:manajemen_tahsin_app/features/santri/domain/repositories/santri_repository.dart';
 
-// ─── Design Tokens ─────────────────────────────────────────────────────────────
+// --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
 const Color _kBg = Color(0xFFF3F4F6);
 const Color _kText1 = Color(0xFF111827);
@@ -12,7 +15,7 @@ const Color _kText2 = Color(0xFF6B7280);
 const Color _kAccent = Color(0xFF16A34A);
 const Color _kWhite = Colors.white;
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+// --- Screen -------------------------------------------------------------------
 class DataSantriScreen extends StatefulWidget {
   const DataSantriScreen({super.key});
 
@@ -87,44 +90,10 @@ class _DataSantriScreenState extends State<DataSantriScreen>
   }
 
   Future<void> _load() async {
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-    try {
-      final resp = await ApiService.getSantriList();
-      debugPrint("📦 RAW_RESPONSE_DATA: ${resp['data']}");
-
-      final raw = resp['data'];
-      List<Map<String, dynamic>> list = [];
-
-      if (raw is List) {
-        list = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-      } else if (raw is Map) {
-        final rawList = raw['santri'] ?? raw['data'] ?? [];
-        if (rawList is List) {
-          list = rawList
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _allSantri = list;
-        _filtered = list;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-        _loading = false;
-      });
-    }
+    context.read<SantriCubit>().fetchSantriList();
   }
 
-  // ─── Fungsi Peluncur WA ──────────────────────────────────────────────────────
+  // --- Fungsi Peluncur WA ------------------------------------------------------
   // CARI: Future<void> _launchWA
   Future<void> _launchWA(
     BuildContext ctx,
@@ -170,7 +139,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     );
 
     try {
-      final resp = await ApiService.getSantriDetail(nis);
+      final resp = await context.read<SantriRepository>().getSantriDetail(nis);
       final raw = resp['data']; // {'santri': {...}}
       final data = (raw is Map)
           ? (raw['santri'] ?? raw)
@@ -197,23 +166,58 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     }
   }
 
-  // ─── Build ───────────────────────────────────────────────────────────────────
+  // --- Build -------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _kBg,
-      appBar: _buildAppBar(),
-      body: _loading
-          ? _buildSkeleton()
-          : _error.isNotEmpty
-          ? _buildError()
-          : _buildBody(),
-      floatingActionButton: _buildSearchFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    return BlocConsumer<SantriCubit, SantriState>(
+      listener: (context, state) {
+        if (state is SantriLoaded) {
+          final raw = state.data['data'];
+          List<Map<String, dynamic>> list = [];
+          if (raw is List) {
+            list = raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          } else if (raw is Map) {
+            final rawList = raw['santri'] ?? raw['data'] ?? [];
+            if (rawList is List) {
+              list = rawList.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+            }
+          }
+          setState(() {
+            _allSantri = list;
+            _filtered = list;
+            _loading = false;
+            _error = '';
+          });
+          _onSearch();
+        } else if (state is SantriError) {
+          setState(() {
+            _error = state.message;
+            _loading = false;
+          });
+        } else if (state is SantriLoading) {
+          setState(() {
+            _loading = true;
+            _error = '';
+          });
+        }
+      },
+      builder: (context, state) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: _buildAppBar(),
+          body: _loading
+              ? _buildSkeleton()
+              : _error.isNotEmpty
+                  ? _buildError()
+                  : _buildBody(),
+          floatingActionButton: _buildSearchFab(),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        );
+      },
     );
   }
 
-  // ─── AppBar ──────────────────────────────────────────────────────────────────
+  // --- AppBar ------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar() {
     return PreferredSize(
       preferredSize: const Size.fromHeight(100),
@@ -243,7 +247,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                         children: [
                           Text(
                             'Data Santri',
-                            style: GoogleFonts.plusJakartaSans(
+                            style: TextStyle(
                               color: _kWhite,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -251,7 +255,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                           ),
                           Text(
                             'Manajemen data santri lembaga',
-                            style: GoogleFonts.dmSans(
+                            style: TextStyle(
                               color: Colors.white60,
                               fontSize: 12,
                             ),
@@ -278,7 +282,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                           const SizedBox(width: 4),
                           Text(
                             '${_allSantri.length} Santri',
-                            style: GoogleFonts.dmMono(
+                            style: TextStyle(
                               color: Colors.white70,
                               fontSize: 11,
                             ),
@@ -308,7 +312,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     ),
   );
 
-  // ─── Search FAB ──────────────────────────────────────────────────────────────
+  // --- Search FAB --------------------------------------------------------------
   Widget _buildSearchFab() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -337,10 +341,10 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                 ),
                 child: TextField(
                   controller: _searchCtrl,
-                  style: GoogleFonts.dmSans(fontSize: 14, color: _kText1),
+                  style: TextStyle(fontSize: 14, color: _kText1),
                   decoration: InputDecoration(
-                    hintText: 'Cari nama atau NIS…',
-                    hintStyle: GoogleFonts.dmSans(color: _kText2, fontSize: 13),
+                    hintText: 'Cari nama atau NISâ€¦',
+                    hintStyle: TextStyle(color: _kText2, fontSize: 13),
                     prefixIcon: const Icon(
                       Icons.search_rounded,
                       color: _kAccent,
@@ -388,7 +392,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     );
   }
 
-  // ─── Body ────────────────────────────────────────────────────────────────────
+  // --- Body --------------------------------------------------------------------
   Widget _buildBody() {
     if (_filtered.isEmpty) {
       return Center(
@@ -403,7 +407,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
             const SizedBox(height: 12),
             Text(
               'Tidak ada data santri.',
-              style: GoogleFonts.dmSans(color: _kText2, fontSize: 14),
+              style: TextStyle(color: _kText2, fontSize: 14),
             ),
           ],
         ),
@@ -416,7 +420,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
         itemCount: _filtered.length,
-        itemBuilder: (_, i) => _SantriCard(
+        itemBuilder: (_, i) => SantriCardWidget(
           santri: _filtered[i],
           index: i + 1,
           onTap: () => _fetchAndShowDetail(_filtered[i]['nis'].toString()),
@@ -425,7 +429,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     );
   }
 
-  // ─── Detail BottomSheet ──────────────────────────────────────────────────────
+  // --- Detail BottomSheet ------------------------------------------------------
   void _showDetail(Map<String, dynamic> s) {
     final nama = s['nama_santri']?.toString() ?? '-';
     final panggilan = s['nama_panggilan']?.toString() ?? '';
@@ -441,17 +445,22 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     final hpAyah = s['hp_ayah']?.toString() ?? '-';
     final namaIbu = s['nama_ibu']?.toString() ?? '-';
     final hpIbu = s['hp_ibu']?.toString() ?? '-';
-    final pesanWa = s['pesanwa']?.toString() ?? '';
-    final linkKelas = pesanWa; // pesanwa berisi link dari DB
+    final pesanDb = s['pesanwa']?.toString() ?? '';
+    final linkDb = s['linkgroupwa']?.toString() ?? '';
+    final waGroup = s['wa_group']?.toString() ?? '-';
+    final noWaGroup = s['no_wa_group']?.toString() ?? '-';
 
     // Pesan otomatis untuk Ayah/Ibu
-    final pesanOrangTua = pesanWa.isNotEmpty
-        ? "Assalamu'alaikum Wr. Wb. Ayah/Bunda.\n\n"
-              "Barakallah fikum! Selamat atas kelulusan Ananda $nama dan selamat bergabung di Kelas $kelas. "
-              "Kami sangat senang bisa mendampingi Ananda di jenjang yang baru ini.\n"
-              "Yuk, segera bergabung di grup $kelas melalui link di bawah ini:\n\n"
-              "$linkKelas"
-        : '';
+    String pesanOrangTua = '';
+    if (pesanDb.isNotEmpty || linkDb.isNotEmpty) {
+      pesanOrangTua = "";
+      if (pesanDb.isNotEmpty) {
+        pesanOrangTua += "$pesanDb\n";
+      }
+      if (linkDb.isNotEmpty) {
+        pesanOrangTua += linkDb;
+      }
+    }
     String ttl = '-';
     if (tglLahir.isNotEmpty) {
       final parts = tglLahir.split('-');
@@ -523,7 +532,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                   backgroundColor: _kAccent.withValues(alpha: 0.1),
                   child: Text(
                     nama[0].toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
+                    style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: _kAccent,
@@ -537,7 +546,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                     children: [
                       Text(
                         nama,
-                        style: GoogleFonts.plusJakartaSans(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 17,
                           color: _kText1,
@@ -546,7 +555,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                       if (panggilan.isNotEmpty)
                         Text(
                           '"$panggilan"',
-                          style: GoogleFonts.dmSans(
+                          style: TextStyle(
                             fontSize: 12,
                             color: _kText2,
                             fontStyle: FontStyle.italic,
@@ -566,7 +575,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                             ),
                             child: Text(
                               'NIS: $nis',
-                              style: GoogleFonts.dmMono(
+                              style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.indigo,
                                 fontWeight: FontWeight.bold,
@@ -587,7 +596,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                             ),
                             child: Text(
                               jk,
-                              style: GoogleFonts.dmSans(
+                              style: TextStyle(
                                 fontSize: 10,
                                 color: isL ? Colors.blue : Colors.pink,
                                 fontWeight: FontWeight.bold,
@@ -607,11 +616,11 @@ class _DataSantriScreenState extends State<DataSantriScreen>
 
             // Data Pribadi
             _sectionTitle('Data Pribadi', Icons.person_outline_rounded),
-            _infoRow(sheetCtx, 'Kelas / Kelompok', '$kelas — $kelompok'),
+            _infoRow(sheetCtx, 'Kelas / Kelompok', '$kelas â€” $kelompok'),
 
             _infoRow(sheetCtx, 'TTL', ttl),
             _infoRow(sheetCtx, 'Alamat', alamat),
-            _infoRow(sheetCtx, 'No HP', hp, isWa: true, pesan: pesanWa),
+            _infoRow(sheetCtx, 'No HP', hp, isWa: true, pesan: pesanOrangTua),
 
             const SizedBox(height: 12),
             _divider(),
@@ -635,6 +644,13 @@ class _DataSantriScreenState extends State<DataSantriScreen>
               isWa: true,
               pesan: pesanOrangTua,
             ),
+            _infoRow(
+              sheetCtx,
+              'WA Group ($waGroup)',
+              noWaGroup,
+              isWa: true,
+              pesan: pesanOrangTua,
+            ),
 
             const SizedBox(height: 24),
           ],
@@ -651,7 +667,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
         const SizedBox(width: 6),
         Text(
           title,
-          style: GoogleFonts.plusJakartaSans(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
             color: _kText1,
@@ -661,7 +677,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     ),
   );
 
-  // ─── Info Row dengan tombol WA ───────────────────────────────────────────────
+  // --- Info Row dengan tombol WA -----------------------------------------------
   Widget _infoRow(
     BuildContext ctx,
     String label,
@@ -675,22 +691,19 @@ class _DataSantriScreenState extends State<DataSantriScreen>
       children: [
         SizedBox(
           width: 110,
-          child: Text(
-            label,
-            style: GoogleFonts.dmSans(fontSize: 12, color: _kText2),
-          ),
+          child: Text(label, style: TextStyle(fontSize: 12, color: _kText2)),
         ),
         Expanded(
           child: Text(
             value.isEmpty ? '-' : value,
-            style: GoogleFonts.dmSans(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
               color: _kText1,
             ),
           ),
         ),
-        // Tombol Chat WA — muncul hanya jika isWa=true dan nomor valid
+        // Tombol Chat WA â€” muncul hanya jika isWa=true dan nomor valid
         if (isWa && value.isNotEmpty && value != '-')
           InkWell(
             // onTap: () => _launchWA(ctx, value),
@@ -715,7 +728,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
                   const SizedBox(width: 4),
                   Text(
                     'Chat',
-                    style: GoogleFonts.dmSans(
+                    style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: Colors.green,
@@ -731,7 +744,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
 
   Widget _divider() => Divider(color: Colors.grey.shade200, height: 1);
 
-  // ─── Skeleton ────────────────────────────────────────────────────────────────
+  // --- Skeleton ----------------------------------------------------------------
   Widget _buildSkeleton() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -754,7 +767,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     );
   }
 
-  // ─── Error ───────────────────────────────────────────────────────────────────
+  // --- Error -------------------------------------------------------------------
   Widget _buildError() {
     return Center(
       child: Padding(
@@ -767,7 +780,7 @@ class _DataSantriScreenState extends State<DataSantriScreen>
             Text(
               _error,
               textAlign: TextAlign.center,
-              style: GoogleFonts.dmSans(color: _kText2, fontSize: 13),
+              style: TextStyle(color: _kText2, fontSize: 13),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -783,200 +796,4 @@ class _DataSantriScreenState extends State<DataSantriScreen>
   }
 }
 
-// ─── Santri Card Widget ────────────────────────────────────────────────────────
-class _SantriCard extends StatelessWidget {
-  final Map<String, dynamic> santri;
-  final int index;
-  final VoidCallback onTap;
-  const _SantriCard({
-    required this.santri,
-    required this.index,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final nama = santri['nama_santri']?.toString() ?? '-';
-    final panggilan = santri['nama_panggilan']?.toString() ?? '';
-    final nis = santri['nis']?.toString() ?? '-';
-    final jk = santri['jenis_kelamin']?.toString() ?? '-';
-    final kelas = santri['kelas']?.toString() ?? '-';
-    final tglLahir = santri['tanggal_lahir']?.toString() ?? '';
-
-    final isL = jk == 'Laki-laki';
-
-    String tglFormatted = '-';
-    if (tglLahir.isNotEmpty) {
-      final parts = tglLahir.split('-');
-      if (parts.length == 3) {
-        final bln = [
-          '',
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'Mei',
-          'Jun',
-          'Jul',
-          'Agt',
-          'Sep',
-          'Okt',
-          'Nov',
-          'Des',
-        ];
-        final m = int.tryParse(parts[1]) ?? 0;
-        tglFormatted =
-            '${parts[2]} ${m > 0 && m < 13 ? bln[m] : parts[1]} ${parts[0]}';
-      }
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: _kWhite,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '$index',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.dmMono(fontSize: 11, color: _kText2),
-                ),
-              ),
-              const SizedBox(width: 8),
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: _kAccent.withValues(alpha: 0.1),
-                child: Text(
-                  nama[0].toUpperCase(),
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: _kAccent,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            nama,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: _kText1,
-                            ),
-                          ),
-                        ),
-                        if (panggilan.isNotEmpty) ...[
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              '($panggilan)',
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                fontSize: 11,
-                                color: _kText2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Text(
-                          nis,
-                          style: GoogleFonts.dmMono(
-                            fontSize: 10,
-                            color: _kText2,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isL
-                                ? Colors.blue.shade50
-                                : Colors.pink.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            isL ? 'L' : 'P',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: isL ? Colors.blue : Colors.pink,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            kelas,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Icon(
-                    Icons.cake_outlined,
-                    size: 13,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tglFormatted,
-                    style: GoogleFonts.dmMono(fontSize: 10, color: _kText2),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+// --- Santri Card Widget --------------------------------------------------------

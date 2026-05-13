@@ -106,6 +106,9 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+
     if (_isLoading && _santriList.isEmpty) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF1B5E20)));
     }
@@ -115,7 +118,7 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.wifi_off, size: 64, color: Colors.grey),
+            Icon(Icons.wifi_off, size: 64, color: textColor.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             Text(_errorMsg, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
@@ -134,14 +137,14 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
           children: [
             // Bar Pemilih Tanggal
             Container(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.date_range, color: Color(0xFF1B5E20), size: 20),
+                      Icon(Icons.date_range, color: isDark ? textColor : const Color(0xFF1B5E20), size: 20),
                       const SizedBox(width: 8),
                       Text(
                         _tanggal,
@@ -193,11 +196,11 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
                                 Row(
                                   children: [
                                     CircleAvatar(
-                                      backgroundColor: Colors.blueGrey.shade50,
+                                      backgroundColor: isDark ? Theme.of(context).colorScheme.surfaceContainerHighest : Colors.blueGrey.shade50,
                                       child: Text(
                                         '${i + 1}',
-                                        style: const TextStyle(
-                                          color: Colors.blueGrey,
+                                        style: TextStyle(
+                                          color: isDark ? textColor : Colors.blueGrey,
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -209,15 +212,15 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
                                         children: [
                                           Text(
                                             santri['nama_santri'] ?? santri['nama_panggilan'] ?? '-',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
-                                              color: Color(0xFF1B5E20),
+                                              color: isDark ? textColor : const Color(0xFF1B5E20),
                                             ),
                                           ),
                                           Text(
                                             'NIS: $nis',
-                                            style: const TextStyle(color: Colors.grey, fontSize: 13),
+                                            style: TextStyle(color: textColor.withValues(alpha: 0.5), fontSize: 13),
                                           ),
                                         ],
                                       ),
@@ -244,12 +247,12 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
                                     decoration: InputDecoration(
                                       hintText: 'Tuliskan keterangan detail...',
                                       filled: true,
-                                      fillColor: Colors.grey.shade50,
+                                      fillColor: isDark ? Theme.of(context).colorScheme.surfaceContainerHighest : Colors.grey.shade50,
                                       isDense: true,
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: Colors.grey.shade300),
+                                        borderSide: BorderSide(color: isDark ? textColor.withValues(alpha: 0.2) : Colors.grey.shade300),
                                       ),
                                     ),
                                     controller: TextEditingController(text: state['catatan'])
@@ -276,17 +279,17 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
           bottom: 0,
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
               boxShadow: [
-                BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -4)),
+                BoxShadow(color: textColor.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, -4)),
               ],
             ),
             child: SizedBox(
               height: 50,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B5E20),
+                  backgroundColor: isDark ? Theme.of(context).colorScheme.primary : const Color(0xFF1B5E20),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -317,6 +320,8 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
     String label,
     Color color,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).colorScheme.onSurface;
     final bool isSelected = state['id_kehadiran'] == idKehadiran;
     return Expanded(
       child: GestureDetector(
@@ -333,16 +338,16 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
           decoration: BoxDecoration(
             color: isSelected ? color : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: isSelected ? color : Colors.grey.shade300),
+            border: Border.all(color: isSelected ? color : (isDark ? textColor.withValues(alpha: 0.2) : Colors.grey.shade300)),
             boxShadow: isSelected
-                ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))]
+                ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))]
                 : null,
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              color: isSelected ? Colors.white : Colors.grey.shade700,
+              color: isSelected ? Colors.white : textColor.withValues(alpha: 0.7),
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),

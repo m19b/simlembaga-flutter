@@ -5,6 +5,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:manajemen_tahsin_app/app.dart';
 
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
+
 class GlobalInterceptor extends Interceptor {
   final _storage = const FlutterSecureStorage();
   
@@ -18,6 +20,11 @@ class GlobalInterceptor extends Interceptor {
 
     options.headers['Accept'] = 'application/json';
     
+    // Inject Multi-Tenancy Kelompok ID
+    if (ActiveKelompokCubit.activeKelompokId > 0) {
+      options.headers['X-Active-Kelompok'] = ActiveKelompokCubit.activeKelompokId.toString();
+    }
+    
     // Inject token ke Header jika ada
     if (token != null && token.isNotEmpty) {
       debugPrint("Token dikirim: $token");
@@ -29,11 +36,33 @@ class GlobalInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    // Jika server mengembalikan 401 Unauthorized, sesi/token habis
-    if (err.response?.statusCode == 401) {
-      await _handleUnauthorized();
+    // Periksa apakah ini sedang memanggil jalur login
+    final isLoginRequest = err.requestOptions.path.contains('/login');
 
-      // Secara opsional, ubah pesan error menjadi lebih ramah
+    // Jika server mengembalikan 401 Unauthorized dan BUKAN sedang login, berarti sesi/token habis
+    if (err.response?.statusCode == 401 && !isLoginRequest) {
+      try {
+        final dio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
+        // Try Silent Refresh
+        final response = await dio.post('api/refresh');
+        if (response.statusCode == 200 && response.data != null) {
+           final newToken = response.data['data'] != null ? response.data['data']['token'] : response.data['token'];
+           if (newToken != null) {
+              await _storage.write(key: 'jwt_token', value: newToken);
+              err.requestOptions.headers[_authHeaderKey] = 'Bearer $newToken';
+              final retryResponse = await dio.fetch(err.requestOptions);
+              return handler.resolve(retryResponse);
+           } else {
+              await _handleUnauthorized();
+           }
+        } else {
+           await _handleUnauthorized();
+        }
+      } catch (_) {
+         await _handleUnauthorized();
+      }
+
+      // Ubah pesan error menjadi lebih ramah agar tidak diproses lagi oleh penangkap standar
       final customError = DioException(
         requestOptions: err.requestOptions,
         response: err.response,
@@ -43,7 +72,7 @@ class GlobalInterceptor extends Interceptor {
       return handler.next(customError);
     }
     
-    // Untuk error selain 401
+    // Untuk error selain 401, ATAU error 401 yang terjadi saat login (karena password salah), lepaskan
     return handler.next(err);
   }
 

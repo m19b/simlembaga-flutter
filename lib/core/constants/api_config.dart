@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 
@@ -11,10 +10,10 @@ class ApiConfig {
   // Catatan: Anda tidak perlu menaruh "/api/" di belakang karena api_service.dart otomatis menambahkannya.
   // Contoh Caddy (Linux): 'http://192.168.100.19'
   // Contoh Spark (Windows): 'http://192.168.x.x:8080'
-  static const String baseUrlSentral = 'http://192.168.100.19';
+  static const String baseUrlSentral = 'http://192.168.1.37';
   // ──────────────────────────────────────────────────────────────────
 
-  static const String defaultIp = '192.168.100.19';
+  static const String defaultIp = '192.168.1.37';
 
   /// Mengambil base URL lengkap
   static Future<String> getBaseUrl() async {
@@ -40,7 +39,8 @@ class ApiConfig {
   /// Mengambil hanya IP yang tersimpan untuk ditampilkan di form pengaturan Server di halaman Login
   static Future<String> getRawIp() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_ipKey) ?? baseUrlSentral.replaceAll("http://", "").replaceAll("https://", "");
+    return prefs.getString(_ipKey) ??
+        baseUrlSentral.replaceAll("http://", "").replaceAll("https://", "");
   }
 
   /// Menyimpan input dari user di form pengaturan Server (LoginScreen)
@@ -79,20 +79,25 @@ class ApiConfig {
     }
 
     String? resolvedIp;
-    
+
     // 3. IDENTIFIKASI & RESOLVE HOSTNAME
     // Cek apakah input berupa IP Address Murni (IPv4)
-    final bool isIp = RegExp(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$').hasMatch(targetHostname);
+    final bool isIp = RegExp(
+      r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$',
+    ).hasMatch(targetHostname);
 
     if (isIp) {
       resolvedIp = targetHostname;
     } else {
       print("🚀 Memulai proses resolusi hostname: $targetHostname");
-      
+
       // -- STRATEGI 1: OS Resolver Standar (DNS/Hosts) --
       try {
         // Gunakan type IPv4 agar lebih cepat dan spesifik
-        final ips = await InternetAddress.lookup(targetHostname, type: InternetAddressType.IPv4).timeout(const Duration(seconds: 4));
+        final ips = await InternetAddress.lookup(
+          targetHostname,
+          type: InternetAddressType.IPv4,
+        ).timeout(const Duration(seconds: 4));
         if (ips.isNotEmpty) {
           resolvedIp = ips.first.address;
           print("✅ OS Resolver (S1): $targetHostname -> $resolvedIp");
@@ -104,22 +109,36 @@ class ApiConfig {
       // -- STRATEGI 2: OS Resolver dengan tambahan suffix .local (Banyak Windows handle ini otomatis) --
       if (resolvedIp == null && !targetHostname.contains('.')) {
         try {
-          final ips = await InternetAddress.lookup('$targetHostname.local', type: InternetAddressType.IPv4);
+          final ips = await InternetAddress.lookup(
+            '$targetHostname.local',
+            type: InternetAddressType.IPv4,
+          );
           if (ips.isNotEmpty) {
             resolvedIp = ips.first.address;
-            print("✅ OS Resolver (.local): Found $targetHostname.local -> $resolvedIp");
+            print(
+              "✅ OS Resolver (.local): Found $targetHostname.local -> $resolvedIp",
+            );
           }
         } catch (_) {}
       }
 
       // -- STRATEGI 3: OS Resolver dengan menghapus suffix .local (Jika ngetik .local tapi OS cuma kenal NetBIOS) --
-      if (resolvedIp == null && targetHostname.toLowerCase().endsWith('.local')) {
+      if (resolvedIp == null &&
+          targetHostname.toLowerCase().endsWith('.local')) {
         try {
-          final cleanName = targetHostname.substring(0, targetHostname.length - 6);
-          final ips = await InternetAddress.lookup(cleanName, type: InternetAddressType.IPv4);
+          final cleanName = targetHostname.substring(
+            0,
+            targetHostname.length - 6,
+          );
+          final ips = await InternetAddress.lookup(
+            cleanName,
+            type: InternetAddressType.IPv4,
+          );
           if (ips.isNotEmpty) {
             resolvedIp = ips.first.address;
-            print("✅ OS Resolver (Stripped .local): Found $cleanName -> $resolvedIp");
+            print(
+              "✅ OS Resolver (Stripped .local): Found $cleanName -> $resolvedIp",
+            );
           }
         } catch (_) {}
       }
@@ -132,35 +151,44 @@ class ApiConfig {
         }
 
         print("🔍 Mencoba mDNS manual untuk: $mdnsHost ...");
-        
+
         // mDNS client dengan binding yang aman
         final MDnsClient client = MDnsClient(
-          rawDatagramSocketFactory: (dynamic host, int port, {bool? reuseAddress, bool? reusePort, int? ttl}) {
-            // Android (Linux) seringkali gagal jika reusePort true. Kita paksa false di Android.
-            bool safeReusePort = reusePort ?? false;
-            if (Platform.isAndroid) safeReusePort = false;
-            
-            return RawDatagramSocket.bind(host, port, 
-              reuseAddress: reuseAddress ?? true, 
-              reusePort: safeReusePort, 
-              ttl: ttl ?? 255
-            );
-          },
+          rawDatagramSocketFactory:
+              (
+                dynamic host,
+                int port, {
+                bool? reuseAddress,
+                bool? reusePort,
+                int? ttl,
+              }) {
+                // Android (Linux) seringkali gagal jika reusePort true. Kita paksa false di Android.
+                bool safeReusePort = reusePort ?? false;
+                if (Platform.isAndroid) safeReusePort = false;
+
+                return RawDatagramSocket.bind(
+                  host,
+                  port,
+                  reuseAddress: reuseAddress ?? true,
+                  reusePort: safeReusePort,
+                  ttl: ttl ?? 255,
+                );
+              },
         );
-        
+
         try {
           await client.start();
-          
+
           // Cari record IPv4 untuk host tersebut
           final results = client.lookup<IPAddressResourceRecord>(
             ResourceRecordQuery.addressIPv4(mdnsHost),
-            timeout: const Duration(seconds: 4), 
+            timeout: const Duration(seconds: 4),
           );
 
           await for (final IPAddressResourceRecord record in results) {
             resolvedIp = record.address.address;
             print("✅ mDNS Manual: $mdnsHost -> $resolvedIp");
-            break; 
+            break;
           }
         } catch (e) {
           print("⚠️ mDNS Manual Error: $e");
@@ -171,40 +199,51 @@ class ApiConfig {
     }
 
     if (resolvedIp == null) {
-      throw Exception("Gagal mencari IP dari laptop '$targetHostname'. Pastikan nama benar dan satu WiFi dengan server.");
+      throw Exception(
+        "Gagal mencari IP dari laptop '$targetHostname'. Pastikan nama benar dan satu WiFi dengan server.",
+      );
     }
 
     // 4. Deteksi otomatis Port (80 untuk Linux/Caddy, 8080 untuk Windows/Spark)
     Future<bool> checkPort(String ipToCheck, int portToCheck) async {
-       try {
-         final socket = await Socket.connect(ipToCheck, portToCheck, timeout: const Duration(seconds: 2));
-         socket.destroy();
-         return true;
-       } catch (_) {
-         return false;
-       }
+      try {
+        final socket = await Socket.connect(
+          ipToCheck,
+          portToCheck,
+          timeout: const Duration(seconds: 2),
+        );
+        socket.destroy();
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
     int? validPort = explicitPort;
     if (validPort != null) {
-       // Kalo user secara eksplisit ketik port (misal biza:8080), kita hormati itu
-       if (!await checkPort(resolvedIp, validPort)) {
-          // Jika port yang diketik mati, fallback auto deteksi
-          validPort = null;
-       }
+      // Kalo user secara eksplisit ketik port (misal biza:8080), kita hormati itu
+      if (!await checkPort(resolvedIp, validPort)) {
+        // Jika port yang diketik mati, fallback auto deteksi
+        validPort = null;
+      }
     }
 
     if (validPort == null) {
-       if (await checkPort(resolvedIp, 80)) {
-          validPort = null; // Caddy Linux jalan di port 80, secara default tidak perlu port
-       } else if (await checkPort(resolvedIp, 8080)) {
-          validPort = 8080; // PHP Spark Windows jalan di port 8080
-       } else {
-          throw Exception("Host $resolvedIp terhubung, tapi server menolak (port 80/8080 mati). Pastikan Caddy / PHP Spark aktif.");
-       }
+      if (await checkPort(resolvedIp, 80)) {
+        validPort =
+            null; // Caddy Linux jalan di port 80, secara default tidak perlu port
+      } else if (await checkPort(resolvedIp, 8080)) {
+        validPort = 8080; // PHP Spark Windows jalan di port 8080
+      } else {
+        throw Exception(
+          "Host $resolvedIp terhubung, tapi server menolak (port 80/8080 mati). Pastikan Caddy / PHP Spark aktif.",
+        );
+      }
     }
 
-    String finalHost = validPort == null ? resolvedIp : "$resolvedIp:$validPort";
+    String finalHost = validPort == null
+        ? resolvedIp
+        : "$resolvedIp:$validPort";
     finalHost += remainingPath;
 
     print("Disimpan sebagai: $finalHost");

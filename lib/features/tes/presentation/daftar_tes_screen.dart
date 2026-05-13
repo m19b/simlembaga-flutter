@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'bloc/tes_cubit.dart';
 import 'bloc/tes_state.dart';
 import '../data/tes_model.dart';
-import '../../auth/data/user_model.dart';
+
 import '../../../../core/constants/api_config.dart';
 
 class DaftarTesScreen extends StatefulWidget {

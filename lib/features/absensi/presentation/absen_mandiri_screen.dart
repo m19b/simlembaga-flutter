@@ -42,32 +42,32 @@ class _AbsenMandiriView extends StatelessWidget {
   final String nig;
   final int idKelompok;
 
-  static const Color kPrimary = Color(0xFF16A34A);
-  static const Color kHeader = Color(0xFF0F4C2A);
-  static const Color kDanger = Color(0xFFEF4444);
-
   const _AbsenMandiriView({
     required this.namaGuru,
     required this.nig,
     required this.idKelompok,
   });
 
-  // ── GPS Helper ──────────────────────────────────────────────────────────────
-
+  // ── GPS Helper (Anti-Freeze + 5s Timeout) ───────────────────────────────────
+  //
+  // Seluruh fungsi ini berjalan async tanpa memblokir UI Thread.
+  // Jika GPS tidak berhasil dalam 5 detik, kembalikan null (absen tanpa koordinat).
   Future<Position?> _getPosition(BuildContext context) async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (!context.mounted) return null;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('📍 Layanan lokasi GPS tidak aktif. Mohon nyalakan GPS Anda.'),
+            content: const Text(
+                '📍 Layanan GPS tidak aktif. Mohon nyalakan GPS Anda.'),
             backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: 'PENGATURAN',
               textColor: Colors.white,
-              onPressed: () => Geolocator.openLocationSettings(),
+              onPressed: Geolocator.openLocationSettings,
             ),
           ),
         );
@@ -81,7 +81,8 @@ class _AbsenMandiriView extends StatelessWidget {
           if (!context.mounted) return null;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('⚠️ Izin lokasi ditolak. Absensi gagal jika lembaga mewajibkan lokasi.'),
+              content: Text(
+                  '⚠️ Izin lokasi ditolak. Absensi dilanjutkan tanpa koordinat.'),
               backgroundColor: Colors.orange,
               behavior: SnackBarBehavior.floating,
             ),
@@ -94,33 +95,40 @@ class _AbsenMandiriView extends StatelessWidget {
         if (!context.mounted) return null;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('🚫 Izin lokasi ditolak permanen. Izinkan akses lokasi di Pengaturan.'),
+            content: const Text(
+                '🚫 Izin lokasi ditolak permanen. Absensi dilanjutkan tanpa koordinat.'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'BUKA PENGATURAN',
               textColor: Colors.white,
-              onPressed: () => Geolocator.openAppSettings(),
+              onPressed: Geolocator.openAppSettings,
             ),
           ),
         );
         return null;
       }
 
+      // Coba ambil posisi terakhir yang diketahui sebagai fallback
       Position? lastPos;
       try {
         lastPos = await Geolocator.getLastKnownPosition();
       } catch (_) {}
 
+      // Ambil posisi saat ini dengan timeout 5 detik
       try {
         return await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.medium,
-            timeLimit: Duration(seconds: 4),
+            timeLimit: Duration(seconds: 5),
           ),
+        ).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => throw Exception('GPS timeout'),
         );
       } catch (_) {
+        // Timeout atau error → gunakan posisi terakhir (atau null)
         return lastPos;
       }
     } catch (e) {
@@ -131,22 +139,33 @@ class _AbsenMandiriView extends StatelessWidget {
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
+  // GPS diambil di sini (UI layer) agar cubit tidak perlu tahu soal Geolocator.
+  // Tombol sudah dalam state ActionLoading saat GPS sedang diambil.
   Future<void> _absen(
     BuildContext context,
     String tipe,
     Map<String, dynamic> currentStatus,
     List<Map<String, dynamic>> currentRiwayat,
   ) async {
-    final pos = await _getPosition(context);
+    // Tampilkan GPS loading state segera — tombol berubah jadi spinner
+    context.read<AbsensiCubit>().setActionLoading(
+          status: currentStatus,
+          riwayat: currentRiwayat,
+        );
+
+    // Ambil GPS dengan timeout — tidak memblokir UI
+    final Position? pos = await _getPosition(context);
     if (!context.mounted) return;
-    context.read<AbsensiCubit>().submitAbsenMandiri(
-      tipe: tipe,
-      idKelompok: idKelompok,
-      lat: pos?.latitude,
-      lng: pos?.longitude,
-      currentStatus: currentStatus,
-      currentRiwayat: currentRiwayat,
-    );
+
+    // Kirim ke cubit (online atau offline queue otomatis)
+    await context.read<AbsensiCubit>().submitAbsenMandiri(
+          tipe: tipe,
+          idKelompok: idKelompok,
+          lat: pos?.latitude,
+          lng: pos?.longitude,
+          currentStatus: currentStatus,
+          currentRiwayat: currentRiwayat,
+        );
   }
 
   Future<void> _confirmAbsenPulang(
@@ -167,7 +186,7 @@ class _AbsenMandiriView extends StatelessWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: kDanger,
+              backgroundColor: Colors.red.shade700,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -185,29 +204,38 @@ class _AbsenMandiriView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = Theme.of(context).colorScheme.onSurface;
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Absensi Mandiri', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? textColor : Colors.white)),
-        backgroundColor: isDark ? Theme.of(context).colorScheme.surface : kHeader,
-        iconTheme: IconThemeData(color: isDark ? textColor : Colors.white),
+        title: const Text('Absensi Mandiri',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        iconTheme: IconThemeData(color: cs.onPrimary),
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: isDark ? textColor : Colors.white),
-            onPressed: () => context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
+            icon: Icon(Icons.refresh_rounded, color: cs.onPrimary),
+            onPressed: () =>
+                context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
           ),
         ],
       ),
       body: BlocConsumer<AbsensiCubit, AbsensiState>(
         listener: (context, state) {
           if (state is AbsenMandiriSubmitSuccess) {
+            final cs = Theme.of(context).colorScheme;
+            // Offline queue → warna berbeda agar guru tahu data pending
+            final Color bgColor = state.savedOffline
+                ? Colors.blueGrey.shade700
+                : state.isWarning
+                    ? Colors.orange.shade700
+                    : cs.primary;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: state.isWarning ? Colors.orange.shade700 : kPrimary,
+                backgroundColor: bgColor,
                 behavior: SnackBarBehavior.floating,
                 duration: const Duration(seconds: 4),
               ),
@@ -216,25 +244,26 @@ class _AbsenMandiriView extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: kDanger,
+                backgroundColor: Theme.of(context).colorScheme.error,
                 behavior: SnackBarBehavior.floating,
               ),
             );
           }
         },
         builder: (context, state) {
+          final cs = Theme.of(context).colorScheme;
           if (state is AbsensiLoading) {
-            return const Center(child: CircularProgressIndicator(color: kPrimary));
+            return Center(child: CircularProgressIndicator(color: cs.primary));
           }
 
           if (state is AbsensiError) {
             return ErrorStateWidget(
               message: state.message,
-              onRetry: () => context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
+              onRetry: () =>
+                  context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
             );
           }
 
-          // Tangani state loaded dan action loading (UI tidak berubah, hanya tombol spinner)
           Map<String, dynamic> statusData = {};
           List<Map<String, dynamic>> riwayatData = [];
           bool isActionLoading = false;
@@ -247,8 +276,11 @@ class _AbsenMandiriView extends StatelessWidget {
             riwayatData = state.riwayat;
             isActionLoading = true;
           } else if (state is AbsenMandiriSubmitSuccess) {
-            // Setelah sukses, cubit sudah otomatis re-fetch; tampilkan spinner sementara
-            return const Center(child: CircularProgressIndicator(color: kPrimary));
+            if (!state.savedOffline) {
+              // Online sukses → cubit sudah re-fetch, tampilkan spinner sebentar
+              return Center(child: CircularProgressIndicator(color: cs.primary));
+            }
+            // Offline queue → UI sudah menampilkan snackbar, biarkan tampilan data lama
           }
 
           final sudahDatang = statusData['sudah_datang'] == true;
@@ -261,8 +293,9 @@ class _AbsenMandiriView extends StatelessWidget {
           final totalTelatPulang = int.tryParse(statusData['total_telat_pulang_menit']?.toString() ?? '0') ?? 0;
 
           return RefreshIndicator(
-            color: kPrimary,
-            onRefresh: () => context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
+            color: cs.primary,
+            onRefresh: () =>
+                context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -311,6 +344,7 @@ class _AbsenMandiriView extends StatelessWidget {
     required Map<String, dynamic> currentStatus,
     required List<Map<String, dynamic>> currentRiwayat,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -320,15 +354,19 @@ class _AbsenMandiriView extends StatelessWidget {
           // Header card
           Container(
             padding: const EdgeInsets.all(20),
-            color: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.surfaceContainerHighest : kHeader,
+            color: cs.primaryContainer,
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: (Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.onSurface : Colors.white).withValues(alpha: 0.15),
+                  backgroundColor: cs.onPrimaryContainer.withValues(alpha: 0.15),
                   child: Text(
                     namaGuru.isNotEmpty ? namaGuru[0].toUpperCase() : 'G',
-                    style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.onSurface : Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                    style: TextStyle(
+                      color: cs.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -338,11 +376,18 @@ class _AbsenMandiriView extends StatelessWidget {
                     children: [
                       Text(
                         namaGuru.isNotEmpty ? namaGuru : '-',
-                        style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.onSurface : Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                        style: TextStyle(
+                          color: cs.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                       Text(
                         'NIG: ${nig.isNotEmpty ? nig : '-'}',
-                        style: TextStyle(color: (Theme.of(context).brightness == Brightness.dark ? Theme.of(context).colorScheme.onSurface : Colors.white).withValues(alpha: 0.6), fontSize: 11),
+                        style: TextStyle(
+                          color: cs.onPrimaryContainer.withValues(alpha: 0.65),
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
@@ -357,9 +402,9 @@ class _AbsenMandiriView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
-                Expanded(child: _JamInfo(label: 'Jam Masuk', jam: _fmtJam(jamMasuk), icon: Icons.login_rounded, color: kPrimary, sudah: sudahDatang)),
-                Container(width: 1, height: 40, color: Colors.grey.shade200),
-                Expanded(child: _JamInfo(label: 'Jam Pulang', jam: _fmtJam(jamKeluar), icon: Icons.logout_rounded, color: kDanger, sudah: sudahPulang)),
+                Expanded(child: _JamInfo(label: 'Jam Masuk', jam: _fmtJam(jamMasuk), icon: Icons.login_rounded, color: cs.primary, sudah: sudahDatang)),
+                Container(width: 1, height: 40, color: cs.outline.withValues(alpha: 0.2)),
+                Expanded(child: _JamInfo(label: 'Jam Pulang', jam: _fmtJam(jamKeluar), icon: Icons.logout_rounded, color: cs.error, sudah: sudahPulang)),
               ],
             ),
           ),
@@ -402,17 +447,25 @@ class _AbsenMandiriView extends StatelessWidget {
               ),
             ),
 
-          // Tombol absen
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
             child: isActionLoading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Column(
                       children: [
-                        LinearProgressIndicator(color: kPrimary, backgroundColor: Color(0xFFD1FAE5)),
-                        SizedBox(height: 8),
-                        Text('📍 Mengambil lokasi GPS...', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        LinearProgressIndicator(
+                          color: cs.primary,
+                          backgroundColor: cs.primaryContainer,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '📍 Mengambil lokasi GPS...',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
                       ],
                     ),
                   )
@@ -423,9 +476,10 @@ class _AbsenMandiriView extends StatelessWidget {
                           context: context,
                           label: sudahDatang ? 'Sudah Masuk' : 'Absen Masuk',
                           icon: Icons.login_rounded,
-                          color: kPrimary,
+                          color: cs.primary,
                           enabled: !sudahDatang,
-                          onTap: () => _absen(context, 'datang', currentStatus, currentRiwayat),
+                          onTap: () => _absen(
+                              context, 'datang', currentStatus, currentRiwayat),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -434,9 +488,10 @@ class _AbsenMandiriView extends StatelessWidget {
                           context: context,
                           label: sudahPulang ? 'Sudah Pulang' : 'Absen Pulang',
                           icon: Icons.logout_rounded,
-                          color: kDanger,
+                          color: cs.error,
                           enabled: sudahDatang && !sudahPulang,
-                          onTap: () => _confirmAbsenPulang(context, currentStatus, currentRiwayat),
+                          onTap: () => _confirmAbsenPulang(
+                              context, currentStatus, currentRiwayat),
                         ),
                       ),
                     ],
@@ -487,7 +542,7 @@ class _AbsenMandiriView extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 10),
           child: Row(
             children: [
-              const Icon(Icons.history_rounded, size: 18, color: kPrimary),
+              Icon(Icons.history_rounded, size: 18, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 6),
               Text(
                 'Riwayat Bulan Ini',
@@ -609,10 +664,10 @@ class _AbsenMandiriView extends StatelessWidget {
   }
 
   Color _badgeColor(String kehadiran) => switch (kehadiran.toLowerCase()) {
-        'hadir' => kPrimary,
+        'hadir' => Colors.green.shade600,
         'sakit' => Colors.blue.shade400,
         'izin' => Colors.amber.shade600,
-        _ => kDanger,
+        _ => Colors.red.shade600,
       };
 }
 

@@ -1,4 +1,4 @@
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 
 abstract class NetworkInfo {

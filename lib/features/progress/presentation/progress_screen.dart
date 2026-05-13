@@ -8,8 +8,7 @@ import 'riwayat_global_tab.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
-// Removed LocalDataSource import as it's no longer used here
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_cubit.dart';
@@ -35,7 +34,7 @@ class ProgressScreen extends StatelessWidget {
         BlocProvider(
           create: (_) => TahsinCubit(
             repository: TahsinRepository(
-              networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
+              networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
             ),
             activeKelompokCubit: context.read<ActiveKelompokCubit>(),
           ),

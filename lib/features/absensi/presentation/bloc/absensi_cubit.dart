@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/features/absensi/domain/repositories/absensi_repository.dart';
@@ -17,32 +18,53 @@ class AbsensiLoading extends AbsensiState {}
 class AbsenMandiriLoaded extends AbsensiState {
   final Map<String, dynamic> status;
   final List<Map<String, dynamic>> riwayat;
+
   AbsenMandiriLoaded({required this.status, required this.riwayat});
 }
 
 /// State generik untuk data berbentuk [Map] (digunakan Absen Harian & Rekap).
 class AbsensiLoaded extends AbsensiState {
   final Map<String, dynamic> data;
+
   AbsensiLoaded(this.data);
 }
 
 class AbsensiError extends AbsensiState {
   final String message;
+
   AbsensiError(this.message);
 }
 
 /// State aksi sedang berjalan (submit/post), bukan loading awal.
+/// Membawa state saat ini agar UI tidak blank selama proses.
 class AbsensiActionLoading extends AbsensiState {
   final Map<String, dynamic> status;
   final List<Map<String, dynamic>> riwayat;
+
   AbsensiActionLoading({required this.status, required this.riwayat});
+}
+
+/// State saat GPS sedang diambil — tombol menampilkan spinner GPS.
+class AbsensiGpsLoading extends AbsensiState {
+  final Map<String, dynamic> status;
+  final List<Map<String, dynamic>> riwayat;
+
+  AbsensiGpsLoading({required this.status, required this.riwayat});
 }
 
 /// State setelah submit absen mandiri berhasil — membawa pesan sukses.
 class AbsenMandiriSubmitSuccess extends AbsensiState {
   final String message;
   final bool isWarning;
-  AbsenMandiriSubmitSuccess({required this.message, this.isWarning = false});
+
+  /// [savedOffline] = true → data tersimpan di Isar, menunggu sinkronisasi.
+  final bool savedOffline;
+
+  AbsenMandiriSubmitSuccess({
+    required this.message,
+    this.isWarning = false,
+    this.savedOffline = false,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -52,7 +74,7 @@ class AbsenMandiriSubmitSuccess extends AbsensiState {
 class AbsensiCubit extends Cubit<AbsensiState> {
   final AbsensiRepository repository;
   final ActiveKelompokCubit activeKelompokCubit;
-  late final StreamSubscription _kelompokSub;
+  late final StreamSubscription<dynamic> _kelompokSub;
 
   // Simpan parameter terakhir agar bisa re-fetch saat kelompok berubah
   String _lastTanggal = '';
@@ -65,11 +87,9 @@ class AbsensiCubit extends Cubit<AbsensiState> {
   }) : super(AbsensiInitial()) {
     _kelompokSub = activeKelompokCubit.stream.listen((kelompokState) {
       if (kelompokState.activeId > 0) {
-        // Re-fetch absen harian jika parameter tersedia
         if (_lastTanggal.isNotEmpty && _lastIdKelas.isNotEmpty) {
           fetchAbsenHarian(_lastTanggal, _lastIdKelas);
         }
-        // Re-fetch mandiri jika parameter tersedia
         if (_lastIdKelompok > 0) {
           fetchAbsenMandiri(_lastIdKelompok);
         }
@@ -77,48 +97,73 @@ class AbsensiCubit extends Cubit<AbsensiState> {
     });
   }
 
-  // ── Absen Mandiri (Offline-First) ─────────────────────────────────────────
+  // ── Absen Mandiri (Offline-First + GPS-Safe) ──────────────────────────────
 
   Future<void> fetchAbsenMandiri(int idKelompok) async {
     _lastIdKelompok = idKelompok;
     emit(AbsensiLoading());
     try {
-      final resp = await repository.getStatusAbsenMandiri(idKelompok);
-      final data = resp['data'] as Map<String, dynamic>? ?? {};
-      final status = (data['status_absen'] as Map<String, dynamic>?) ?? {};
-      final rawRiwayat = data['riwayat_absen'];
-      final riwayat = _parseRiwayat(rawRiwayat);
+      final Map<String, dynamic> resp =
+          await repository.getStatusAbsenMandiri(idKelompok);
+      final Map<String, dynamic> data =
+          (resp['data'] as Map<String, dynamic>?) ?? {};
+      final Map<String, dynamic> status =
+          (data['status_absen'] as Map<String, dynamic>?) ?? {};
+      final List<Map<String, dynamic>> riwayat =
+          _parseRiwayat(data['riwayat_absen']);
       emit(AbsenMandiriLoaded(status: status, riwayat: riwayat));
     } catch (e) {
       emit(AbsensiError(_cleanMessage(e)));
     }
   }
 
+  /// Dipanggil oleh UI sebelum mengambil GPS, agar tombol langsung berubah
+  /// menjadi spinner tanpa menunggu proses async GPS selesai.
+  void setActionLoading({
+    required Map<String, dynamic> status,
+    required List<Map<String, dynamic>> riwayat,
+  }) {
+    emit(AbsensiActionLoading(status: status, riwayat: riwayat));
+  }
+
+  /// Submit absen mandiri dengan dukungan:
+  /// - GPS Loading State (tombol spinner aktif, UI tidak freeze)
+  /// - Optimistic Offline Queue (jika LAN mati, tetap "Berhasil" di UI)
+  /// - GPS Timeout: jika > 5 detik, lanjut tanpa koordinat
   Future<void> submitAbsenMandiri({
     required String tipe,
     required int idKelompok,
+    // GPS position dilewatkan dari UI setelah diambil dengan timeout
     double? lat,
     double? lng,
-    // State saat ini diperlukan agar UI tidak blank saat action loading
     required Map<String, dynamic> currentStatus,
     required List<Map<String, dynamic>> currentRiwayat,
   }) async {
     emit(AbsensiActionLoading(status: currentStatus, riwayat: currentRiwayat));
+
     try {
-      final resp = await repository.postAbsenMandiri(
+      final AbsenMandiriResult result = await repository.postAbsenMandiri(
         tipe: tipe,
         idKelompok: idKelompok,
         lat: lat,
         lng: lng,
       );
 
-      // Refresh data dari server setelah berhasil
-      await fetchAbsenMandiri(idKelompok);
+      if (!result.success) {
+        emit(AbsensiError('Gagal menyimpan absen. Silakan coba lagi.'));
+        return;
+      }
 
-      final msg = resp
-          ? '✅ Berhasil absen ${tipe == 'datang' ? 'Masuk' : 'Pulang'}'
-          : '✅ Berhasil absen ${tipe == 'datang' ? 'Masuk' : 'Pulang'}';
-      emit(AbsenMandiriSubmitSuccess(message: msg));
+      if (!result.savedOffline) {
+        // Online sukses → refresh dari server
+        await fetchAbsenMandiri(idKelompok);
+      }
+
+      emit(AbsenMandiriSubmitSuccess(
+        message: result.message,
+        isWarning: result.isWarning,
+        savedOffline: result.savedOffline,
+      ));
     } catch (e) {
       emit(AbsensiError(_cleanMessage(e)));
     }
@@ -131,7 +176,8 @@ class AbsensiCubit extends Cubit<AbsensiState> {
     _lastIdKelas = idKelas;
     emit(AbsensiLoading());
     try {
-      final data = await repository.getAbsenHarian(tanggal, idKelas);
+      final Map<String, dynamic> data =
+          await repository.getAbsenHarian(tanggal, idKelas);
       emit(AbsensiLoaded(data));
     } catch (e) {
       emit(AbsensiError(_cleanMessage(e)));
@@ -139,7 +185,7 @@ class AbsensiCubit extends Cubit<AbsensiState> {
   }
 
   Future<bool> submitAbsenMassal(Map<String, dynamic> payload) async {
-    final result = await repository.simpanAbsenMassal(payload);
+    final bool result = await repository.simpanAbsenMassal(payload);
     if (result) fetchAbsenHarian(_lastTanggal, _lastIdKelas);
     return result;
   }
@@ -153,7 +199,7 @@ class AbsensiCubit extends Cubit<AbsensiState> {
   }) async {
     emit(AbsensiLoading());
     try {
-      final data = await repository.getRekapAbsen(
+      final Map<String, dynamic> data = await repository.getRekapAbsen(
         tanggalAwal,
         tanggalAkhir,
         idKelas: idKelas,

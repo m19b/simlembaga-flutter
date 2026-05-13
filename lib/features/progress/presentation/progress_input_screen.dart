@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'widgets/evaluasi_santri_card.dart';
@@ -106,7 +106,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
     });
     try {
       final cacheKey = 'progress_input_${_selectedKelompokId}_${_selectedStatusAbsen}_${_selectedSesi}_${_tanggal.toIso8601String().split('T')[0]}';
-      final isOnline = await NetworkInfoImpl(InternetConnectionChecker.instance).isConnected;
+      final isOnline = await NetworkInfoImpl(LocalNetworkChecker()).isConnected;
       
       dynamic raw;
       
@@ -381,7 +381,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         }
       }
 
-      final isOnline = await NetworkInfoImpl(InternetConnectionChecker.instance).isConnected;
+      final isOnline = await NetworkInfoImpl(LocalNetworkChecker()).isConnected;
       
       String pesan = 'Evaluasi berhasil disimpan!';
       if (isOnline) {

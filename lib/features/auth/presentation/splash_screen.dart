@@ -35,8 +35,8 @@ class _SplashScreenState extends State<SplashScreen> {
         SharedPreferences.getInstance().then((p) => p.getString('LOGGED_IN_USER')),
       ]).timeout(const Duration(seconds: 3));
 
-      final token = results[0] as String?;
-      final userStr = results[1] as String?;
+      final token = results[0];
+      final userStr = results[1];
 
       if (!mounted) return;
 

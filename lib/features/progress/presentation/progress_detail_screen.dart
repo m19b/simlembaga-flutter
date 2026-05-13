@@ -1,16 +1,16 @@
 import 'widgets/detail_input_form_widget.dart';
 import 'package:flutter/material.dart';
 // import 'package:google_fonts/google_fonts.dart';
-import 'package:dio/dio.dart';
+
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'bottom_edit.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
+
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
-import 'package:flutter/services.dart';
+
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
-import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
+
 
 // --- Design Tokens ------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
@@ -192,76 +192,6 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     );
   }
 
-  // --- PDF & WhatsApp Actions ----------------------------------------------
-
-  Future<String?> _getLaporanPdfUrl() async {
-    try {
-      final baseUrl = (await ApiConfig.getBaseUrl()).replaceAll(
-        RegExp(r'/+$'),
-        '',
-      );
-      final nis = widget.santri['nis']?.toString() ?? '';
-      return '$baseUrl/admin/detail-pdf/$nis';
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _openPdfLaporan() async {
-    final url = await _getLaporanPdfUrl();
-    if (url == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal mendapatkan URL laporan')),
-      );
-      return;
-    }
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Tidak dapat membuka: $url')));
-    }
-  }
-
-  Future<void> _openWaContact(String phoneRaw, {required String tipe}) async {
-    if (phoneRaw.trim().isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Nomor WA ${tipe == "guru" ? "Guru" : "Wali Santri"} tidak tersedia',
-          ),
-        ),
-      );
-      return;
-    }
-
-    String phone = phoneRaw.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.startsWith('0')) phone = '62\${phone.substring(1)}';
-
-    final nama =
-        _detail?['santri']?['nama_santri']?.toString() ??
-        widget.santri['nama_santri']?.toString() ??
-        '-';
-    final nis = widget.santri['nis']?.toString() ?? '-';
-    final tingkat = _detail?['santri']?['tingkat']?.toString() ?? '-';
-
-    final String pesan = tipe == 'guru'
-        ? 'Assalamualaikum, ingin menyampaikan informasi perkembangan santri *$nama* (NIS: $nis, $tingkat).'
-        : 'Assalamualaikum, Wali ananda *$nama* (NIS: $nis). Kami dari pihak lembaga ingin menyampaikan perkembangan belajar ananda.';
-
-    final uri = Uri.parse(
-      'https://wa.me/$phone?text=\${Uri.encodeComponent(pesan)}',
-    );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tidak dapat membuka WhatsApp')),
-      );
-    }
-  }
 
   Future<void> _openWaOrangTua(
     String phoneRaw, {
@@ -449,39 +379,6 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     return const SizedBox.shrink();
   }
 
-  Widget _actionButton({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool enabled,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: enabled ? color : Colors.grey.shade300,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        ),
-        onPressed: enabled ? onPressed : null,
-        icon: Icon(icon, size: 18, color: Colors.white),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -577,8 +474,9 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
 
     final prediksiRaw = _detail?['prediksi'];
     final Map<String, dynamic> prediksi = {};
-    if (prediksiRaw is Map)
+    if (prediksiRaw is Map) {
       prediksiRaw.forEach((k, v) => prediksi[k.toString()] = v);
+    }
 
     final masalahList = _detail?['masalah_aktif'] ?? [];
     final masalah = (masalahList is List ? masalahList : [])
@@ -592,8 +490,9 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
 
     final rekapRaw = _detail?['rekap_absensi'];
     final Map<String, dynamic> rekapAbsensi = {};
-    if (rekapRaw is Map)
+    if (rekapRaw is Map) {
       rekapRaw.forEach((k, v) => rekapAbsensi[k.toString()] = v);
+    }
 
     final weeklyList = _detail?['weekly'] ?? [];
     final weekly = (weeklyList is List ? weeklyList : []).whereType<Map>().map((
@@ -831,14 +730,12 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
         double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
     final double totReg =
         double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
-    final double pctReg = totReg > 0 ? (halReg / totReg).clamp(0.0, 1.0) : 0.0;
 
     final double halLat =
         double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
-    final double _parsedTotLat =
+    final double parsedTotLat =
         double.tryParse(santri['target_latihan']?.toString() ?? '0') ?? 0;
-    final double totLat = _parsedTotLat > 0 ? _parsedTotLat : totReg;
-    final double pctLat = totLat > 0 ? (halLat / totLat).clamp(0.0, 1.0) : 0.0;
+    final double totLat = parsedTotLat > 0 ? parsedTotLat : totReg;
 
     final double halTot = halReg + halLat;
     final double maxTot = totReg + totLat;
@@ -846,7 +743,6 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
 
     final double halAks =
         double.tryParse(santri['capai_aks']?.toString() ?? '0') ?? 0;
-    final double pctAks = totReg > 0 ? (halAks / totReg).clamp(0.0, 1.0) : 0.0;
     final int jmlTes = int.tryParse(santri['jml_tes']?.toString() ?? '0') ?? 0;
 
     final rasioTotal = kec['rasioTotal'] ?? 0;
@@ -1034,9 +930,7 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
                       int.tryParse(item['jml_tes']?.toString() ?? '0') ?? 0;
                   final double sHal =
                       double.tryParse(item['hal_aks']?.toString() ?? '0') ?? 0;
-                  final double sProg = totReg > 0
-                      ? (sHal / totReg).clamp(0.0, 1.0)
-                      : 0.0;
+
                   return Column(
                     children: [
                       const SizedBox(height: 12),
@@ -1087,9 +981,9 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
   ) {
     final double totReg =
         double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
-    final double _parsedTotLat =
+    final double parsedTotLat =
         double.tryParse(santri['target_latihan']?.toString() ?? '0') ?? 0;
-    final double totLat = _parsedTotLat > 0 ? _parsedTotLat : totReg;
+    final double totLat = parsedTotLat > 0 ? parsedTotLat : totReg;
     final bool isSelesai =
         (santri['status']?.toString().toLowerCase().contains('khotam') ??
             false) ||
@@ -1418,8 +1312,7 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
                     }
                     return subRows;
                   })
-                  .expand((e) => e)
-                  .toList(),
+                  .expand((e) => e),
               // TOTAL ROW
               DataRow(
                 color: WidgetStateProperty.all(

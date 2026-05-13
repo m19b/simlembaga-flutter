@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
-import 'package:isar/isar.dart';
+
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
 

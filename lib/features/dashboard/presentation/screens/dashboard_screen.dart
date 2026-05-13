@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:intl/intl.dart';
-
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/absen_screen.dart';
@@ -46,7 +45,7 @@ class DashboardScreen extends StatelessWidget {
     return BlocProvider(
       create: (context) => DashboardCubit(
         repository: DashboardRepository(
-          networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
+          networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
           localDataSource: LocalDataSourceImpl(),
         ),
         activeKelompokCubit: context.read<ActiveKelompokCubit>(),
@@ -179,7 +178,6 @@ class _DashboardViewState extends State<_DashboardView> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(

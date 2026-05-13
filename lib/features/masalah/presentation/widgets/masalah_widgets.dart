@@ -1,10 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-const Color _kHeader = Color(0xFF0F4C2A);
 const Color _kAccent = Color(0xFF16A34A);
 const Color _kText1  = Color(0xFF111827);
-const Color _kText2  = Color(0xFF6B7280);
 
 Color masalahJenisColor(String? jenis) {
   switch (jenis) {

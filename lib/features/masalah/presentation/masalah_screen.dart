@@ -7,15 +7,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/bloc/masalah_cubit.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/widgets/masalah_widgets.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/features/masalah/domain/repositories/masalah_repository.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 
 // --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
-const Color _kBg = Color(0xFFF3F4F6);
 const Color _kText1 = Color(0xFF111827);
 const Color _kText2 = Color(0xFF6B7280);
 const Color _kAccent = Color(0xFF16A34A);
@@ -47,7 +46,7 @@ IconData _jenisIcon(String? jenis) {
   }
 }
 
-String _jenisLabel(String? jenis) => jenis ?? 'Lainnya';
+
 
 // --- Screen --------------------------------------------------------------------
 // --- Screen --------------------------------------------------------------------
@@ -60,7 +59,7 @@ class MasalahScreen extends StatelessWidget {
     return BlocProvider(
       create: (context) => MasalahCubit(
         repository: MasalahRepository(
-          networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
+          networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
           localDataSource: LocalDataSourceImpl(),
         ),
         activeKelompokCubit: context.read<ActiveKelompokCubit>(),

@@ -4,7 +4,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'bottom.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/bottom.dart';
@@ -342,9 +341,10 @@ class _AbsenScreenState extends State<AbsenScreen>
   // ==========================================
   @override
   Widget build(BuildContext context) {
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
     if (_tabController.index == 2) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF3F4F6),
+        backgroundColor: bgColor,
         appBar: _buildCustomAppBar(),
         body: const AbsenMassalTab(),
         bottomNavigationBar: _buildCustomBottomNav(),
@@ -352,10 +352,8 @@ class _AbsenScreenState extends State<AbsenScreen>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: bgColor,
       // 🔴 KUNCI ANTI GETAR UTAMA: Jangan pernah menyusutkan UI karena keyboard!
-      // Karena posisi input text kita ada di atas (aman dari tertutup keyboard),
-      // Mematikan resize ini akan membuat UI 100% kaku/stabil saat keyboard muncul.
       resizeToAvoidBottomInset: false,
       appBar: _buildCustomAppBar(),
       body: Column(
@@ -370,15 +368,18 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   PreferredSizeWidget _buildCustomAppBar() {
+    final cs = Theme.of(context).colorScheme;
+    final appBarBg = cs.primary;
+    final iconOverlay = cs.onPrimary.withValues(alpha: 0.13);
     return AppBar(
-      backgroundColor: const Color(0xFF0F4C2A),
+      backgroundColor: appBarBg,
       elevation: 0,
       title: Text(
         'Scanner Absensi',
         style: GoogleFonts.plusJakartaSans(
           fontSize: 16,
           fontWeight: FontWeight.w800,
-          color: Colors.white,
+          color: cs.onPrimary,
         ),
       ),
       centerTitle: false,
@@ -386,16 +387,12 @@ class _AbsenScreenState extends State<AbsenScreen>
         padding: const EdgeInsets.all(10.0),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.13),
+            color: iconOverlay,
             borderRadius: BorderRadius.circular(11),
           ),
           child: IconButton(
             padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              size: 18,
-              color: Colors.white,
-            ),
+            icon: Icon(Icons.arrow_back_ios_new, size: 18, color: cs.onPrimary),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -405,14 +402,11 @@ class _AbsenScreenState extends State<AbsenScreen>
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10.0),
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.13),
-                borderRadius: BorderRadius.circular(11),
-              ),
+              decoration: BoxDecoration(color: iconOverlay, borderRadius: BorderRadius.circular(11)),
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.refresh, size: 20, color: Colors.white),
-                tooltip: "Reset Kamera",
+                icon: Icon(Icons.refresh, size: 20, color: cs.onPrimary),
+                tooltip: 'Reset Kamera',
                 onPressed: () async {
                   setState(() => _isProcessing = true);
                   await _cameraController.stop();
@@ -425,20 +419,13 @@ class _AbsenScreenState extends State<AbsenScreen>
           ),
           const SizedBox(width: 8),
           Padding(
-            padding: const EdgeInsets.only(
-              right: 18.0,
-              top: 10.0,
-              bottom: 10.0,
-            ),
+            padding: const EdgeInsets.only(right: 18.0, top: 10.0, bottom: 10.0),
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.13),
-                borderRadius: BorderRadius.circular(11),
-              ),
+              decoration: BoxDecoration(color: iconOverlay, borderRadius: BorderRadius.circular(11)),
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: const Icon(Icons.flash_on, size: 20, color: Colors.white),
-                tooltip: "Senter",
+                icon: Icon(Icons.flash_on, size: 20, color: cs.onPrimary),
+                tooltip: 'Senter',
                 onPressed: () => _cameraController.toggleTorch(),
               ),
             ),
@@ -534,133 +521,88 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Widget _buildRfidNisForm() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).cardColor,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _rfidController,
-            focusNode: _rfidFocusNode,
-            keyboardType: TextInputType.none,
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFF3F4F6),
-              hintText: 'Tap RFID Scanner...',
-              hintStyle: GoogleFonts.dmSans(fontSize: 13),
-              prefixIcon: const Icon(
-                Icons.contactless,
-                color: Color(0xFF0F4C2A),
-                size: 20,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-            onSubmitted: (val) => _processScan(val),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        TextField(
+          controller: _rfidController,
+          focusNode: _rfidFocusNode,
+          keyboardType: TextInputType.none,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: cs.surfaceContainerHighest,
+            hintText: 'Tap RFID Scanner...',
+            hintStyle: GoogleFonts.dmSans(fontSize: 13),
+            prefixIcon: Icon(Icons.contactless, color: cs.primary, size: 20),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: EdgeInsets.zero,
           ),
-          const SizedBox(height: 12),
-          Autocomplete<Map<String, dynamic>>(
-            optionsBuilder: (TextEditingValue textEditingValue) async {
-              if (textEditingValue.text.length < 2) {
-                return const Iterable<Map<String, dynamic>>.empty();
-              }
-              try {
-                final results = await ApiService.cariSantri(
-                  textEditingValue.text,
-                );
-                return results.cast<Map<String, dynamic>>();
-              } catch (e) {
-                return const Iterable<Map<String, dynamic>>.empty();
-              }
-            },
-            displayStringForOption: (option) => option['nis'].toString(),
-            onSelected: (option) {
-              _processScan(option['nis'].toString());
-            },
-            fieldViewBuilder:
-                (context, textEditingController, focusNode, onFieldSubmitted) {
-                  return TextField(
-                    controller: textEditingController,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF3F4F6),
-                      hintText: 'Cari Nama Santri / Input ID Manual...',
-                      hintStyle: GoogleFonts.dmSans(fontSize: 13),
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        color: Color(0xFF0F4C2A),
-                        size: 20,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: const Icon(
-                          Icons.send,
-                          color: Color(0xFF16A34A),
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          _processScan(textEditingController.text);
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onSubmitted: (val) => _processScan(val),
-                  );
-                },
-            optionsViewBuilder: (context, onSelected, options) {
-              return Align(
-                alignment: Alignment.topLeft,
-                child: Material(
-                  elevation: 4.0,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: MediaQuery.of(context).size.width - 32,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      itemCount: options.length,
-                      separatorBuilder: (context, index) =>
-                          const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final option = options.elementAt(index);
-                        return ListTile(
-                          title: Text(
-                            option['nama_santri'] ?? '',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'NIS: ${option['nis']}',
-                            style: GoogleFonts.dmMono(
-                              fontSize: 12,
-                              color: const Color(0xFF16A34A),
-                            ),
-                          ),
-                          onTap: () => onSelected(option),
-                        );
-                      },
-                    ),
+          onSubmitted: (val) => _processScan(val),
+        ),
+        const SizedBox(height: 12),
+        Autocomplete<Map<String, dynamic>>(
+          optionsBuilder: (TextEditingValue textEditingValue) async {
+            if (textEditingValue.text.length < 2) return const Iterable<Map<String, dynamic>>.empty();
+            try {
+              final results = await ApiService.cariSantri(textEditingValue.text);
+              return results.cast<Map<String, dynamic>>();
+            } catch (e) {
+              return const Iterable<Map<String, dynamic>>.empty();
+            }
+          },
+          displayStringForOption: (option) => option['nis'].toString(),
+          onSelected: (option) => _processScan(option['nis'].toString()),
+          fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+            return TextField(
+              controller: textEditingController,
+              focusNode: focusNode,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: cs.surfaceContainerHighest,
+                hintText: 'Cari Nama Santri / Input ID Manual...',
+                hintStyle: GoogleFonts.dmSans(fontSize: 13),
+                prefixIcon: Icon(Icons.search, color: cs.primary, size: 20),
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.send, color: cs.secondary, size: 18),
+                  onPressed: () => _processScan(textEditingController.text),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: EdgeInsets.zero,
+              ),
+              onSubmitted: (val) => _processScan(val),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4.0,
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width - 32,
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final option = options.elementAt(index);
+                      return ListTile(
+                        title: Text(option['nama_santri'] ?? '', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+                        subtitle: Text('NIS: ${option['nis']}', style: GoogleFonts.dmMono(fontSize: 12, color: cs.primary)),
+                        onTap: () => onSelected(option),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
+              ),
+            );
+          },
+        ),
+      ]),
     );
   }
 
@@ -673,9 +615,9 @@ class _AbsenScreenState extends State<AbsenScreen>
       width: double.infinity,
       alignment: Alignment.topCenter,
       padding: const EdgeInsets.only(top: 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -782,9 +724,8 @@ class _AbsenScreenState extends State<AbsenScreen>
     final user = _lastScannedUser!;
     final bool isWarning = user['sudah_absen'] == true;
 
-    final Color bgColor = isWarning
-        ? Colors.orange.shade50
-        : const Color(0xFF0F4C2A);
+    final cs = Theme.of(context).colorScheme;
+    final Color bgColor = isWarning ? Colors.orange.shade50 : cs.primaryContainer;
     final IconData statusIcon = isWarning ? Icons.info_outline : Icons.check;
 
     return Padding(
@@ -822,12 +763,12 @@ class _AbsenScreenState extends State<AbsenScreen>
                   decoration: BoxDecoration(
                     color: isWarning
                         ? Colors.orange.shade200
-                        : Colors.white.withOpacity(0.2),
+                        : cs.onPrimaryContainer.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     statusIcon,
-                    color: isWarning ? Colors.orange.shade900 : Colors.white,
+                    color: isWarning ? Colors.orange.shade900 : cs.onPrimaryContainer,
                     size: 24,
                   ),
                 ),
@@ -837,13 +778,9 @@ class _AbsenScreenState extends State<AbsenScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isWarning
-                            ? 'Peringatan: Sudah Absen!'
-                            : 'Absen Masuk Berhasil!',
+                        isWarning ? 'Peringatan: Sudah Absen!' : 'Absen Masuk Berhasil!',
                         style: GoogleFonts.plusJakartaSans(
-                          color: isWarning
-                              ? Colors.orange.shade900
-                              : Colors.white,
+                          color: isWarning ? Colors.orange.shade900 : cs.onPrimaryContainer,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -853,7 +790,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                         style: GoogleFonts.dmSans(
                           color: isWarning
                               ? Colors.orange.shade800
-                              : Colors.white70,
+                              : cs.onPrimaryContainer.withValues(alpha: 0.75),
                           fontSize: 11,
                         ),
                       ),
@@ -863,7 +800,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                 Text(
                   user['jam'],
                   style: GoogleFonts.dmMono(
-                    color: isWarning ? Colors.orange.shade900 : Colors.white,
+                    color: isWarning ? Colors.orange.shade900 : cs.onPrimaryContainer,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -918,7 +855,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                         height: 1.2,
                       ),
                     ),
@@ -927,25 +864,22 @@ class _AbsenScreenState extends State<AbsenScreen>
                       'Panggilan: ${user['nama_panggilan']}',
                       style: GoogleFonts.dmSans(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                     const SizedBox(height: 8),
 
                     // NIS Badge
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
+                        color: cs.primaryContainer,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         user['identitas'],
                         style: GoogleFonts.dmMono(
-                          color: const Color(0xFF166534),
+                          color: cs.onPrimaryContainer,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),
@@ -1062,7 +996,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                                 fontSize: 13,
                                 color: isWarning
                                     ? Colors.orange.shade800
-                                    : Colors.black87,
+                                    : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           ],
@@ -1076,7 +1010,7 @@ class _AbsenScreenState extends State<AbsenScreen>
           ),
 
           const SizedBox(height: 16),
-          Divider(color: Colors.grey.shade200, thickness: 1.5),
+          Divider(color: cs.outline.withValues(alpha: 0.2), thickness: 1.5),
           const SizedBox(height: 12),
 
           // Dicatat Oleh (Bottom section)
@@ -1085,7 +1019,7 @@ class _AbsenScreenState extends State<AbsenScreen>
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: cs.secondaryContainer,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.person, color: Colors.blue, size: 16),
@@ -1139,9 +1073,6 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Widget _buildCustomBottomNav() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = Theme.of(context).colorScheme.onSurface;
-
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).padding.bottom + 6,
@@ -1153,7 +1084,7 @@ class _AbsenScreenState extends State<AbsenScreen>
         color: Theme.of(context).scaffoldBackgroundColor,
         boxShadow: [
           BoxShadow(
-            color: textColor.withValues(alpha: 0.04),
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -1171,8 +1102,7 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = Theme.of(context).colorScheme.onSurface;
+    final cs = Theme.of(context).colorScheme;
     final isSelected = _tabController.index == index;
     return InkWell(
       onTap: () => setState(() => _tabController.index = index),
@@ -1181,11 +1111,7 @@ class _AbsenScreenState extends State<AbsenScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark
-                    ? Theme.of(context).colorScheme.surfaceContainerHighest
-                    : const Color(0xFFF0FDF4))
-              : Colors.transparent,
+          color: isSelected ? cs.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -1193,9 +1119,7 @@ class _AbsenScreenState extends State<AbsenScreen>
           children: [
             Icon(
               icon,
-              color: isSelected
-                  ? (isDark ? Colors.green.shade400 : const Color(0xFF16A34A))
-                  : textColor.withValues(alpha: 0.5),
+              color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -1204,9 +1128,7 @@ class _AbsenScreenState extends State<AbsenScreen>
               style: GoogleFonts.dmSans(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? (isDark ? Colors.green.shade300 : const Color(0xFF166534))
-                    : textColor.withValues(alpha: 0.5),
+                color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],

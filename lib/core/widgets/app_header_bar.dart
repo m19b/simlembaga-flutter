@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-const Color _kHeader = Color(0xFF0F4C2A);
+import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
 
 /// AppBar kustom yang dipakai di seluruh halaman fitur (DataSantri, Masalah, dll).
 /// Menghindari duplikasi kode dekoratif yang sama persis di setiap modul.
@@ -11,15 +10,19 @@ class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final Widget? bottom;
   final double bottomHeight;
+  final Widget? customTitle;
+  final bool showBackButton;
 
   const AppHeaderBar({
     super.key,
-    required this.title,
+    this.title = '',
     this.subtitle = '',
-    this.height = 100,
+    this.height = 48,
     this.actions,
     this.bottom,
     this.bottomHeight = 0,
+    this.customTitle,
+    this.showBackButton = true,
   });
 
   @override
@@ -27,79 +30,68 @@ class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return PreferredSize(
       preferredSize: preferredSize,
-      child: Container(
-        color: _kHeader,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              // ── Dekorasi lingkaran (sama di semua layar) ──────────────
-              Positioned(right: -30, top: -30, child: _deco(150, 22)),
-              Positioned(left: -20, bottom: -20, child: _deco(100, 16)),
-              // ── Konten ────────────────────────────────────────────────
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 16, 8),
-                    child: Row(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // ── Background & Ornamen Global ────────────────
+          const Positioned.fill(
+            child: GlobalHeaderBackground(),
+          ),
+          // ── AppBar content ────────────────────────────────────
+          SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: height,
+                  child: AppBar(
+                    toolbarHeight: height,
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    foregroundColor: onPrimary,
+                    iconTheme: IconThemeData(color: onPrimary),
+                    actionsIconTheme: IconThemeData(color: onPrimary),
+                    centerTitle: false,
+                    automaticallyImplyLeading: showBackButton,
+                    leading: showBackButton ? IconButton(
+                      icon: Icon(Icons.arrow_back_ios_new_rounded, color: onPrimary, size: 20),
+                      onPressed: () => Navigator.maybePop(context),
+                    ) : null,
+                    title: customTitle ?? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (subtitle.isNotEmpty)
-                                Text(
-                                  subtitle,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                            ],
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: onPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        if (actions != null) ...actions!,
+                        if (subtitle.isNotEmpty)
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: onPrimary.withValues(alpha: 0.7),
+                              fontSize: 12,
+                            ),
+                          ),
                       ],
                     ),
+                    actions: actions,
                   ),
-                  if (bottom != null) bottom!,
-                ],
-              ),
-            ],
+                ),
+                if (bottom != null) bottom!,
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
-
-  Widget _deco(double size, double bw) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(
-        color: Colors.white.withValues(alpha: 0.10),
-        width: bw,
-      ),
-    ),
-  );
 }

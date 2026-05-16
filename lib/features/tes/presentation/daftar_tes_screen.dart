@@ -8,6 +8,7 @@ import 'bloc/tes_state.dart';
 import '../data/tes_model.dart';
 
 import '../../../../core/constants/api_config.dart';
+import '../../../../core/widgets/app_header_bar.dart';
 
 class DaftarTesScreen extends StatefulWidget {
   const DaftarTesScreen({super.key});
@@ -108,49 +109,94 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3F4F6),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF0F4C2A), // kHeaderColor
-          title: Text(
-            _currentIndex == 0 ? 'Daftar Calon Tes' : 'Riwayat Tes',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: AppHeaderBar(
+          title: _currentIndex == 0 ? 'Daftar Calon Tes' : 'Riwayat Tes',
         ),
         body: IndexedStack(
           index: _currentIndex,
           children: [_buildCalonTesTab(), _buildRiwayatTab()],
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          selectedItemColor: const Color(0xFF0F4C2A),
-          unselectedItemColor: Colors.grey.shade500,
-          backgroundColor: Colors.white,
-          elevation: 10,
-          type: BottomNavigationBarType.fixed,
-          onTap: (index) => setState(() => _currentIndex = index),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_alt_outlined),
-              activeIcon: Icon(Icons.people_alt_rounded),
-              label: 'Calon Tes',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history_rounded),
-              activeIcon: Icon(Icons.history_rounded),
-              label: 'Riwayat',
-            ),
-          ],
+        bottomNavigationBar: _buildCustomBottomNav(),
+      ),
+    );
+  }
+
+  // ─── CUSTOM BOTTOM NAV ───────────────────────────────────────────────────────
+  Widget _buildCustomBottomNav() {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom,
+        top: 2,
+        left: 4,
+        right: 4,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white.withValues(alpha: 0.18) 
+                : Colors.black.withValues(alpha: 0.08),
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildNavItem(0, Icons.people_alt_rounded, 'Calon Tes'),
+          _buildNavItem(1, Icons.history_rounded, 'Riwayat'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _currentIndex == index;
+    final primaryThemeColor = Theme.of(context).colorScheme.primary;
+    final activeColor = isSelected ? primaryThemeColor : Colors.grey;
+    
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _currentIndex = index),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (Theme.of(context).brightness == Brightness.dark
+                      ? primaryThemeColor.withValues(alpha: 0.15)
+                      : primaryThemeColor.withValues(alpha: 0.1))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: activeColor, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected 
+                      ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : primaryThemeColor) 
+                      : Colors.grey,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -200,17 +246,17 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                 item.keuangan?.adaTunggakan ?? false;
                             final bool isTerdaftar = item.isTerdaftar;
 
-                            return Card(
-                              elevation: 0,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(color: Colors.grey.shade100),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
+                              return Card(
+                                elevation: 0,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                shape: RoundedRectangleBorder(
+                                  side: BorderSide(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
                                   borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).cardColor,
+                                    borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.03),
@@ -241,9 +287,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
-                                                  color: const Color(
-                                                    0xFF1F2937,
-                                                  ),
+                                                  color: Theme.of(context).colorScheme.onSurface,
                                                 ),
                                               ),
                                               const SizedBox(height: 2),
@@ -722,7 +766,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
         // Horizontal Month Selector
         Container(
           height: 60,
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           child: ListView.builder(
             controller: _monthScrollController,
             scrollDirection: Axis.horizontal,
@@ -740,7 +784,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                   label: Text(
                     DateFormat('MMM yyyy').format(date),
                     style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey.shade700,
+                      color: isSelected ? Colors.white : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.grey.shade700),
                       fontWeight: isSelected
                           ? FontWeight.bold
                           : FontWeight.normal,
@@ -750,7 +794,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                   selectedColor: const Color(
                     0xFF0F4C2A,
                   ), // Grab-like green highlight
-                  backgroundColor: Colors.grey.shade100,
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade100,
                   side: BorderSide.none,
                   showCheckmark: false,
                   onSelected: (selected) {
@@ -807,11 +851,12 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                       elevation: 0,
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
+                        side: BorderSide(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.shade100),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
@@ -840,7 +885,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF1F2937),
+                                          color: Theme.of(context).colorScheme.onSurface,
                                         ),
                                       ),
                                       const SizedBox(height: 2),

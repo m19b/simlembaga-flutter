@@ -7,10 +7,11 @@ class ComingSoonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDF4),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF065F46),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFF065F46),
         foregroundColor: Colors.white,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
@@ -25,22 +26,22 @@ class ComingSoonScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF065F46).withOpacity(0.1),
+                  color: (isDark ? Colors.green.shade400 : const Color(0xFF065F46)).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.auto_stories_rounded,
                   size: 64,
-                  color: Color(0xFF065F46),
+                  color: isDark ? Colors.green.shade400 : const Color(0xFF065F46),
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
+              Text(
                 'Segera Hadir',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF065F46),
+                  color: isDark ? Colors.green.shade400 : const Color(0xFF065F46),
                 ),
               ),
               const SizedBox(height: 12),
@@ -49,7 +50,7 @@ class ComingSoonScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                   height: 1.6,
                 ),
               ),
@@ -57,9 +58,9 @@ class ComingSoonScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
+                  color: isDark ? Colors.amber.withOpacity(0.1) : Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.shade300),
+                  border: Border.all(color: isDark ? Colors.amber.shade700.withOpacity(0.3) : Colors.amber.shade300),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -83,7 +84,7 @@ class ComingSoonScreen extends StatelessWidget {
                 icon: const Icon(Icons.arrow_back_rounded),
                 label: const Text('Kembali'),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF065F46),
+                  foregroundColor: isDark ? Colors.green.shade400 : const Color(0xFF065F46),
                 ),
               ),
             ],

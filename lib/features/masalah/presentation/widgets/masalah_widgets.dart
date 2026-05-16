@@ -370,7 +370,9 @@ class MasalahChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: Theme.of(context).brightness == Brightness.dark 
+            ? Colors.white.withValues(alpha: 0.1) 
+            : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(

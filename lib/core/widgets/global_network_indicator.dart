@@ -13,6 +13,7 @@ class GlobalNetworkIndicator extends StatefulWidget {
 
 class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
   bool _isOnline = true;
+  bool _isChecking = false;
   late final NetworkInfo _networkInfo;
   Timer? _timer;
 
@@ -22,18 +23,24 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
     _networkInfo = NetworkInfoImpl(LocalNetworkChecker());
     _checkConnection();
 
-    // Polling setiap 3 detik agar lebih responsif terhadap perubahan status server lokal
-    _timer = Timer.periodic(const Duration(seconds: 3), (_) {
+    // Polling setiap 10 detik dengan pengecekan agar tidak bertumpuk jika server unreachable
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       _checkConnection();
     });
   }
 
   Future<void> _checkConnection() async {
-    final online = await _networkInfo.isConnected;
-    if (mounted && _isOnline != online) {
-      setState(() {
-        _isOnline = online;
-      });
+    if (_isChecking) return;
+    _isChecking = true;
+    try {
+      final online = await _networkInfo.isConnected;
+      if (mounted && _isOnline != online) {
+        setState(() {
+          _isOnline = online;
+        });
+      }
+    } finally {
+      _isChecking = false;
     }
   }
 

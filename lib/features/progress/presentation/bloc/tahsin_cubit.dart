@@ -44,13 +44,25 @@ class TahsinCubit extends Cubit<TahsinState> {
   Future<void> fetchProgressList({int? idKelompok, int? idKelas, bool forceRefresh = false}) async {
     _lastIdKelompok = idKelompok;
     _lastIdKelas = idKelas;
-    emit(TahsinLoading());
+
+    // Hanya tampilkan loading spinner saat pertama kali atau pull-to-refresh
+    // (bukan saat background refresh setelah balik dari detail)
+    final isFirstLoad = state is TahsinInitial;
+    if (forceRefresh || isFirstLoad) {
+      emit(TahsinLoading());
+    }
+
     try {
       final data = await repository.getProgressList(idKelompok: idKelompok, idKelas: idKelas, forceRefresh: forceRefresh);
       emit(TahsinLoaded(data));
     } catch (e) {
       emit(TahsinError(e.toString()));
     }
+  }
+
+  /// Reset state ke Initial agar fetchProgressList berikutnya tampilkan loading spinner
+  void resetToInitial() {
+    emit(TahsinInitial());
   }
 
   Future<bool> submitInputMassal(Map<String, dynamic> payload) async {

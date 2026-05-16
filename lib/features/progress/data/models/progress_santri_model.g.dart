@@ -48,13 +48,18 @@ const ProgressSantriModelSchema = CollectionSchema(
       name: r'nis',
       type: IsarType.string,
     ),
-    r'statusTerakhir': PropertySchema(
+    r'rawJson': PropertySchema(
       id: 6,
+      name: r'rawJson',
+      type: IsarType.string,
+    ),
+    r'statusTerakhir': PropertySchema(
+      id: 7,
       name: r'statusTerakhir',
       type: IsarType.string,
     ),
     r'tingkat': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'tingkat',
       type: IsarType.string,
     )
@@ -144,6 +149,12 @@ int _progressSantriModelEstimateSize(
     }
   }
   {
+    final value = object.rawJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.statusTerakhir;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -170,8 +181,9 @@ void _progressSantriModelSerialize(
   writer.writeString(offsets[3], object.namaKelompok);
   writer.writeString(offsets[4], object.namaSantri);
   writer.writeString(offsets[5], object.nis);
-  writer.writeString(offsets[6], object.statusTerakhir);
-  writer.writeString(offsets[7], object.tingkat);
+  writer.writeString(offsets[6], object.rawJson);
+  writer.writeString(offsets[7], object.statusTerakhir);
+  writer.writeString(offsets[8], object.tingkat);
 }
 
 ProgressSantriModel _progressSantriModelDeserialize(
@@ -188,8 +200,9 @@ ProgressSantriModel _progressSantriModelDeserialize(
   object.namaKelompok = reader.readStringOrNull(offsets[3]);
   object.namaSantri = reader.readStringOrNull(offsets[4]);
   object.nis = reader.readStringOrNull(offsets[5]);
-  object.statusTerakhir = reader.readStringOrNull(offsets[6]);
-  object.tingkat = reader.readStringOrNull(offsets[7]);
+  object.rawJson = reader.readStringOrNull(offsets[6]);
+  object.statusTerakhir = reader.readStringOrNull(offsets[7]);
+  object.tingkat = reader.readStringOrNull(offsets[8]);
   return object;
 }
 
@@ -215,6 +228,8 @@ P _progressSantriModelDeserializeProp<P>(
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
+      return (reader.readStringOrNull(offset)) as P;
+    case 8:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1508,6 +1523,160 @@ extension ProgressSantriModelQueryFilter on QueryBuilder<ProgressSantriModel,
   }
 
   QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'rawJson',
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'rawJson',
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'rawJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'rawJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'rawJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'rawJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'rawJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'rawJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'rawJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'rawJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'rawJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
+      rawJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'rawJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterFilterCondition>
       statusTerakhirIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1909,6 +2078,20 @@ extension ProgressSantriModelQuerySortBy
   }
 
   QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterSortBy>
+      sortByRawJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rawJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterSortBy>
+      sortByRawJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rawJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterSortBy>
       sortByStatusTerakhir() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusTerakhir', Sort.asc);
@@ -2038,6 +2221,20 @@ extension ProgressSantriModelQuerySortThenBy
   }
 
   QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterSortBy>
+      thenByRawJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rawJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterSortBy>
+      thenByRawJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rawJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QAfterSortBy>
       thenByStatusTerakhir() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusTerakhir', Sort.asc);
@@ -2112,6 +2309,13 @@ extension ProgressSantriModelQueryWhereDistinct
   }
 
   QueryBuilder<ProgressSantriModel, ProgressSantriModel, QDistinct>
+      distinctByRawJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'rawJson', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, ProgressSantriModel, QDistinct>
       distinctByStatusTerakhir({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'statusTerakhir',
@@ -2172,6 +2376,13 @@ extension ProgressSantriModelQueryProperty
   QueryBuilder<ProgressSantriModel, String?, QQueryOperations> nisProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'nis');
+    });
+  }
+
+  QueryBuilder<ProgressSantriModel, String?, QQueryOperations>
+      rawJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'rawJson');
     });
   }
 

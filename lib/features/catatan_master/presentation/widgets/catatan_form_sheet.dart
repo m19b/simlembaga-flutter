@@ -101,8 +101,8 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
 
     return Container(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
@@ -117,7 +117,7 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
               const SizedBox(height: 24),
               Text(
                 isEdit ? 'Edit Catatan Master' : 'Tambah Catatan Baru',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF1F2937)),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 24),
               _buildLabel('Target Kelas'),
@@ -127,7 +127,7 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
               TextFormField(
                 controller: _teksCtrl,
                 maxLines: 3,
-                decoration: _inputDecoration('Contoh: Bunyi huruf sudah fasih'),
+                decoration: _inputDecoration(context, 'Contoh: Bunyi huruf sudah fasih'),
                 style: TextStyle(fontSize: 14),
                 validator: (v) => v == null || v.isEmpty ? 'Teks tidak boleh kosong' : null,
               ),
@@ -142,7 +142,7 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
                         TextFormField(
                           controller: _urutanCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: _inputDecoration('0'),
+                          decoration: _inputDecoration(context, '0'),
                           style: TextStyle(fontSize: 14),
                         ),
                       ],
@@ -198,18 +198,20 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
   Widget _buildLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF4B5563))),
+      child: Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
+  InputDecoration _inputDecoration(BuildContext context, String hint) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       hintText: hint,
+      hintStyle: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
       filled: true,
-      fillColor: Colors.grey.shade50,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF0F4C2A))),
+      fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade50,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.green.shade400 : const Color(0xFF0F4C2A))),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
@@ -222,9 +224,9 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF374151) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade700 : Colors.grey.shade200),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(

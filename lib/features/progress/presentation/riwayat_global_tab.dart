@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
+import 'package:manajemen_tahsin_app/features/progress/presentation/bottom_edit.dart';
 
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
 
@@ -142,6 +143,68 @@ class _HariSubTabState extends State<_HariSubTab> with AutomaticKeepAliveClientM
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _handleDelete(int idPrestasi) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Riwayat?'),
+        content: const Text('Data yang dihapus tidak dapat dikembalikan.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true), 
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await ApiService.deleteProgress(idPrestasi);
+        _loadData(); // Refresh list
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Riwayat berhasil dihapus')));
+        }
+      } catch (e) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal menghapus: $e'), backgroundColor: Colors.red));
+        }
+      }
+    }
+  }
+
+  void _handleEdit(Map<String, dynamic> item) {
+    // Siapkan data untuk BottomEdit
+    final Map<String, dynamic> dataForEdit = Map.from(item);
+    // Sesuaikan nama field jika berbeda
+    dataForEdit['tgl_simak'] = item['tanggal'] ?? item['created_at'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => BottomEdit(
+        dataPrestasi: dataForEdit,
+        // Cek apakah ini riwayat hari ini atau bukan
+        onlyEditDate: DateFormat('yyyy-MM-dd').format(_selectedDate) != DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        onSave: (updatedData) async {
+          try {
+            await ApiService.updateProgress(int.parse(item['id_prestasi'].toString()), updatedData);
+            _loadData(); // Refresh
+            if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Riwayat berhasil diperbarui')));
+            }
+          } catch (e) {
+            if (mounted) {
+               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal update: $e'), backgroundColor: Colors.red));
+            }
+          }
+        },
+      ),
+    );
   }
 
   @override
@@ -314,6 +377,24 @@ class _HariSubTabState extends State<_HariSubTab> with AutomaticKeepAliveClientM
                                     ),
                                     const SizedBox(height: 4),
                                     Text(item['mode_belajar']?.toString().toUpperCase() ?? '-', style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+                                    const Spacer(),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(Icons.edit_outlined, size: 18, color: Colors.blue.shade600),
+                                          constraints: const BoxConstraints(),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () => _handleEdit(item),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        IconButton(
+                                          icon: Icon(Icons.delete_outline, size: 18, color: Colors.red.shade600),
+                                          constraints: const BoxConstraints(),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () => _handleDelete(int.parse(item['id_prestasi'].toString())),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ],

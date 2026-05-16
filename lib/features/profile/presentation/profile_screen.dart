@@ -1,12 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ProfileScreen
-// ─────────────────────────────────────────────────────────────────────────────
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -16,22 +15,22 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   // Controllers
-  final _namaTampilCtrl    = TextEditingController();
-  final _emailCtrl         = TextEditingController();
-  final _passwordCtrl      = TextEditingController();
-  final _passwordConfCtrl  = TextEditingController();
-  final _noIjazahCtrl      = TextEditingController();
-  final _noHpCtrl          = TextEditingController();
-  final _alamatCtrl        = TextEditingController();
-  final _formKey           = GlobalKey<FormState>();
+  final _namaTampilCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _passwordConfCtrl = TextEditingController();
+  final _noIjazahCtrl = TextEditingController();
+  final _noHpCtrl = TextEditingController();
+  final _alamatCtrl = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   // Visibility toggles
-  bool _obscurePass      = true;
-  bool _obscurePassConf  = true;
+  bool _obscurePass = true;
+  bool _obscurePassConf = true;
 
   // State
-  bool   _isLoadingData  = true;
-  bool   _isSaving       = false;
+  bool _isLoadingData = true;
+  bool _isSaving = false;
   String? _errorMsg;
 
   // Data dari API
@@ -41,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _jenisKelamin = 'Laki-laki';
 
   // Foto
-  File?  _pickedImageFile;
+  File? _pickedImageFile;
   String _fotoUrl = '';
 
   @override
@@ -62,26 +61,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
-  // ── Load Data ────────────────────────────────────────────────────────────────
+  // â”€â”€ Load Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _loadProfile() async {
-    setState(() { _isLoadingData = true; _errorMsg = null; });
+    setState(() {
+      _isLoadingData = true;
+      _errorMsg = null;
+    });
     try {
       final resp = await ApiService.getProfile();
       final data = resp['data'] as Map<String, dynamic>? ?? {};
       setState(() {
         _profile = data;
-        _isGuru  = data['is_guru'] == true;
-        _guru    = data['guru'] as Map<String, dynamic>?;
+        _isGuru = data['is_guru'] == true;
+        _guru = data['guru'] as Map<String, dynamic>?;
         _fotoUrl = data['foto_url']?.toString() ?? '';
 
         _namaTampilCtrl.text = data['nama_tampil']?.toString() ?? '';
-        _emailCtrl.text      = data['email']?.toString() ?? '';
+        _emailCtrl.text = data['email']?.toString() ?? '';
 
         if (_guru != null) {
           _noIjazahCtrl.text = _guru!['no_ijazah']?.toString() ?? '';
-          _noHpCtrl.text     = _guru!['no_hp']?.toString() ?? '';
-          _alamatCtrl.text   = _guru!['alamat']?.toString() ?? '';
-          _jenisKelamin      = _guru!['jenis_kelamin']?.toString() == 'Perempuan'
+          _noHpCtrl.text = _guru!['no_hp']?.toString() ?? '';
+          _alamatCtrl.text = _guru!['alamat']?.toString() ?? '';
+          _jenisKelamin = _guru!['jenis_kelamin']?.toString() == 'Perempuan'
               ? 'Perempuan'
               : 'Laki-laki';
         }
@@ -95,8 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-
-  // ── Pilih Foto ───────────────────────────────────────────────────────────────
+  // â”€â”€ Pilih Foto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _showPickImageOptions() async {
     await showModalBottomSheet(
       context: context,
@@ -111,15 +112,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40, height: 4,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.outlineVariant,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Ganti Foto Profil',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
+                Text(
+                  'Ganti Foto Profil',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -148,16 +156,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 60, height: 60,
+                              width: 60,
+                              height: 60,
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.errorContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.errorContainer,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.4)),
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.error.withValues(alpha: 0.4),
+                                ),
                               ),
-                              child: Icon(Icons.delete_outline_rounded, color: Theme.of(context).colorScheme.error, size: 28),
+                              child: Icon(
+                                Icons.delete_outline_rounded,
+                                color: Theme.of(context).colorScheme.error,
+                                size: 28,
+                              ),
                             ),
                             const SizedBox(height: 8),
-                            Text('Hapus', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.w600)),
+                            Text(
+                              'Hapus',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -193,7 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Add a small delay to let the bottom sheet close completely before opening camera/gallery
           // This often fixes the 'hang' or 'unresponsive' issue on some Android devices (MIUI/Xiaomi)
           await Future.delayed(const Duration(milliseconds: 300));
-          
+
           final picker = ImagePicker();
           final picked = await picker.pickImage(
             source: source,
@@ -209,7 +235,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 60, height: 60,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -218,30 +245,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Icon(icon, color: color, size: 28),
           ),
           const SizedBox(height: 8),
-          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // ── Simpan Profil ────────────────────────────────────────────────────────────
+  // â”€â”€ Simpan Profil â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Future<void> _simpan() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isSaving = true);
 
     try {
       final fields = <String, String>{
-        'nama_tampil'   : _namaTampilCtrl.text.trim(),
-        'email'         : _emailCtrl.text.trim(),
+        'nama_tampil': _namaTampilCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
         if (_passwordCtrl.text.isNotEmpty) ...{
-          'password'        : _passwordCtrl.text,
+          'password': _passwordCtrl.text,
           'password_confirm': _passwordConfCtrl.text,
         },
         if (_isGuru) ...{
-          'jenis_kelamin' : _jenisKelamin,
-          'no_ijazah'     : _noIjazahCtrl.text.trim(),
-          'no_hp'         : _noHpCtrl.text.trim(),
-          'alamat'        : _alamatCtrl.text.trim(),
+          'jenis_kelamin': _jenisKelamin,
+          'no_ijazah': _noIjazahCtrl.text.trim(),
+          'no_hp': _noHpCtrl.text.trim(),
+          'alamat': _alamatCtrl.text.trim(),
         },
       };
 
@@ -253,7 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Profil berhasil diperbarui ✓'),
+          content: const Text('Profil berhasil diperbarui âœ“'),
           backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
         ),
@@ -276,11 +310,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(children: [
-          Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
-          const SizedBox(width: 8),
-          const Text('Gagal Menyimpan'),
-        ]),
+        title: Row(
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 8),
+            const Text('Gagal Menyimpan'),
+          ],
+        ),
         content: Text(msg),
         actions: [
           TextButton(
@@ -292,145 +331,183 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // BUILD
-  // ─────────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   @override
   Widget build(BuildContext context) {
+    final namaGuru = _profile['nama_tampil']?.toString() ?? '-';
+    final jabatan = (_guru?['nama_jabatan']?.toString().isNotEmpty ?? false)
+        ? _guru!['nama_jabatan'].toString()
+        : (_isGuru ? 'Guru/Staff' : 'Pengelola Sistem');
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(
-        title: const Text(
-          'Pengaturan Profil',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        elevation: 0,
+      appBar: const AppHeaderBar(
+        title: 'Pengaturan Profil',
+        subtitle: 'Perbarui data dan akun',
       ),
       body: _isLoadingData
           ? const Center(child: CircularProgressIndicator())
           : _errorMsg != null
-              ? _buildError()
-              : Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildAvatarCard(),
-                        const SizedBox(height: 16),
-                        _buildAkunCard(),
-                        const SizedBox(height: 16),
-                        if (_isGuru) _buildDetailCard(),
-                        if (_isGuru) const SizedBox(height: 16),
-                        _buildReadOnlyCard(),
-                        const SizedBox(height: 24),
-                        _buildSaveButton(),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
+          ? _buildError()
+          : SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildAvatarCard(namaGuru, jabatan),
+                      const SizedBox(height: 16),
+                      _buildAkunCard(),
+                      const SizedBox(height: 16),
+                      if (_isGuru) _buildDetailCard(),
+                      if (_isGuru) const SizedBox(height: 16),
+                      _buildReadOnlyCard(),
+                      const SizedBox(height: 24),
+                      _buildSaveButton(),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
+              ),
+            ),
     );
   }
 
-  // ── Bagian 1: Avatar ─────────────────────────────────────────────────────────
-  Widget _buildAvatarCard() {
-    final namaGuru = _profile['nama_tampil']?.toString() ?? '-';
-    final jabatan  = (_guru?['nama_jabatan']?.toString().isNotEmpty ?? false)
-        ? _guru!['nama_jabatan'].toString()
-        : (_isGuru ? 'Guru/Staff' : 'Pengelola Sistem');
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-        child: Column(
-          children: [
-            // Avatar dengan kamera icon
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                GestureDetector(
-                  onTap: _showPickImageOptions,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                        width: 3,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 52,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      backgroundImage: _pickedImageFile != null
-                          ? FileImage(_pickedImageFile!) as ImageProvider
-                          : (_fotoUrl.isNotEmpty
-                              ? NetworkImage(_fotoUrl)
-                              : null),
-                      child: (_pickedImageFile == null && _fotoUrl.isEmpty)
-                          ? Icon(Icons.person, size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant)
-                          : null,
+  // ── Bagian 1: Avatar & Info Pribadi ──────────────────────────────────────────
+  Widget _buildAvatarCard(String namaGuru, String jabatan) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.black.withValues(alpha: 0.3)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.05),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Avatar
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              GestureDetector(
+                onTap: _showPickImageOptions,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.2),
+                      width: 3,
                     ),
                   ),
+                  child: CircleAvatar(
+                    radius: 44,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    backgroundImage: _pickedImageFile != null
+                        ? FileImage(_pickedImageFile!) as ImageProvider
+                        : (_fotoUrl.isNotEmpty ? NetworkImage(_fotoUrl) : null),
+                    child: (_pickedImageFile == null && _fotoUrl.isEmpty)
+                        ? Icon(
+                            Icons.person,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.primary,
+                          )
+                        : null,
+                  ),
                 ),
-                GestureDetector(
-                  onTap: _showPickImageOptions,
-                  child: Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: BoxShape.circle,
+              ),
+              GestureDetector(
+                onTap: _showPickImageOptions,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Theme.of(context).cardColor,
+                      width: 2,
                     ),
-                    child: Icon(Icons.photo_camera, color: Theme.of(context).colorScheme.onPrimary, size: 16),
+                  ),
+                  child: const Icon(
+                    Icons.photo_camera,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Nama
+          Text(
+            namaGuru,
+            style: GoogleFonts.plusJakartaSans(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Jabatan badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              jabatan,
+              style: GoogleFonts.plusJakartaSans(
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (_pickedImageFile != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  'Foto baru dipilih',
+                  style: GoogleFonts.plusJakartaSans(
+                    color: Colors.green,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            Text(namaGuru,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(jabatan,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            if (_pickedImageFile != null) ...[
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 14),
-                  const SizedBox(width: 4),
-                  Text('Foto baru dipilih',
-                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12)),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
 
-  // ── Bagian 2: Informasi Akun ──────────────────────────────────────────────────
+  // â”€â”€ Bagian 2: Informasi Akun â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildAkunCard() {
     return _SectionCard(
       title: 'Informasi Akun',
@@ -442,7 +519,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             controller: _namaTampilCtrl,
             decoration: _inputDeco('Nama lengkap', Icons.badge_outlined),
             validator: (v) => (v == null || v.trim().length < 3)
-                ? 'Minimal 3 karakter' : null,
+                ? 'Minimal 3 karakter'
+                : null,
           ),
         ),
         _LabeledField(
@@ -464,12 +542,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             controller: _passwordCtrl,
             obscureText: _obscurePass,
             decoration: _inputDeco('Min. 8 karakter', Icons.lock_outline)
-              .copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePass ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                .copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePass
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePass = !_obscurePass),
+                  ),
                 ),
-              ),
             validator: (v) {
               if (v != null && v.isNotEmpty && v.length < 8) {
                 return 'Min. 8 karakter';
@@ -484,12 +567,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             controller: _passwordConfCtrl,
             obscureText: _obscurePassConf,
             decoration: _inputDeco('Ulangi password', Icons.lock_outline)
-              .copyWith(
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassConf ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                  onPressed: () => setState(() => _obscurePassConf = !_obscurePassConf),
+                .copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassConf
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassConf = !_obscurePassConf),
+                  ),
                 ),
-              ),
             validator: (v) {
               if (_passwordCtrl.text.isNotEmpty && v != _passwordCtrl.text) {
                 return 'Password tidak cocok';
@@ -502,7 +590,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Bagian 3: Detail Pribadi (Guru saja) ─────────────────────────────────────
+  // â”€â”€ Bagian 3: Detail Pribadi (Guru saja) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildDetailCard() {
     return _SectionCard(
       title: 'Detail Pribadi & Alamat',
@@ -523,13 +611,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _LabeledField(
           label: 'Jenis Kelamin',
           child: DropdownButtonFormField<String>(
-            initialValue: _jenisKelamin,
+            value: _jenisKelamin,
             isExpanded: true, // Menghindari overflow teks
             decoration: _inputDeco('', Icons.wc_outlined).copyWith(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 14,
+              ),
             ),
-            items: ['Laki-laki', 'Perempuan'].map((e) =>
-              DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 13)))).toList(),
+            items: ['Laki-laki', 'Perempuan']
+                .map(
+                  (e) => DropdownMenuItem(
+                    value: e,
+                    child: Text(e, style: const TextStyle(fontSize: 13)),
+                  ),
+                )
+                .toList(),
             onChanged: (v) => setState(() => _jenisKelamin = v!),
           ),
         ),
@@ -546,18 +643,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: TextFormField(
             controller: _alamatCtrl,
             maxLines: 3,
-            decoration: _inputDeco('Tulis alamat tinggal...', Icons.location_on_outlined),
+            decoration: _inputDeco(
+              'Tulis alamat tinggal...',
+              Icons.location_on_outlined,
+            ),
           ),
         ),
       ],
     );
   }
 
-  // ── Bagian 4: Info Kepegawaian (Read-Only) ────────────────────────────────────
+  // â”€â”€ Bagian 4: Info Kepegawaian (Read-Only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildReadOnlyCard() {
-    final username  = _profile['username']?.toString() ?? '-';
-    final nig       = _guru?['nig']?.toString();
-    final rfid      = _guru?['rfid_code']?.toString();
+    final username = _profile['username']?.toString() ?? '-';
+    final nig = _guru?['nig']?.toString();
+    final rfid = _guru?['rfid_code']?.toString();
 
     final cs = Theme.of(context).colorScheme;
     return Container(
@@ -575,7 +675,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Icon(Icons.lock_outline, size: 16, color: cs.onSurfaceVariant),
                 const SizedBox(width: 6),
-                Text('Informasi Kepegawaian',
+                Text(
+                  'Informasi Kepegawaian',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -585,20 +686,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text('TERKUNCI',
-                    style: TextStyle(fontSize: 9, color: cs.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'TERKUNCI',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
           const Divider(height: 1),
-          _ReadOnlyRow(icon: Icons.account_circle_outlined, label: 'Username', value: username),
-          if (nig != null) _ReadOnlyRow(icon: Icons.badge_outlined, label: 'NIG', value: nig),
+          _ReadOnlyRow(
+            icon: Icons.account_circle_outlined,
+            label: 'Username',
+            value: username,
+          ),
+          if (nig != null)
+            _ReadOnlyRow(icon: Icons.badge_outlined, label: 'NIG', value: nig),
           if (rfid != null)
             _ReadOnlyRow(
               icon: Icons.nfc_rounded,
@@ -611,7 +726,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ── Bagian 5: Tombol Simpan ───────────────────────────────────────────────────
+  // â”€â”€ Bagian 5: Tombol Simpan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Widget _buildSaveButton() {
     return SizedBox(
       height: 52,
@@ -620,25 +735,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
           elevation: 2,
         ),
         child: _isSaving
             ? SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: Theme.of(context).colorScheme.onPrimary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
               )
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.save_rounded, size: 20),
                   SizedBox(width: 10),
-                  Text('Simpan Perubahan',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
+                  Text(
+                    'Simpan Perubahan',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ],
               ),
@@ -653,9 +771,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.wifi_off_rounded, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 16),
-            Text(_errorMsg!, textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+            Text(
+              _errorMsg!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _loadProfile,
@@ -674,7 +804,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   InputDecoration _inputDeco(String hint, IconData icon) => InputDecoration(
     hintText: hint,
-    prefixIcon: Icon(icon, size: 20, color: Theme.of(context).colorScheme.onSurfaceVariant),
+    prefixIcon: Icon(
+      icon,
+      size: 20,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
     filled: true,
     fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -688,21 +822,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+      borderSide: BorderSide(
+        color: Theme.of(context).colorScheme.primary,
+        width: 1.5,
+      ),
     ),
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Reusable Sub-widgets
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _SectionCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final List<Widget> children;
 
-  const _SectionCard({required this.title, required this.icon, required this.children});
+  const _SectionCard({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -714,17 +855,24 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 8),
-              Text(title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 14,
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 14),
             const Divider(height: 1),
             const SizedBox(height: 14),
@@ -749,11 +897,14 @@ class _LabeledField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
+          Text(
+            label,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 6),
@@ -783,15 +934,28 @@ class _ReadOnlyRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 10),
-          Text('$label : ',
-            style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.w600)),
+          Text(
+            '$label : ',
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           Expanded(
-            child: Text(value,
+            child: Text(
+              value,
               style: TextStyle(
                 fontSize: 12,
-                color: valueColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+                color:
+                    valueColor ??
+                    Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
               overflow: TextOverflow.ellipsis,

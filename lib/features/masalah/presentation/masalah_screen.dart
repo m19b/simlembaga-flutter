@@ -12,6 +12,8 @@ import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/features/masalah/domain/repositories/masalah_repository.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
+import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 
 // --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
@@ -77,8 +79,7 @@ class _MasalahView extends StatefulWidget {
   State<_MasalahView> createState() => _MasalahViewState();
 }
 
-class _MasalahViewState extends State<_MasalahView>
-    with SingleTickerProviderStateMixin {
+class _MasalahViewState extends State<_MasalahView> {
   // Toggle aktif vs selesai
   bool _showAktif = true;
 
@@ -93,20 +94,10 @@ class _MasalahViewState extends State<_MasalahView>
   bool _searchOpen = false;
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
-  late AnimationController _searchAnim;
-  late Animation<double> _searchScale;
 
   @override
   void initState() {
     super.initState();
-    _searchAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _searchScale = CurvedAnimation(
-      parent: _searchAnim,
-      curve: Curves.easeOutCubic,
-    );
     _searchCtrl.addListener(_onSearch);
     // Trigger fetch via Cubit setelah frame pertama selesai
     WidgetsBinding.instance.addPostFrameCallback(
@@ -119,7 +110,6 @@ class _MasalahViewState extends State<_MasalahView>
     _searchCtrl.removeListener(_onSearch);
     _searchCtrl.dispose();
     _debounce?.cancel();
-    _searchAnim.dispose();
     super.dispose();
   }
 
@@ -163,17 +153,6 @@ class _MasalahViewState extends State<_MasalahView>
     });
   }
 
-  void _toggleSearch() {
-    setState(() => _searchOpen = !_searchOpen);
-    if (_searchOpen) {
-      _searchAnim.forward();
-    } else {
-      _searchAnim.reverse();
-      _searchCtrl.clear();
-      setState(() => _filtered = _showAktif ? _allAktif : _allSelesai);
-    }
-  }
-
   // --- Build ----------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
@@ -203,8 +182,7 @@ class _MasalahViewState extends State<_MasalahView>
               : _error.isNotEmpty
                   ? _buildError()
                   : _buildBody(),
-          floatingActionButton: _buildFabs(),
-          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          bottomNavigationBar: _buildCustomBottomNav(),
         );
       },
     );
@@ -213,230 +191,173 @@ class _MasalahViewState extends State<_MasalahView>
   // --- AppBar -------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar() {
     final aktifCount = _allAktif.length;
-    final selesaiCount = _allSelesai.length;
 
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(116),
-      child: Container(
-        color: _kHeader,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              // Decorative circles
-              Positioned(right: -30, top: -30, child: _deco(150, 22)),
-              Positioned(left: -20, bottom: -20, child: _deco(100, 16)),
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 4, 8, 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Masalah Santri',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Pantau & tangani permasalahan',
-                                style: TextStyle(
-                                  color: Colors.white60,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Badge aktif
-                        if (aktifCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade600,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: Colors.white,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '$aktifCount aktif',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        const SizedBox(width: 8),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Toggle Pill
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: MasalahTogglePill(
-                      isAktif: _showAktif,
-                      aktifCount: aktifCount,
-                      selesaiCount: selesaiCount,
-                      onSwitch: _switchTab,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
+    return AppHeaderBar(
+      customTitle: _searchOpen
+          ? TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: const InputDecoration(
+                hintText: 'Cari nama/NIS/jenis...',
+                hintStyle: TextStyle(color: Colors.white54),
+                border: InputBorder.none,
               ),
-            ],
+              onChanged: (_) => _onSearch(),
+            )
+          : null,
+      title: 'Masalah Santri',
+      subtitle: _searchOpen ? '' : 'Pantau & tangani permasalahan',
+      height: 48,
+      actions: [
+        if (!_searchOpen && _showAktif)
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white),
+            tooltip: 'Tambah Masalah',
+            onPressed: _showTambahMasalahSheet,
+          ),
+        IconButton(
+          icon: Icon(
+            _searchOpen ? Icons.close_rounded : Icons.search_rounded,
+            color: Colors.white,
+          ),
+          tooltip: 'Pencarian',
+          onPressed: () {
+            if (_searchOpen) {
+              _searchCtrl.clear();
+              setState(() {
+                _searchOpen = false;
+                _filtered = _showAktif ? _allAktif : _allSelesai;
+              });
+            } else {
+              setState(() {
+                _searchOpen = true;
+              });
+            }
+          },
+        ),
+        if (aktifCount > 0 && !_searchOpen)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).extension<AppCustomStyles>()?.error ?? Colors.red.shade600,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  '$aktifCount aktif',
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  // --- Custom Bottom Nav --------------------------------------------------------
+  Widget _buildCustomBottomNav() {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom,
+        top: 2,
+        left: 4,
+        right: 4,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white.withValues(alpha: 0.18) 
+                : Colors.black.withValues(alpha: 0.08),
+            width: 1,
           ),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildNavItem(true, Icons.warning_amber_rounded, 'Aktif', _allAktif.length),
+          _buildNavItem(false, Icons.check_circle_outline_rounded, 'Selesai', _allSelesai.length),
+        ],
       ),
     );
   }
 
-  Widget _deco(double size, double bw) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(color: Colors.white.withAlpha(18), width: bw),
-    ),
-  );
-
-  // --- FABs ---------------------------------------------------------------------
-  Widget _buildFabs() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Search bar popup
-        AnimatedBuilder(
-          animation: _searchScale,
-          builder: (_, __) => Transform.scale(
-            scale: _searchScale.value,
-            alignment: Alignment.bottomRight,
-            child: Opacity(
-              opacity: _searchScale.value.clamp(0.0, 1.0),
-              child: Container(
-                width: 280,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(20),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+  Widget _buildNavItem(bool isAktifType, IconData icon, String label, int count) {
+    final isSelected = _showAktif == isAktifType;
+    final clr = isAktifType ? Colors.red.shade400 : _kAccent;
+    final primaryThemeColor = Theme.of(context).colorScheme.primary;
+    
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          _switchTab(isAktifType);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (Theme.of(context).brightness == Brightness.dark
+                      ? clr.withValues(alpha: 0.15)
+                      : clr.withValues(alpha: 0.1))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? clr : Colors.grey,
+                size: 20,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : primaryThemeColor) : Colors.grey,
                 ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  style: TextStyle(fontSize: 14, color: _kText1),
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama, NIS, atau jenisï¿½',
-                    hintStyle: TextStyle(color: _kText2, fontSize: 13),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: _kAccent,
-                      size: 20,
-                    ),
-                    suffixIcon: _searchCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.clear_rounded,
-                              size: 18,
-                              color: _kText2,
-                            ),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(
-                                () => _filtered = _showAktif
-                                    ? _allAktif
-                                    : _allSelesai,
-                              );
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+              ),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected ? clr : Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ),
-            ),
+              ],
+            ],
           ),
         ),
-        // Tombol-tombol FAB
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Tambah masalah ï¿½ hanya di tab aktif
-            if (!_searchOpen && _showAktif)
-              FloatingActionButton.extended(
-                heroTag: 'tambah',
-                onPressed: () => _showTambahMasalahSheet(),
-                backgroundColor: _kHeader,
-                elevation: 4,
-                icon: const Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                label: Text(
-                  'Tambah Masalah',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            if (!_searchOpen && _showAktif) const SizedBox(width: 12),
-            // Search FAB
-            FloatingActionButton(
-              heroTag: 'search',
-              onPressed: _toggleSearch,
-              backgroundColor: _searchOpen ? Colors.red.shade400 : _kAccent,
-              elevation: 4,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  _searchOpen ? Icons.close_rounded : Icons.search_rounded,
-                  key: ValueKey(_searchOpen),
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 

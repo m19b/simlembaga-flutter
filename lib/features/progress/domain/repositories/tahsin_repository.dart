@@ -266,7 +266,12 @@ Map<String, dynamic> _parseProgressList(Map<String, dynamic> args) {
     'checkpoints': actualData['checkpoints'] ?? actualData['t_kelas_checkpoint'],
   };
 
-  final rawList = actualData['santri_list'];
+  var rawList = actualData['santri_list'];
+  // Handle pagination wrap
+  if (rawList is Map && rawList.containsKey('data')) {
+    rawList = rawList['data'];
+  }
+
   if (rawList is List) {
     for (var e in rawList) {
       if (e is Map<String, dynamic>) {

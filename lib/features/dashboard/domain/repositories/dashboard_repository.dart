@@ -13,14 +13,14 @@ class DashboardRepository {
     required this.localDataSource,
   });
 
-  Future<DashboardModel> getDashboardData({bool forceRefresh = false}) async {
-    const cacheKey = 'dashboard_data_cache';
+  Future<DashboardModel> getDashboardData({bool forceRefresh = false, int? idKategori}) async {
+    final cacheKey = 'dashboard_data_cache_${idKategori ?? 0}';
 
     final isConnected = await networkInfo.isConnected;
 
     if (isConnected) {
       try {
-        final Map<String, dynamic> responseData = await ApiService.getDashboardGuru();
+        final Map<String, dynamic> responseData = await ApiService.getDashboardGuru(idKategori: idKategori);
         
         // Backend CI4 membungkus data dalam key 'data'
         final Map<String, dynamic> payload =
@@ -30,6 +30,16 @@ class DashboardRepository {
 
         // Simpan ke Cache (simpan payload saja, bukan wrapper)
         await localDataSource.cacheData(cacheKey, payload);
+
+        // DEBUG: trace nama_kelas dari API
+        assert(() {
+          debugPrint('=== DASHBOARD API PAYLOAD ===');
+          debugPrint('nama_kelas  : ${payload['nama_kelas']}');
+          debugPrint('nama_kelompok: ${payload['nama_kelompok']}');
+          debugPrint('id_kategori : ${payload['id_kategori']}');
+          debugPrint('total_santri: ${payload['summary']?['total_santri']}');
+          return true;
+        }());
         
         return DashboardModel.fromJson(payload);
       } catch (e, stackTrace) {

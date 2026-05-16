@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/bottom.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 
 enum ScanState { waiting, success }
 
@@ -346,7 +347,16 @@ class _AbsenScreenState extends State<AbsenScreen>
       return Scaffold(
         backgroundColor: bgColor,
         appBar: _buildCustomAppBar(),
-        body: const AbsenMassalTab(),
+        body: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: const AbsenMassalTab(),
+        ),
         bottomNavigationBar: _buildCustomBottomNav(),
       );
     }
@@ -369,43 +379,19 @@ class _AbsenScreenState extends State<AbsenScreen>
 
   PreferredSizeWidget _buildCustomAppBar() {
     final cs = Theme.of(context).colorScheme;
-    final appBarBg = cs.primary;
-    final iconOverlay = cs.onPrimary.withValues(alpha: 0.13);
-    return AppBar(
-      backgroundColor: appBarBg,
-      elevation: 0,
-      title: Text(
-        'Scanner Absensi',
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-          color: cs.onPrimary,
-        ),
-      ),
-      centerTitle: false,
-      leading: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: iconOverlay,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: IconButton(
-            padding: EdgeInsets.zero,
-            icon: Icon(Icons.arrow_back_ios_new, size: 18, color: cs.onPrimary),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-      ),
+    final iconOverlay = Colors.white.withValues(alpha: 0.15);
+
+    return AppHeaderBar(
+      title: 'Scanner Absensi',
       actions: [
         if (_tabController.index == 0) ...[
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Container(
               decoration: BoxDecoration(color: iconOverlay, borderRadius: BorderRadius.circular(11)),
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: Icon(Icons.refresh, size: 20, color: cs.onPrimary),
+                icon: const Icon(Icons.refresh, size: 20, color: Colors.white),
                 tooltip: 'Reset Kamera',
                 onPressed: () async {
                   setState(() => _isProcessing = true);
@@ -419,12 +405,12 @@ class _AbsenScreenState extends State<AbsenScreen>
           ),
           const SizedBox(width: 8),
           Padding(
-            padding: const EdgeInsets.only(right: 18.0, top: 10.0, bottom: 10.0),
+            padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
             child: Container(
               decoration: BoxDecoration(color: iconOverlay, borderRadius: BorderRadius.circular(11)),
               child: IconButton(
                 padding: EdgeInsets.zero,
-                icon: Icon(Icons.flash_on, size: 20, color: cs.onPrimary),
+                icon: const Icon(Icons.flash_on, size: 20, color: Colors.white),
                 tooltip: 'Senter',
                 onPressed: () => _cameraController.toggleTorch(),
               ),
@@ -436,9 +422,15 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Widget _buildCameraViewport() {
-    return SizedBox(
+    return Container(
+      margin: const EdgeInsets.all(16),
       height: 240,
       width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      clipBehavior: Clip.hardEdge,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -523,7 +515,12 @@ class _AbsenScreenState extends State<AbsenScreen>
   Widget _buildRfidNisForm() {
     final cs = Theme.of(context).colorScheme;
     return Container(
-      color: Theme.of(context).cardColor,
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         TextField(
@@ -618,6 +615,7 @@ class _AbsenScreenState extends State<AbsenScreen>
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5))),
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -1075,16 +1073,24 @@ class _AbsenScreenState extends State<AbsenScreen>
   Widget _buildCustomBottomNav() {
     return Container(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).padding.bottom + 6,
-        top: 10,
-        left: 20,
-        right: 20,
+        bottom: MediaQuery.of(context).padding.bottom,
+        top: 2,
+        left: 0,
+        right: 0,
       ),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white.withValues(alpha: 0.18) 
+                : Colors.black.withValues(alpha: 0.08),
+            width: 1,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -1093,44 +1099,55 @@ class _AbsenScreenState extends State<AbsenScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildNavItem(0, Icons.qr_code_scanner, 'Scan QR'),
-          _buildNavItem(1, Icons.credit_card, 'RFID & NIS'),
-          _buildNavItem(2, Icons.group_add, 'Massal Santri'),
+          Expanded(child: _buildNavItem(0, Icons.qr_code_scanner, 'Scan QR')),
+          Expanded(child: _buildNavItem(1, Icons.credit_card, 'RFID & NIS')),
+          Expanded(child: _buildNavItem(2, Icons.group_add, 'Massal Santri')),
         ],
       ),
     );
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
-    final cs = Theme.of(context).colorScheme;
     final isSelected = _tabController.index == index;
     return InkWell(
       onTap: () => setState(() => _tabController.index = index),
       borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
         decoration: BoxDecoration(
-          color: isSelected ? cs.primaryContainer : Colors.transparent,
+          color: isSelected
+              ? (Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
+                    : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1))
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
-              size: 24,
+              color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey,
+              size: 20,
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.dmSans(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
+            const SizedBox(width: 4),
+            if (isSelected || MediaQuery.of(context).size.width > 360)
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected 
+                        ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).colorScheme.primary) 
+                        : Colors.grey,
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),

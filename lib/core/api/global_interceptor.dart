@@ -13,6 +13,9 @@ class GlobalInterceptor extends Interceptor {
   // Custom header name untuk CI4 Token
   static const String _authHeaderKey = 'Authorization';
 
+  // Lock flag untuk mencegah multiple 401 redirect secara serentak
+  static bool _isHandling401 = false;
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     // Ambil token dari secure storage
@@ -41,6 +44,12 @@ class GlobalInterceptor extends Interceptor {
 
     // Jika server mengembalikan 401 Unauthorized dan BUKAN sedang login, berarti sesi/token habis
     if (err.response?.statusCode == 401 && !isLoginRequest) {
+      if (_isHandling401) {
+        // Abaikan atau buang error agar tidak membuat multiple navigasi yang memicu ANR
+        return handler.next(err);
+      }
+      _isHandling401 = true;
+
       try {
         final dio = Dio(BaseOptions(baseUrl: err.requestOptions.baseUrl));
         // Try Silent Refresh
@@ -60,6 +69,11 @@ class GlobalInterceptor extends Interceptor {
         }
       } catch (_) {
          await _handleUnauthorized();
+      } finally {
+        // Reset flag setelah beberapa detik, untuk memungkinkan login ulang kembali di masa depan
+        Future.delayed(const Duration(seconds: 3), () {
+          _isHandling401 = false;
+        });
       }
 
       // Ubah pesan error menjadi lebih ramah agar tidak diproses lagi oleh penangkap standar

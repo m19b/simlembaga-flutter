@@ -4,11 +4,9 @@ import 'package:flutter/material.dart';
 // import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:manajemen_tahsin_app/features/santri/presentation/bloc/santri_cubit.dart';
 import 'package:manajemen_tahsin_app/features/santri/domain/repositories/santri_repository.dart';
-
-// --- Design Tokens -------------------------------------------------------------
-const Color _kHeader = Color(0xFF0F4C2A);
 
 const Color _kText1 = Color(0xFF111827);
 const Color _kText2 = Color(0xFF6B7280);
@@ -217,100 +215,32 @@ class _DataSantriScreenState extends State<DataSantriScreen>
     );
   }
 
-  // --- AppBar ------------------------------------------------------------------
   PreferredSizeWidget _buildAppBar() {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(100),
-      child: Container(
-        color: _kHeader,
-        child: SafeArea(
-          child: Stack(
+    return AppHeaderBar(
+      title: 'Data Santri',
+      subtitle: 'Manajemen data santri lembaga',
+      actions: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          margin: const EdgeInsets.only(right: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
             children: [
-              Positioned(right: -30, top: -30, child: _deco(150, 22)),
-              Positioned(left: -20, bottom: -20, child: _deco(100, 16)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 16, 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: _kWhite,
-                        size: 20,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Data Santri',
-                            style: TextStyle(
-                              color: _kWhite,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Manajemen data santri lembaga',
-                            style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.people_outline,
-                            color: Colors.white70,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_allSantri.length} Santri',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              const Icon(Icons.people_outline, color: Colors.white70, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '${_allSantri.length} Santri',
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
-
-  Widget _deco(double size, double borderW) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      border: Border.all(
-        color: Colors.white.withValues(alpha: 0.1),
-        width: borderW,
-      ),
-    ),
-  );
 
   // --- Search FAB --------------------------------------------------------------
   Widget _buildSearchFab() {

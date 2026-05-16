@@ -13,21 +13,21 @@ import 'widgets/evaluasi_santri_card.dart';
 
 // --- Design Tokens (Islamic Emerald) ---------------------------------------------
 const Color _kHeader = Color(0xFF047857); // Emerald 700
-const Color _kText1 = Color(0xFF111827);
 const Color _kText2 = Color(0xFF6B7280);
 const Color _kAccent = Color(0xFF10B981); // Emerald 500
 
 // --- Data Model per baris evaluasi --------------------------------------------
 class ProgressInputScreen extends StatefulWidget {
   const ProgressInputScreen({super.key});
+
   @override
-  State<ProgressInputScreen> createState() => _ProgressInputScreenState();
+  State<ProgressInputScreen> createState() => ProgressInputScreenState();
 }
 
 // Sort modes
 enum _SortMode { urut, halaman, abjad }
 
-class _ProgressInputScreenState extends State<ProgressInputScreen>
+class ProgressInputScreenState extends State<ProgressInputScreen>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -46,7 +46,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
   final TextEditingController _globalKeteranganPeragaCtrl =
       TextEditingController();
   bool _loading = true;
-  bool _saving = false;
+
   String _error = '';
   DateTime _tanggal = DateTime.now();
   _SortMode _sortMode = _SortMode.urut;
@@ -57,6 +57,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
   int? _selectedSesi;
   String _selectedTingkat = 'Semua';
   String _selectedStatusAbsen = 'semua'; // Filter kelas/tingkat
+  bool _showFilter = false;
 
   // Label hari dan sesi
   static const _hariLabel = {
@@ -105,11 +106,12 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
       _rows = [];
     });
     try {
-      final cacheKey = 'progress_input_${_selectedKelompokId}_${_selectedStatusAbsen}_${_selectedSesi}_${_tanggal.toIso8601String().split('T')[0]}';
+      final cacheKey =
+          'progress_input_${_selectedKelompokId}_${_selectedStatusAbsen}_${_selectedSesi}_${_tanggal.toIso8601String().split('T')[0]}';
       final isOnline = await NetworkInfoImpl(LocalNetworkChecker()).isConnected;
-      
+
       dynamic raw;
-      
+
       if (isOnline) {
         final resp = await ApiService.getProgressList(
           idKelompok: _selectedKelompokId,
@@ -118,7 +120,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
           tanggal: DateFormat('yyyy-MM-dd').format(_tanggal),
         );
         raw = resp['data'];
-        
+
         // Simpan ke cache untuk offline
         if (raw != null) {
           await LocalDataSourceImpl().cacheData(cacheKey, resp);
@@ -179,7 +181,9 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         }
         // Compute global show flags
         _showMetode = _kelasSettings.values.any(
-          (s) => (int.tryParse(s['is_metode_belajar']?.toString() ?? '0') ?? 0) == 1,
+          (s) =>
+              (int.tryParse(s['is_metode_belajar']?.toString() ?? '0') ?? 0) ==
+              1,
         );
         _showPeraga = _kelasSettings.values.any(
           (s) => (int.tryParse(s['is_peraga']?.toString() ?? '0') ?? 0) == 1,
@@ -187,7 +191,10 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         // Set default metode from first kelas that has it
         if (_showMetode && _globalMetodeId == null) {
           final ks = _kelasSettings.values.firstWhere(
-            (s) => (int.tryParse(s['is_metode_belajar']?.toString() ?? '0') ?? 0) == 1,
+            (s) =>
+                (int.tryParse(s['is_metode_belajar']?.toString() ?? '0') ??
+                    0) ==
+                1,
             orElse: () => {},
           );
           final defMetode =
@@ -244,8 +251,11 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         final totalHal =
             double.tryParse(s['total_hal']?.toString() ?? '0') ?? 0;
         final latSek = double.tryParse(s['lat_sek']?.toString() ?? '0') ?? 0;
-        final capaiAks = double.tryParse(
-              (s['capai_aks'] ?? s['capaiAks'])?.toString() ?? '0') ?? 0;
+        final capaiAks =
+            double.tryParse(
+              (s['capai_aks'] ?? s['capaiAks'])?.toString() ?? '0',
+            ) ??
+            0;
         final jmlTes = int.tryParse(s['jml_tes']?.toString() ?? '0') ?? 0;
 
         final nextCP = s['nextCheckpoint'];
@@ -260,17 +270,34 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         String modeBelajar;
         double halAwal;
         final String lastMode = s['last_mode']?.toString() ?? '';
+        final String lastStatus = s['last_status']?.toString() ?? '';
+        final double lastHalAkhir = double.tryParse(s['last_hal_akhir']?.toString() ?? '0') ?? 0;
+        
         // Deteksi akselerasi: jmlTes > 0 (gagal tes) ATAU capai_aks > 0 ATAU last mode = akselerasi
-        final bool isAkselerasi = jmlTes > 0 || capaiAks > 0 || lastMode == 'akselerasi';
+        final bool isAkselerasi =
+            jmlTes > 0 || capaiAks > 0 || lastMode == 'akselerasi';
+            
         if (isAkselerasi) {
           modeBelajar = 'akselerasi';
-          halAwal = capaiAks;
+          if (lastMode == 'akselerasi' && lastHalAkhir > 0) {
+            halAwal = lastStatus.toLowerCase() == 'lulus' ? lastHalAkhir : (lastHalAkhir - (double.tryParse(s['last_hal_total']?.toString() ?? '0') ?? 0));
+          } else {
+            halAwal = capaiAks;
+          }
         } else if (isLatihan) {
           modeBelajar = 'latihan';
-          halAwal = latSek;
+          if (lastMode == 'latihan' && lastHalAkhir > 0) {
+            halAwal = lastStatus.toLowerCase() == 'lulus' ? lastHalAkhir : (lastHalAkhir - (double.tryParse(s['last_hal_total']?.toString() ?? '0') ?? 0));
+          } else {
+            halAwal = latSek;
+          }
         } else {
           modeBelajar = 'reguler';
-          halAwal = capaiHal;
+          if (lastMode == 'reguler' && lastHalAkhir > 0) {
+            halAwal = lastStatus.toLowerCase() == 'lulus' ? lastHalAkhir : (lastHalAkhir - (double.tryParse(s['last_hal_total']?.toString() ?? '0') ?? 0));
+          } else {
+            halAwal = capaiHal;
+          }
         }
 
         final row = RowStateModel(
@@ -306,7 +333,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
     }
   }
 
-  Future<void> _simpan() async {
+  Future<void> simpan() async {
     // Hanya ambil data dari baris yang sedang ditampilkan (filter aktif)
     final aktif = _sortedRows.where((r) => r.halTotal > 0).toList();
     if (aktif.isEmpty) {
@@ -363,7 +390,6 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
       if (confirm != true) return;
     }
 
-    setState(() => _saving = true);
     try {
       final payload = <String, dynamic>{
         'tanggal': DateFormat('yyyy-MM-dd').format(_tanggal),
@@ -382,16 +408,19 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
       }
 
       final isOnline = await NetworkInfoImpl(LocalNetworkChecker()).isConnected;
-      
+
       String pesan = 'Evaluasi berhasil disimpan!';
       if (isOnline) {
         final res = await ApiService.inputMassalProgress(payload);
         if (res['message'] != null) pesan = res['message'];
       } else {
-        await LocalDataSourceImpl().enqueueRequest('api/guru/progress/input-massal', payload);
+        await LocalDataSourceImpl().enqueueRequest(
+          'api/guru/progress/input-massal',
+          payload,
+        );
         pesan = 'Anda sedang offline. Data dimasukkan ke antrean sinkronisasi!';
       }
-      
+
       if (!mounted) return;
 
       _simpanCount++;
@@ -430,7 +459,7 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         ),
       );
     } finally {
-      if (mounted) setState(() => _saving = false);
+      // Nothing
     }
   }
 
@@ -443,308 +472,16 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         ? _buildError()
         : _buildBody();
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: _kHeader,
-        foregroundColor: Colors.white,
-        centerTitle: false,
-        title: const Text(
-          'Evaluasi',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          if (!_loading && _error.isEmpty) ...[
-            if (_jadwalInfo != null)
-              SizedBox(
-                height: 32,
-                child: Container(
-                alignment: Alignment.center,
-                margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: _jadwalList.length > 1
-                    ? DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: _jadwalInfo!['sesi'],
-                          isDense: true,
-                          icon: const Icon(Icons.arrow_drop_down, color: _kHeader, size: 16),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _kHeader,
-                          ),
-                          onChanged: (int? newValue) {
-                            if (newValue != null) {
-                              setState(() {
-                                _selectedSesi = newValue;
-                              });
-                              _loadSantri();
-                            }
-                          },
-                          items: _jadwalList.map((jdwl) {
-                            return DropdownMenuItem<int>(
-                              value: jdwl['sesi'],
-                              child: Text('${_hariLabel[jdwl['hari']] ?? ''} - ${_sesiLabel[jdwl['sesi']] ?? ''}'),
-                            );
-                          }).toList(),
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Text(
-                          '${_hariLabel[_jadwalInfo!['hari']] ?? ''} - ${_sesiLabel[_jadwalInfo!['sesi']] ?? ''}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _kHeader,
-                          ),
-                        ),
-                      ),
-                ),
-              ),
-
-            // -- Tanggal (Di Kanan Atas) --
-            CustomDateField(
-              selectedDate: _tanggal,
-              isCompact: true,
-              isWhite: true,
-              onDateSelected: (date) {
-                if (date != null && date != _tanggal) {
-                  setState(() {
-                    _tanggal = date;
-                    _selectedSesi = null; // reset sesi agar menyesuaikan hari baru
-                  });
-                  _loadSantri();
-                }
-              },
-            ),
-
-            // -- Simpan Button --
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: TextButton.icon(
-                onPressed: _saving ? null : _simpan,
-                style: TextButton.styleFrom(
-                  backgroundColor: Theme.of(context).cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                ),
-                icon: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: _kHeader,
-                        ),
-                      )
-                    : const Icon(Icons.save, color: _kHeader, size: 18),
-                label: const Text(
-                  'Simpan',
-                  style: TextStyle(
-                    color: _kHeader,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-      body: Column(
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Column(
         children: [
-          // -- Sub-header: Sort, Decimal Toggle, Hari/Sesi --
-          if (!_loading && _error.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                border: Border(
-                  bottom: BorderSide(color: Theme.of(context).dividerColor),
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Sort button
-                  IconButton(
-                    tooltip: 'Urutkan',
-                    onPressed: _showSortMenu,
-                    icon: Stack(
-                      children: [
-                        const Icon(
-                          Icons.sort_rounded,
-                          color: _kHeader,
-                          size: 22,
-                        ),
-                        if (_sortMode != _SortMode.urut)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade400,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Decimal Toggle
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => _isDecimalMode = !_isDecimalMode),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _isDecimalMode
-                            ? Colors.orange.shade50
-                            : Theme.of(context).brightness == Brightness.dark
-                            ? const Color(0xFF374151)
-                            : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _isDecimalMode
-                              ? Colors.orange.shade300
-                              : Theme.of(context).dividerColor,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _isDecimalMode
-                                ? Icons.adjust_rounded
-                                : Icons.circle_outlined,
-                            size: 14,
-                            color: _isDecimalMode
-                                ? Colors.orange.shade700
-                                : Colors.grey.shade700,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _isDecimalMode ? '0.5' : '1.0',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: _isDecimalMode
-                                  ? Colors.orange.shade700
-                                  : Colors.grey.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Status Absen Filter
-                  const SizedBox(width: 8),
-                  Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Theme.of(context).dividerColor),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedStatusAbsen,
-                        isDense: true,
-                        icon: const Icon(Icons.arrow_drop_down, size: 16),
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedStatusAbsen = val);
-                            _loadSantri();
-                          }
-                        },
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'semua',
-                            child: Text('Semua Santri'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'kecuali_izin_sakit',
-                            child: Text('Kecuali Izin/Sakit'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'hanya_hadir',
-                            child: Text('Hanya Hadir'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Tingkat Filter
-                  if (_tingkatOptions.length > 2) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      height: 26,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).dividerColor,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedTingkat,
-                          isDense: true,
-                          icon: const Icon(Icons.arrow_drop_down, size: 16),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                          onChanged: (val) {
-                            if (val != null)
-                              setState(() => _selectedTingkat = val);
-                          },
-                          items: _tingkatOptions.map((e) {
-                            return DropdownMenuItem(
-                              value: e,
-                              child: Text(e == 'Semua' ? 'Semua Kelas' : e),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
           // Main Body
           Expanded(child: body),
         ],
       ),
     );
   }
-
 
   // --- Sort & Filter --------------------------------------------------------
   List<RowStateModel> get _sortedRows {
@@ -815,7 +552,11 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
                       : mode == _SortMode.halaman
                       ? Icons.menu_book_rounded
                       : Icons.sort_by_alpha_rounded,
-                  color: _sortMode == mode ? _kHeader : _kText2,
+                  color: _sortMode == mode
+                      ? _kHeader
+                      : Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
                   size: 20,
                 ),
                 title: Text(
@@ -826,7 +567,9 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
                       : 'Abjad Aâ€“Z',
                   style: TextStyle(
                     fontSize: 13,
-                    color: _sortMode == mode ? _kHeader : _kText1,
+                    color: _sortMode == mode
+                        ? _kHeader
+                        : Theme.of(context).colorScheme.onSurface,
                     fontWeight: _sortMode == mode
                         ? FontWeight.bold
                         : FontWeight.normal,
@@ -914,209 +657,535 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
         ),
       );
     }
-    // Global pengaturan (metode & peraga)
-    Widget globalBar = const SizedBox.shrink();
-    if (_showMetode || _showPeraga) {
-      globalBar = StatefulBuilder(
-        builder: (_, setGlobal) => Container(
-          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: const Border(
-              top: BorderSide(color: Color(0xFF10B981), width: 4),
+    // Global pengaturan (metode & peraga) dan Filter
+    Widget globalBar = StatefulBuilder(
+      builder: (_, setGlobal) => Container(
+        margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey.shade900.withValues(alpha: 0.8)
+              : Colors.white.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
+          ],
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.05),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _showFilter = !_showFilter;
+                });
+              },
+              child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50.withValues(alpha: 0.5),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(8),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.green.shade50.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.vertical(
+                    top: const Radius.circular(8),
+                    bottom: Radius.circular(_showFilter ? 0 : 8),
                   ),
                   border: Border(
-                    bottom: BorderSide(color: Colors.green.shade100),
+                    bottom: BorderSide(
+                      color: _showFilter
+                          ? (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey.shade800
+                                : Colors.green.shade100)
+                          : Colors.transparent,
+                    ),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.menu_book_rounded,
+                      Icons.settings_suggest_rounded,
                       size: 20,
-                      color: Colors.green.shade700,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.green.shade400
+                          : Colors.green.shade800,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Pembelajaran (Berlaku Semua Santri)',
+                      'Pengaturan & Filter',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.green.shade400
+                            : Colors.green.shade800,
                         fontSize: 13,
                       ),
+                    ),
+                    const Spacer(),
+                    // Simpan button moved to AppBar
+                    Icon(
+                      _showFilter
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.green.shade400
+                          : Colors.green.shade800,
                     ),
                   ],
                 ),
               ),
+            ),
+            if (_showFilter)
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 8,
+                  vertical: 12,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // --- Tanggal & Jadwal Sesi ---
                     Row(
                       children: [
-                        if (_showMetode && _metodeList.isNotEmpty) ...[
+                        if (_jadwalInfo != null)
                           Expanded(
                             child: Container(
                               height: 32,
+                              alignment: Alignment.centerLeft,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: _jadwalList.length > 1
+                                  ? DropdownButtonHideUnderline(
+                                      child: DropdownButton<int>(
+                                        value: _jadwalInfo!['sesi'],
+                                        isDense: true,
+                                        isExpanded: true,
+                                        icon: Icon(
+                                          Icons.arrow_drop_down,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                          size: 16,
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                        onChanged: (int? newValue) {
+                                          if (newValue != null) {
+                                            setState(
+                                              () => _selectedSesi = newValue,
+                                            );
+                                            _loadSantri();
+                                          }
+                                        },
+                                        items: _jadwalList.map((jdwl) {
+                                          return DropdownMenuItem<int>(
+                                            value: jdwl['sesi'],
+                                            child: Text(
+                                              '${_hariLabel[jdwl['hari']] ?? ''} - ${_sesiLabel[jdwl['sesi']] ?? ''}',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    )
+                                  : Text(
+                                      '${_hariLabel[_jadwalInfo!['hari']] ?? ''} - ${_sesiLabel[_jadwalInfo!['sesi']] ?? ''}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                            ),
+                          ),
+                        if (_jadwalInfo != null) const SizedBox(width: 8),
+                        if (_jadwalInfo == null) const Spacer(),
+
+                        // -- Tanggal --
+                        CustomDateField(
+                          selectedDate: _tanggal,
+                          isCompact: true,
+                          isWhite: false,
+                          onDateSelected: (date) {
+                            if (date != null && date != _tanggal) {
+                              setState(() {
+                                _tanggal = date;
+                                _selectedSesi = null;
+                              });
+                              _loadSantri();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // --- Filter Options ---
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          // Sort button
+                          IconButton(
+                            tooltip: 'Urutkan',
+                            onPressed: _showSortMenu,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Stack(
+                              children: [
+                                const Icon(
+                                  Icons.sort_rounded,
+                                  color: _kHeader,
+                                  size: 24,
+                                ),
+                                if (_sortMode != _SortMode.urut)
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade400,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Decimal Toggle
+                          GestureDetector(
+                            onTap: () => setState(
+                              () => _isDecimalMode = !_isDecimalMode,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _isDecimalMode
+                                    ? Colors.orange.shade50
+                                    : Theme.of(context).brightness ==
+                                          Brightness.dark
+                                    ? const Color(0xFF374151)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _isDecimalMode
+                                      ? Colors.orange.shade300
+                                      : Theme.of(context).dividerColor,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isDecimalMode
+                                        ? Icons.adjust_rounded
+                                        : Icons.circle_outlined,
+                                    size: 14,
+                                    color: _isDecimalMode
+                                        ? Colors.orange.shade700
+                                        : Colors.grey.shade700,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isDecimalMode ? '0.5' : '1.0',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isDecimalMode
+                                          ? Colors.orange.shade700
+                                          : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Status Absen Filter
+                          const SizedBox(width: 10),
+                          Container(
+                            height: 28,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedStatusAbsen,
+                                isDense: true,
+                                icon: const Icon(
+                                  Icons.arrow_drop_down,
+                                  size: 18,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setState(() => _selectedStatusAbsen = val);
+                                    _loadSantri();
+                                  }
+                                },
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'semua',
+                                    child: Text('Semua Santri'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'kecuali_izin_sakit',
+                                    child: Text('Kecuali Izin/Sakit'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'hanya_hadir',
+                                    child: Text('Hanya Hadir'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // Tingkat Filter
+                          if (_tingkatOptions.length > 2) ...[
+                            const SizedBox(width: 10),
+                            Container(
+                              height: 28,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).cardColor,
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: Theme.of(context).dividerColor,
                                 ),
                               ),
                               child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: _globalMetodeId,
-                                  isExpanded: true,
+                                child: DropdownButton<String>(
+                                  value: _selectedTingkat,
                                   isDense: true,
-                                  hint: const Text(
-                                    'Metode',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
+                                  icon: const Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 18,
                                   ),
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(
                                       context,
                                     ).colorScheme.onSurface,
                                   ),
-                                  onChanged: (v) =>
-                                      setState(() => _globalMetodeId = v),
-                                  items: [
-                                    const DropdownMenuItem<int>(
-                                      value: null,
-                                      child: Text('- Tidak Ada -'),
-                                    ),
-                                    ..._metodeList.map(
-                                      (m) => DropdownMenuItem<int>(
-                                        value: int.tryParse(
-                                          m['id_metode']?.toString() ?? '0',
-                                        ),
-                                        child: Text(
-                                          m['nama_metode']?.toString() ?? '-',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
+                                  onChanged: (val) {
+                                    if (val != null)
+                                      setState(() => _selectedTingkat = val);
+                                  },
+                                  items: _tingkatOptions.map((e) {
+                                    return DropdownMenuItem(
+                                      value: e,
+                                      child: Text(
+                                        e == 'Semua' ? 'Semua Kelas' : e,
                                       ),
-                                    ),
-                                  ],
+                                    );
+                                  }).toList(),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        if (_showPeraga) ...[
-                          Switch(
-                            value: _globalGunakanPeraga,
-                            activeThumbColor: _kHeader,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            onChanged: (v) =>
-                                setState(() => _globalGunakanPeraga = v),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Peraga',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_showPeraga && _globalGunakanPeraga) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: SizedBox(
-                              height: 36,
-                              child: TextField(
-                                controller: _globalHalamanPeragaCtrl,
-                                style: const TextStyle(fontSize: 12),
-                                decoration: InputDecoration(
-                                  labelText: 'Hal Peraga',
-                                  labelStyle: const TextStyle(fontSize: 12),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 0,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 3,
-                            child: SizedBox(
-                              height: 36,
-                              child: TextField(
-                                controller: _globalKeteranganPeragaCtrl,
-                                style: const TextStyle(fontSize: 12),
-                                decoration: InputDecoration(
-                                  labelText: 'Keterangan',
-                                  labelStyle: const TextStyle(fontSize: 12),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 0,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                          ],
                         ],
                       ),
+                    ),
+
+                    // --- Mode Belajar & Peraga (Bila Aktif) ---
+                    if (_showMetode || _showPeraga) ...[
+                      const SizedBox(height: 16),
+                      Divider(
+                        height: 1,
+                        color: Theme.of(
+                          context,
+                        ).dividerColor.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (_showMetode && _metodeList.isNotEmpty) ...[
+                            Expanded(
+                              child: Container(
+                                height: 36,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Theme.of(context).dividerColor,
+                                  ),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<int>(
+                                    value: _globalMetodeId,
+                                    isExpanded: true,
+                                    isDense: true,
+                                    hint: const Text(
+                                      'Metode',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurface,
+                                    ),
+                                    onChanged: (v) =>
+                                        setState(() => _globalMetodeId = v),
+                                    items: [
+                                      const DropdownMenuItem<int>(
+                                        value: null,
+                                        child: Text('- Tidak Ada -'),
+                                      ),
+                                      ..._metodeList.map(
+                                        (m) => DropdownMenuItem<int>(
+                                          value: int.tryParse(
+                                            m['id_metode']?.toString() ?? '0',
+                                          ),
+                                          child: Text(
+                                            m['nama_metode']?.toString() ?? '-',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          if (_showPeraga) ...[
+                            Switch(
+                              value: _globalGunakanPeraga,
+                              activeThumbColor: _kHeader,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              onChanged: (v) =>
+                                  setState(() => _globalGunakanPeraga = v),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Peraga',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (_showPeraga && _globalGunakanPeraga) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: SizedBox(
+                                height: 40,
+                                child: TextField(
+                                  controller: _globalHalamanPeragaCtrl,
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: InputDecoration(
+                                    labelText: 'Hal Peraga',
+                                    labelStyle: const TextStyle(fontSize: 12),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 0,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 3,
+                              child: SizedBox(
+                                height: 40,
+                                child: TextField(
+                                  controller: _globalKeteranganPeragaCtrl,
+                                  style: const TextStyle(fontSize: 12),
+                                  decoration: InputDecoration(
+                                    labelText: 'Keterangan',
+                                    labelStyle: const TextStyle(fontSize: 12),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 0,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ],
                 ),
               ),
-            ],
-          ),
+          ],
         ),
-      );
-    }
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1150,11 +1219,10 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
   }
 
   // --- Loading / Error ------------------------------------------------------
-  Widget _buildLoader() =>
-      const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: SkeletonListWidget(itemCount: 8, itemHeight: 120),
-      );
+  Widget _buildLoader() => const Padding(
+    padding: EdgeInsets.all(16.0),
+    child: SkeletonListWidget(itemCount: 8, itemHeight: 120),
+  );
 
   void _showCatatanSheet(RowStateModel row, StateSetter setRow) {
     List<String> selectedCatatan = row.catatanGuru.isNotEmpty
@@ -1315,7 +1383,9 @@ class _ProgressInputScreenState extends State<ProgressInputScreen>
               _error,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.6),
                 fontSize: 13,
               ),
             ),

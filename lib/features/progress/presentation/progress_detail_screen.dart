@@ -1,26 +1,17 @@
 import 'widgets/detail_input_form_widget.dart';
 import 'package:flutter/material.dart';
-// import 'package:google_fonts/google_fonts.dart';
-
 import 'package:intl/intl.dart';
+import 'package:hijri/hijri_calendar.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
-import 'bottom_edit.dart';
-import 'package:url_launcher/url_launcher.dart';
-
+import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
+import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
+import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
+import 'bottom_edit.dart';
 
-import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
-
-
-// --- Design Tokens ------------------------------------------------------------
-const Color _kHeader = Color(0xFF0F4C2A);
-const Color _kBg = Color(0xFFF3F4F6);
-const Color _kText1 = Color(0xFF111827);
-const Color _kText2 = Color(0xFF6B7280);
-const Color _kAccent = Color(0xFF16A34A);
-
-String _f(num? v) =>
-    v == null ? '0' : v.toString().replaceAll(RegExp(r'\.0$'), '');
+String _f(num? v) => v == null ? '0' : v.toString().replaceAll(RegExp(r'\.0$'), '');
 
 class ProgressDetailScreen extends StatefulWidget {
   final Map<String, dynamic> santri;
@@ -33,6 +24,7 @@ class ProgressDetailScreen extends StatefulWidget {
 class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
+  late final TahsinRepository _repository;
 
   Map<String, dynamic>? _detail;
   List<Map<String, dynamic>> _catatanMaster = [];
@@ -43,6 +35,9 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
   @override
   void initState() {
     super.initState();
+    _repository = TahsinRepository(
+      networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+    );
     _tabs = TabController(length: 3, vsync: this);
     _tabs.addListener(() {
       if (mounted) setState(() {});
@@ -56,41 +51,35 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceRefresh = false}) async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = '';
     });
     try {
       final nis = widget.santri['nis']?.toString() ?? '';
-      final data = await ApiService.getProgressDetail(nis);
+      final data = await _repository.getProgressDetail(nis, forceRefresh: forceRefresh);
+      
       if (!mounted) return;
       setState(() {
-        _detail = data['data'] as Map<String, dynamic>?;
+        _detail = data['data'] ?? data;
         if (_detail != null && _detail!['riwayat'] is List) {
           final List riwayatRaw = List.from(_detail!['riwayat']);
-          // Urutkan DESC berdasarkan tanggal
           riwayatRaw.sort((a, b) {
-            final dateA =
-                DateTime.tryParse(a['tgl_simak']?.toString() ?? '') ??
-                DateTime(2000);
-            final dateB =
-                DateTime.tryParse(b['tgl_simak']?.toString() ?? '') ??
-                DateTime(2000);
+            final dateA = DateTime.tryParse(a['tgl_simak']?.toString() ?? a['tanggal']?.toString() ?? '') ?? DateTime(2000);
+            final dateB = DateTime.tryParse(b['tgl_simak']?.toString() ?? b['tanggal']?.toString() ?? '') ?? DateTime(2000);
             return dateB.compareTo(dateA);
           });
           _detail!['riwayat'] = riwayatRaw;
         }
 
         if (_detail != null && _detail!['catatan_master'] is List) {
-          _catatanMaster = (_detail!['catatan_master'] as List)
-              .whereType<Map>()
-              .map((e) {
-                final Map<String, dynamic> safeMap = {};
-                e.forEach((k, v) => safeMap[k.toString()] = v);
-                return safeMap;
-              })
-              .toList();
+          _catatanMaster = (_detail!['catatan_master'] as List).whereType<Map>().map((e) {
+            final Map<String, dynamic> safeMap = {};
+            e.forEach((k, v) => safeMap[k.toString()] = v);
+            return safeMap;
+          }).toList();
         }
         _loading = false;
       });
@@ -103,10 +92,6 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     }
   }
 
-  // =========================================================
-  // FUNGSI BARU: HAPUS & EDIT DATA
-  // =========================================================
-
   void _hapusData(int idPrestasi) {
     showDialog(
       context: context,
@@ -114,29 +99,20 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
         title: const Text("Konfirmasi"),
         content: const Text("Yakin ingin menghapus riwayat progres ini?"),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Batal"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Batal")),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               setState(() => _loading = true);
               try {
-                // Panggil endpoint delete di ApiService
                 await ApiService.deleteProgress(idPrestasi);
-
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Data berhasil dihapus")),
-                );
-                _load(); // Refresh data dari server
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data berhasil dihapus")));
+                _load(forceRefresh: true);
               } catch (e) {
                 if (!mounted) return;
                 setState(() => _loading = false);
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text("Gagal menghapus: $e")));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal menghapus: $e")));
               }
             },
             child: const Text("Hapus", style: TextStyle(color: Colors.red)),
@@ -146,103 +122,47 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     );
   }
 
-  void _tampilkanBottomSheetEdit(
-    Map<dynamic, dynamic> item, {
-    bool onlyEditDate = false,
-  }) {
+  void _tampilkanBottomSheetEdit(Map<dynamic, dynamic> item, {bool onlyEditDate = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (sheetCtx) => BottomEdit(
+        dataPrestasi: Map<String, dynamic>.from(item),
+        onlyEditDate: onlyEditDate,
+        onSave: (updatedItem) async {
+          setState(() => _loading = true);
+          try {
+            await ApiService.updateProgress(
+              int.tryParse(updatedItem['id']?.toString() ?? updatedItem['id_prestasi']?.toString() ?? '0') ?? 0,
+              updatedItem,
+            );
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Data berhasil diperbarui")));
+            _load(forceRefresh: true);
+          } catch (e) {
+            if (!mounted) return;
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal memperbarui: $e")));
+          }
+        },
       ),
-      builder: (sheetCtx) {
-        return BottomEdit(
-          dataPrestasi: Map<String, dynamic>.from(item),
-          onlyEditDate: onlyEditDate,
-          onSave: (updatedItem) async {
-            setState(() => _loading = true);
-            try {
-              // Panggil endpoint update di ApiService
-              await ApiService.updateProgress(
-                int.tryParse(
-                      updatedItem['id']?.toString() ??
-                          updatedItem['id_prestasi']?.toString() ??
-                          '0',
-                    ) ??
-                    0,
-                updatedItem,
-              );
-
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Data berhasil diperbarui")),
-              );
-              _load(); // Refresh data dari server
-            } catch (e) {
-              if (!mounted) return;
-              setState(() => _loading = false);
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text("Gagal memperbarui: $e")));
-            }
-          },
-        );
-      },
     );
   }
 
-
-  Future<void> _openWaOrangTua(
-    String phoneRaw, {
-    String? customMsg,
-    String? linkGroup,
-  }) async {
-    if (phoneRaw.trim().isEmpty || phoneRaw == '-') {
+  Future<void> _sendWaReport(String target) async {
+    setState(() => _sendingWa = true);
+    try {
+      final nis = widget.santri['nis']?.toString() ?? '';
+      final res = await ApiService.sendWaReport(nis: nis, target: target);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Nomor WA tidak tersedia')));
-      return;
-    }
-
-    String phone = phoneRaw.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.startsWith('0')) phone = '62${phone.substring(1)}';
-
-    final nama =
-        _detail?['santri']?['nama_santri']?.toString() ??
-        widget.santri['nama_santri']?.toString() ??
-        '-';
-
-    // Bangun pesan
-    String pesan =
-        customMsg ??
-        'Assalamualaikum Wr. Wb., Wali ananda *$nama*. Kami ingin menyampaikan informasi.';
-    if (linkGroup != null && linkGroup.isNotEmpty) {
-      pesan += '\n\nLink Group WA: $linkGroup';
-    }
-
-    final uri = Uri.parse(
-      'https://wa.me/$phone?text=${Uri.encodeComponent(pesan)}',
-    );
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Laporan berhasil dikirim!'), backgroundColor: const Color(0xFF22C55E)));
+    } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tidak dapat membuka WhatsApp')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengirim laporan: $e'), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _sendingWa = false);
     }
-  }
-
-  Widget _waButton(String phone, dynamic customMsg, dynamic linkGroup) {
-    if (phone.isEmpty || phone == '-') return const SizedBox.shrink();
-    return GestureDetector(
-      onTap: () => _openWaOrangTua(
-        phone,
-        customMsg: customMsg?.toString(),
-        linkGroup: linkGroup?.toString(),
-      ),
-      child: Icon(Icons.chat, color: Colors.green, size: 18),
-    );
   }
 
   Future<void> _confirmSendWaReport(String target) async {
@@ -250,434 +170,274 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(
-          isParent ? 'Kirim ke Orang Tua?' : 'Kirim ke Saya?',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          isParent
-              ? 'Apakah Anda yakin ingin mengirim laporan perkembangan santri ini ke nomor WhatsApp orang tua?'
-              : 'Apakah Anda yakin ingin mengirim laporan perkembangan santri ini ke nomor WhatsApp Anda sendiri?',
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(isParent ? 'Kirim ke Orang Tua?' : 'Kirim ke Saya?', style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(isParent ? 'Kirim laporan perkembangan santri ke WhatsApp orang tua?' : 'Kirim laporan perkembangan santri ke WhatsApp Anda?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isParent ? _kAccent : const Color(0xFF0284C7),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: isParent ? const Color(0xFF22C55E) : const Color(0xFF0284C7)),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Yakin, Kirim',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Yakin, Kirim', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-
-    if (confirm == true) {
-      _sendWaReport(target);
-    }
+    if (confirm == true) _sendWaReport(target);
   }
-
-  Widget _buildBottomActions() {
-    if (_tabs.index == 0) {
-      // Tombol khusus untuk Tab Ringkasan
-      return Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _kAccent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: _sendingWa
-                      ? null
-                      : () => _confirmSendWaReport('parent'),
-                  child: _sendingWa
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Kirim Laporan ke Orang Tua',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: _sendingWa
-                      ? null
-                      : () => _confirmSendWaReport('self'),
-                  child: _sendingWa
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Kirim Laporan ke Saya',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Tombol dihapus sesuai permintaan
-    return const SizedBox.shrink();
-  }
-
 
   @override
   Widget build(BuildContext context) {
-    final nama = widget.santri['nama_santri'] ?? 'Detail Santri';
+    final styles = Theme.of(context).extension<AppCustomStyles>();
+    final bgColor = Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white;
+    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+
     return Scaffold(
-      backgroundColor: _kBg,
-      appBar: AppBar(
-        backgroundColor: _kHeader,
-        foregroundColor: Colors.white,
-        centerTitle: false,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: bgColor,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(48),
+        child: Stack(
           children: [
-            Text(
-              nama,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            const Positioned.fill(child: GlobalHeaderBackground()),
+            AppBar(
+              toolbarHeight: 48,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              foregroundColor: onPrimary,
+              iconTheme: IconThemeData(color: onPrimary),
+              centerTitle: false,
+              title: Text(
+                _tabs.index == 0 
+                  ? 'Detail Santri' 
+                  : (_tabs.index == 1 ? 'Riwayat Simakan' : 'Input Simakan'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
+              actions: [
+                if (!_loading) IconButton(icon: const Icon(Icons.refresh, size: 20), onPressed: () => _load(forceRefresh: true)),
+              ],
             ),
-            Text(
-              'NIS: ${widget.santri['nis'] ?? '-'}',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
-        ),
-        bottom: TabBar(
-          controller: _tabs,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          indicatorColor: const Color(0xFF22C55E),
-          indicatorWeight: 3,
-          labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          unselectedLabelStyle: TextStyle(fontSize: 13),
-          tabs: const [
-            Tab(text: 'Ringkasan'),
-            Tab(text: 'Riwayat'),
-            Tab(text: 'Input'),
           ],
         ),
       ),
       body: _loading
-          ? const Padding(padding: EdgeInsets.all(16.0), child: SkeletonListWidget(itemCount: 5, itemHeight: 120))
+          ? _buildShimmerLoading(styles)
           : _error.isNotEmpty
-          ? _buildError()
-          : TabBarView(
-              controller: _tabs,
-              children: [_buildRingkasan(), _buildRiwayat(), _buildInput()],
-            ),
+              ? _buildError()
+              : TabBarView(
+                  controller: _tabs,
+                  children: [
+                    _RingkasanTab(detail: _detail, repository: _repository, onLoad: _load, onSendWa: _confirmSendWaReport, sendingWa: _sendingWa),
+                    _RiwayatTab(riwayat: _detail?['riwayat'] ?? [], onEdit: _tampilkanBottomSheetEdit, onDelete: _hapusData),
+                    _InputTab(detail: _detail, santri: widget.santri, catatanMaster: _catatanMaster, onSuccess: () => _load(forceRefresh: true)),
+                  ],
+                ),
       bottomNavigationBar: (_loading || _error.isNotEmpty)
           ? null
-          : _buildBottomActions(),
+          : Container(
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: styles?.headerBorder ?? Colors.transparent))),
+              child: BottomNavigationBar(
+                currentIndex: _tabs.index,
+                onTap: (i) => _tabs.animateTo(i),
+                backgroundColor: bgColor,
+                selectedItemColor: const Color(0xFF22C55E),
+                unselectedItemColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                unselectedLabelStyle: const TextStyle(fontSize: 12),
+                type: BottomNavigationBarType.fixed,
+                items: const [
+                  BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), activeIcon: Icon(Icons.analytics), label: 'Ringkasan'),
+                  BottomNavigationBarItem(icon: Icon(Icons.history_outlined), activeIcon: Icon(Icons.history), label: 'Riwayat'),
+                  BottomNavigationBarItem(icon: Icon(Icons.edit_note_outlined), activeIcon: Icon(Icons.edit_note), label: 'Input'),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildShimmerLoading(AppCustomStyles? styles) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 5,
+      itemBuilder: (context, index) => Container(
+        height: 120,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: styles?.shimmerBase ?? Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: styles?.cardBorder ?? Colors.transparent),
+        ),
+      ),
     );
   }
 
   Widget _buildError() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.wifi_off_rounded, size: 56, color: Colors.grey),
-          const SizedBox(height: 12),
-          Text(
-            _error,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _kText2),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: _kAccent),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            label: const Text(
-              'Coba Lagi',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wifi_off_rounded, size: 64, color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
+            const SizedBox(height: 16),
+            Text(_error, textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                onPressed: () => _load(forceRefresh: true),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Coba Lagi', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  // --- TAB 1: Ringkasan -----------------------------------------------------
-  Widget _buildRingkasan() {
-    final santriRaw = _detail?['santri'];
+class _RingkasanTab extends StatefulWidget {
+  final Map<String, dynamic>? detail;
+  final TahsinRepository repository;
+  final Future<void> Function({bool forceRefresh}) onLoad;
+  final Function(String) onSendWa;
+  final bool sendingWa;
+
+  const _RingkasanTab({required this.detail, required this.repository, required this.onLoad, required this.onSendWa, required this.sendingWa});
+
+  @override
+  State<_RingkasanTab> createState() => _RingkasanTabState();
+}
+
+class _RingkasanTabState extends State<_RingkasanTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final styles = Theme.of(context).extension<AppCustomStyles>();
+    final onSurfaceVar = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    final santriRaw = widget.detail?['santri'];
     final Map<String, dynamic> santri = {};
     if (santriRaw is Map) santriRaw.forEach((k, v) => santri[k.toString()] = v);
 
-    final prediksiRaw = _detail?['prediksi'];
+    final prediksiRaw = widget.detail?['prediksi'];
     final Map<String, dynamic> prediksi = {};
-    if (prediksiRaw is Map) {
-      prediksiRaw.forEach((k, v) => prediksi[k.toString()] = v);
-    }
+    if (prediksiRaw is Map) prediksiRaw.forEach((k, v) => prediksi[k.toString()] = v);
 
-    final masalahList = _detail?['masalah_aktif'] ?? [];
-    final masalah = (masalahList is List ? masalahList : [])
-        .whereType<Map>()
-        .map((e) {
-          final Map<dynamic, dynamic> safeMap = {};
-          e.forEach((k, v) => safeMap[k] = v);
-          return safeMap;
-        })
-        .toList();
+    final masalahList = widget.detail?['masalah_aktif'] ?? [];
+    final masalah = (masalahList is List ? masalahList : []).whereType<Map>().toList();
 
-    final rekapRaw = _detail?['rekap_absensi'];
+    final rekapRaw = widget.detail?['rekap_absensi'];
     final Map<String, dynamic> rekapAbsensi = {};
-    if (rekapRaw is Map) {
-      rekapRaw.forEach((k, v) => rekapAbsensi[k.toString()] = v);
-    }
+    if (rekapRaw is Map) rekapRaw.forEach((k, v) => rekapAbsensi[k.toString()] = v);
 
-    final weeklyList = _detail?['weekly'] ?? [];
-    final weekly = (weeklyList is List ? weeklyList : []).whereType<Map>().map((
-      e,
-    ) {
-      final Map<String, dynamic> safeMap = {};
-      e.forEach((k, v) => safeMap[k.toString()] = v);
-      return safeMap;
-    }).toList();
+    final weeklyList = widget.detail?['weekly'] ?? [];
+    final weekly = (weeklyList is List ? weeklyList : []).whereType<Map>().toList();
 
     return RefreshIndicator(
-      color: _kAccent,
-      onRefresh: _load,
+      color: const Color(0xFF22C55E),
+      onRefresh: () => widget.onLoad(forceRefresh: true),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildAbsensiCard(rekapAbsensi),
+          _buildAbsensiCard(context, rekapAbsensi, styles),
           const SizedBox(height: 14),
-          _buildProgressCard(
-            santri,
-            Map<String, dynamic>.from(_detail?['kec'] ?? {}),
-            aksHistory: _detail?['aks_history'] is List
-                ? _detail!['aks_history']
-                : [],
-            nextCheckpoint: _detail?['nextCheckpoint'],
-          ),
+          _buildProgressCard(context, santri, Map<String, dynamic>.from(widget.detail?['kec'] ?? {}), styles),
           const SizedBox(height: 14),
-          _buildPredictionCard(prediksi, santri),
+          _buildPredictionCard(context, prediksi, styles),
           const SizedBox(height: 14),
-          _buildWeeklyTableCard(weekly),
+          _buildWeeklyTableCard(context, weekly, styles),
           const SizedBox(height: 14),
-          _buildDataPribadiCard(santri),
+          _buildDataPribadiCard(context, santri, styles, onSurfaceVar),
           const SizedBox(height: 14),
-
-          _buildMasalahCard(masalah),
+          _buildMasalahCard(context, masalah, styles),
+          const SizedBox(height: 14),
+          _buildWaReportButton(),
           const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  Widget _buildDataPribadiCard(Map<String, dynamic> santri) {
-    // Format TTL
-    final tglLahir = santri['tanggal_lahir']?.toString() ?? '';
-    final tmpLahir = santri['tempat_lahir']?.toString() ?? '';
-    String ttl = '-';
-    if (tglLahir.isNotEmpty) {
-      final parts = tglLahir.split('-');
-      if (parts.length == 3) {
-        const bln = [
-          '',
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'Mei',
-          'Jun',
-          'Jul',
-          'Agt',
-          'Sep',
-          'Okt',
-          'Nov',
-          'Des',
-        ];
-        final m = int.tryParse(parts[1]) ?? 0;
-        final umur = DateTime.now().year - (int.tryParse(parts[0]) ?? 0);
-        ttl =
-            '${tmpLahir.isNotEmpty ? "$tmpLahir, " : ""}${parts[2]} ${m > 0 && m < 13 ? bln[m] : parts[1]} ${parts[0]} ($umur th)';
-      }
-    } else if (tmpLahir.isNotEmpty) {
-      ttl = tmpLahir;
-    }
+  Widget _buildWaReportButton() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: widget.sendingWa ? null : () => widget.onSendWa('parent'),
+            icon: widget.sendingWa ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send),
+            label: const Text('Kirim Laporan ke Orang Tua'),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            onPressed: widget.sendingWa ? null : () => widget.onSendWa('self'),
+            icon: const Icon(Icons.person_outline, size: 18),
+            label: const Text('Kirim ke Saya Sendiri'),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF0284C7)),
+          ),
+        ),
+      ],
+    );
+  }
 
-    return _section(
-      'Data Pribadi & Orang Tua',
+  Widget _buildDataPribadiCard(BuildContext context, Map<String, dynamic> santri, AppCustomStyles? styles, Color onSurfaceVar) {
+    final ttl = [santri['tempat_lahir']?.toString(), santri['tgl_lahir']?.toString()].where((v) => v != null && v.isNotEmpty).join(', ');
+    final umur = santri['umur']?.toString() ?? '';
+    final ttlFull = ttl.isNotEmpty ? '$ttl${umur.isNotEmpty ? ' ($umur th)' : ''}' : '-';
+    final noHpSantri = santri['no_hp_santri']?.toString() ?? santri['no_hp']?.toString() ?? '-';
+    final hpAyah = santri['hp_ayah']?.toString() ?? santri['no_hp_ayah']?.toString() ?? '-';
+    final hpIbu = santri['hp_ibu']?.toString() ?? santri['no_hp_ibu']?.toString() ?? '-';
+    final waGroup = santri['wa_group']?.toString() ?? santri['wa_group_ibu']?.toString() ?? '-';
+
+    return _SectionWidget(
+      title: 'Data Pribadi & Orang Tua',
+      styles: styles,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Data Pribadi
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.person_outline_rounded,
-                  size: 14,
-                  color: _kAccent,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Data Pribadi',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: _kAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _infoRow('Nama Santri', santri['nama_santri']?.toString() ?? '-'),
-          _infoRow('NIS', santri['nis']?.toString() ?? '-'),
-          _infoRow(
-            'Kelas/Kelompok',
-            '${santri["tingkat"] ?? "-"}  ${santri["nama_kelompok"] ?? "-"}',
-          ),
-          _infoRow('TTL', ttl),
-          _infoRow('Alamat', santri['alamat_lengkap']?.toString() ?? '-'),
-          _infoRow('No. HP Santri', santri['no_hp_santri']?.toString() ?? '-'),
-          const SizedBox(height: 12),
-          const Divider(),
+          // — Data Pribadi subsection
+          _SubSectionHeader(icon: Icons.person_outline_rounded, label: 'Data Pribadi'),
           const SizedBox(height: 8),
-          // Data Orang Tua
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.family_restroom_rounded,
-                  size: 14,
-                  color: _kAccent,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Data Orang Tua',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: _kAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _infoRow('Ayah', santri['nama_ayah']?.toString() ?? '-'),
-          _infoRow(
-            'HP Ayah',
-            santri['hp_ayah']?.toString() ?? '-',
-            trailing: _waButton(
-              santri['hp_ayah']?.toString() ?? '',
-              santri['pesanwa'],
-              santri['linkgroupwa'],
-            ),
-          ),
-          _infoRow('Ibu', santri['nama_ibu']?.toString() ?? '-'),
-          _infoRow(
-            'HP Ibu',
-            santri['hp_ibu']?.toString() ?? '-',
-            trailing: _waButton(
-              santri['hp_ibu']?.toString() ?? '',
-              santri['pesanwa'],
-              santri['linkgroupwa'],
-            ),
-          ),
-          _infoRow(
-            'WA Group (${santri["wa_group"] ?? "-"})',
-            santri['no_wa_group']?.toString() ?? '-',
-            trailing: _waButton(
-              santri['no_wa_group']?.toString() ?? '',
-              santri['pesanwa'],
-              santri['linkgroupwa'],
-            ),
-          ),
+          _InfoRowWidget(label: 'Nama Santri', value: santri['nama_santri']?.toString() ?? '-', onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'NIS', value: santri['nis']?.toString() ?? '-', onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'Kelas/Kelompok', value: '${santri["tingkat"] ?? "-"} ${santri["nama_kelompok"] ?? "-"}', onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'TTL', value: ttlFull, onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'Alamat', value: santri['alamat']?.toString() ?? '-', onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'No. HP Santri', value: noHpSantri, onSurfaceVar: onSurfaceVar),
+          const SizedBox(height: 14),
+          // — Data Orang Tua subsection
+          _SubSectionHeader(icon: Icons.family_restroom_rounded, label: 'Data Orang Tua'),
+          const SizedBox(height: 8),
+          _InfoRowWidget(label: 'Ayah', value: santri['nama_ayah']?.toString() ?? '-', onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'HP Ayah', value: hpAyah, onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'Ibu', value: santri['nama_ibu']?.toString() ?? '-', onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'HP Ibu', value: hpIbu, onSurfaceVar: onSurfaceVar),
+          _InfoRowWidget(label: 'WA Group (Ibu)', value: waGroup, onSurfaceVar: onSurfaceVar),
         ],
       ),
     );
   }
 
-  Widget _buildAbsensiCard(Map<String, dynamic> rekap) {
-    // Data integrasi baru: Hadir, Sakit, Izin, Alpa (T)
-    final h = rekap['H']?.toString() ?? '0';
-    final s = rekap['S']?.toString() ?? '0';
-    final i = rekap['I']?.toString() ?? '0';
-    final a = rekap['T']?.toString() ?? '0';
-
-    return _section(
-      'Rekapitulasi Absensi Total',
+  Widget _buildAbsensiCard(BuildContext context, Map<String, dynamic> rekap, AppCustomStyles? styles) {
+    return _SectionWidget(
+      title: 'Rekapitulasi Absensi Total',
+      styles: styles,
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
         children: [
-          _absensiMetric('Hadir', h, Colors.green),
-          _absensiMetric('Sakit', s, Colors.orange),
-          _absensiMetric('Izin', i, Colors.blue),
-          _absensiMetric('Alpa', a, Colors.red),
+          _absensiMetric('Hadir', rekap['H']?.toString() ?? '0', Colors.green),
+          _absensiMetric('Sakit', rekap['S']?.toString() ?? '0', Colors.orange),
+          _absensiMetric('Izin', rekap['I']?.toString() ?? '0', Colors.blue),
+          _absensiMetric('Alpa', rekap['T']?.toString() ?? '0', Colors.red),
         ],
       ),
     );
@@ -687,846 +447,317 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     return Container(
       width: 70,
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withValues(alpha: 0.1))),
       child: Column(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Hari',
-            style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8)),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
+          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
     );
   }
 
-  Widget _buildProgressCard(
-    Map<String, dynamic> santri,
-    Map<String, dynamic> kec, {
-    List<dynamic> aksHistory = const [],
-    Map<String, dynamic>? nextCheckpoint,
-  }) {
-    final double halReg =
-        double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
-    final double totReg =
-        double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
+  Widget _buildProgressCard(BuildContext context, Map<String, dynamic> santri, Map<String, dynamic> kec, AppCustomStyles? styles) {
+    final double halReg = double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
+    final double totReg = double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
+    final double halLat = double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
+    final double totLat = halLat > 0 ? totReg : 0;
+    final onSurf = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    final double halLat =
-        double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
-    final double parsedTotLat =
-        double.tryParse(santri['target_latihan']?.toString() ?? '0') ?? 0;
-    final double totLat = parsedTotLat > 0 ? parsedTotLat : totReg;
+    return _SectionWidget(
+      title: 'Progres Khotaman & Kecepatan',
+      styles: styles,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Spacer(),
+            Text('Total Pencapaian: ', style: TextStyle(fontSize: 11, color: onSurf)),
+            Text('${_f(halReg)} Hal', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 12),
+          MultiSegmentProgressBar(title: 'Progres Jilid', icon: Icons.menu_book_rounded, capai: halReg, total: totReg, checkpoints: santri['checkpoints'], baseColor: const Color(0xFF6366F1)),
+          if (halLat > 0) ...[
+            const SizedBox(height: 12),
+            MultiSegmentProgressBar(title: 'Progres Latihan', icon: Icons.edit_note_rounded, capai: halLat, total: totLat, checkpoints: santri['checkpoints'], baseColor: const Color(0xFF14B8A6)),
+          ],
+          const SizedBox(height: 12),
+          // Checkpoint info
+          if (widget.detail?['nextCheckpoint'] != null) ...[
+            _checkpointRow(widget.detail!['nextCheckpoint']),
+            const SizedBox(height: 8),
+          ],
+          const Divider(height: 20),
+          _kecRow('Mode Reguler', kec['kecBakuTotal'], kec['rasioReg'] ?? kec['rasioTotal'], onSurf),
+          const SizedBox(height: 6),
+          _kecRow('Rata-rata Keseluruhan', kec['kecAktTotal'], kec['rasioTotal'], onSurf),
+        ],
+      ),
+    );
+  }
 
-    final double halTot = halReg + halLat;
-    final double maxTot = totReg + totLat;
-    final double pctTot = maxTot > 0 ? (halTot / maxTot).clamp(0.0, 1.0) : 0.0;
+  Widget _checkpointRow(dynamic cp) {
+    final hal = cp is Map ? (cp['halaman'] ?? cp['hal'] ?? '-') : '-';
+    final ayat = cp is Map ? (cp['ayat'] ?? cp['nama'] ?? '-') : '-';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: const Color(0xFF22C55E).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+      child: Row(children: [
+        const Icon(Icons.flag_circle_rounded, color: Color(0xFF22C55E), size: 20),
+        const SizedBox(width: 8),
+        Expanded(child: Text('Checkpoint: Halaman $hal', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+        Text('$ayat', style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      ]),
+    );
+  }
 
-    final double halAks =
-        double.tryParse(santri['capai_aks']?.toString() ?? '0') ?? 0;
-    final int jmlTes = int.tryParse(santri['jml_tes']?.toString() ?? '0') ?? 0;
+  Widget _kecRow(String label, dynamic kecVal, dynamic rasio, Color onSurf) {
+    return Row(children: [
+      Text(label, style: TextStyle(fontSize: 12, color: onSurf)),
+      const Spacer(),
+      Text('${_f(kecVal)} ', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+      Text('hal/sesi', style: TextStyle(fontSize: 10, color: onSurf)),
+      const SizedBox(width: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: const Color(0xFF22C55E).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+        child: Text('${_f(rasio)}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
+      ),
+    ]);
+  }
 
-    final rasioTotal = kec['rasioTotal'] ?? 0;
-    final int cntLulus = int.tryParse(kec['cntLulus']?.toString() ?? '0') ?? 0;
-    final double kecAktTotal =
-        double.tryParse(kec['kecAktTotal']?.toString() ?? '0') ?? 0.0;
-    final double kecBakuTotal =
-        double.tryParse(kec['kecBakuTotal']?.toString() ?? '0') ?? 0.0;
+  Widget _buildPredictionCard(BuildContext context, Map<String, dynamic> p, AppCustomStyles? styles) {
+    final bool tersedia = p['tersedia'] == true || p['tersedia'] == 1;
+    final onSurf = Theme.of(context).colorScheme.onSurfaceVariant;
+    final selisih = p['selisih_hari'];
 
-    bool isSelesai =
-        pctTot >= 1.0 ||
-        (santri['status']?.toString().toLowerCase().contains('khotam') ??
-            false) ||
-        (santri['status']?.toString().toLowerCase().contains('siap test') ??
-            false);
+    return _SectionWidget(
+      title: 'Prediksi Khatam',
+      styles: styles,
+      child: !tersedia
+          ? const Text('Data belum cukup untuk membuat prediksi.', style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic))
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _predLabel('Target Lembaga', Colors.blue),
+              _predRow('- Reguler', p['baku_reg_tgl'], p['baku_reg_hari'], onSurf),
+              _predRow('- Latihan', p['baku_lat_tgl'], p['baku_lat_hari'], onSurf),
+              _predRow('- Total', p['baku_tot_tgl'], p['baku_tot_hari'], onSurf),
+              const SizedBox(height: 10),
+              _predLabel('Target Aktual', const Color(0xFF22C55E)),
+              _predRow('- Reguler', p['akt_reg_tgl'], p['akt_reg_hari'], onSurf),
+              _predRow('- Latihan', p['akt_lat_tgl'], p['akt_lat_hari'], onSurf),
+              _predRow('- Total', p['akt_tot_tgl'], p['akt_tot_hari'], onSurf),
+              const Divider(height: 20),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Selisih Waktu', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: onSurf)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text('${_f(selisih)} Sesi', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
+                ),
+              ]),
+            ]),
+    );
+  }
 
-    bool hasCepat = cntLulus >= 3 && kecAktTotal > 0 && kecBakuTotal > 0;
+  Widget _predLabel(String label, Color color) {
+    return Padding(padding: const EdgeInsets.only(bottom: 6), child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)));
+  }
 
-    String kLabel = 'BELUM TERUKUR';
-    Color kColor = Colors.grey.shade600;
+  Widget _predRow(String label, dynamic date, dynamic days, Color onSurf) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(children: [
+        SizedBox(width: 80, child: Text(label, style: TextStyle(fontSize: 11, color: onSurf))),
+        Expanded(child: Text('${date ?? "-"}', textAlign: TextAlign.end, style: const TextStyle(fontSize: 11))),
+        const SizedBox(width: 6),
+        SizedBox(width: 70, child: Text('(${_f(days)} Sesi)', textAlign: TextAlign.end, style: TextStyle(fontSize: 10, color: onSurf))),
+      ]),
+    );
+  }
 
-    if (isSelesai) {
-      kLabel = 'Siap Test / Khotam';
-      kColor = Colors.green;
-    } else if (hasCepat) {
-      if (rasioTotal >= 140) {
-        kLabel = 'SANGAT CEPAT';
-        kColor = Colors.green;
-      } else if (rasioTotal >= 110) {
-        kLabel = 'CEPAT';
-        kColor = Colors.green;
-      } else if (rasioTotal >= 102) {
-        kLabel = 'SEDIKIT CEPAT';
-        kColor = Colors.lightBlue;
-      } else if (rasioTotal >= 99) {
-        kLabel = 'STANDAR';
-        kColor = Colors.blue;
-      } else if (rasioTotal >= 90) {
-        kLabel = 'SEDIKIT LAMBAT';
-        kColor = Colors.orange;
-      } else if (rasioTotal >= 70) {
-        kLabel = 'LAMBAT';
-        kColor = Colors.orange;
+  Color _modeColor(String mode) {
+    switch (mode.toLowerCase()) {
+      case 'reguler': return const Color(0xFF22C55E);
+      case 'latihan': return const Color(0xFF6366F1);
+      case 'akselerasi': return const Color(0xFFF59E0B);
+      default: return const Color(0xFF0EA5E9);
+    }
+  }
+
+  Widget _buildWeeklyTableCard(BuildContext context, List<Map<dynamic, dynamic>> weekly, AppCustomStyles? styles) {
+    if (weekly.isEmpty) return const SizedBox.shrink();
+
+    final onSurf = Theme.of(context).colorScheme.onSurfaceVariant;
+    final surfHigh = Theme.of(context).colorScheme.surfaceContainerHighest;
+
+    // Accumulate totals
+    int totalL = 0, totalU = 0, totalSim = 0;
+    int totalH = 0, totalS = 0, totalI = 0, totalAlpa = 0;
+
+    // Build row data: (periode, modeName, simakanStr, absensiStr, modeColor, isFirstMode)
+    final List<(String, String, String, String, Color, bool)> rows = [];
+
+    for (final e in weekly) {
+      final label = e['label']?.toString() ?? '-';
+      final absensiRaw = e['absensi'];
+      final modesRaw = e['modes'];
+      final Map<String, dynamic> modes = {};
+      if (modesRaw is Map) modesRaw.forEach((k, v) => modes[k.toString()] = v);
+
+      // Parse absensi
+      String absensiStr = '-';
+      if (absensiRaw is Map) {
+        final h = int.tryParse((absensiRaw['H'] ?? absensiRaw['h'] ?? 0).toString()) ?? 0;
+        final s = int.tryParse((absensiRaw['S'] ?? absensiRaw['s'] ?? 0).toString()) ?? 0;
+        final i = int.tryParse((absensiRaw['I'] ?? absensiRaw['i'] ?? 0).toString()) ?? 0;
+        final t = int.tryParse((absensiRaw['T'] ?? absensiRaw['t'] ?? absensiRaw['A'] ?? 0).toString()) ?? 0;
+        absensiStr = '$h/$s/$i/$t';
+        totalH += h; totalS += s; totalI += i; totalAlpa += t;
+      } else if (absensiRaw is String && absensiRaw.isNotEmpty && absensiRaw != '-') {
+        absensiStr = absensiRaw;
+      }
+
+      bool isFirst = true;
+      if (modes.isEmpty) {
+        rows.add((label, '-', '-', absensiStr, Colors.grey, true));
       } else {
-        kLabel = 'SANGAT LAMBAT';
-        kColor = Colors.red;
+        for (final entry in modes.entries) {
+          final modeData = entry.value;
+          String simStr = '-';
+          if (modeData is Map) {
+            final l = int.tryParse((modeData['lulus'] ?? modeData['l'] ?? modeData['hal'] ?? 0).toString()) ?? 0;
+            final u = int.tryParse((modeData['ulang'] ?? modeData['u'] ?? 0).toString()) ?? 0;
+            final tot = int.tryParse((modeData['total'] ?? modeData['t'] ?? 0).toString()) ?? 0;
+            if (tot > 0) {
+              simStr = '$l/$u/$tot';
+              totalL += l; totalU += u; totalSim += tot;
+            } else {
+              final hal = int.tryParse((modeData['hal'] ?? modeData['halaman'] ?? 0).toString()) ?? 0;
+              final status = modeData['status']?.toString() ?? modeData['status_halaman']?.toString() ?? '-';
+              final isLulus = status.toLowerCase() == 'lulus';
+              simStr = '$hal hal • ${isLulus ? "L" : "U"}';
+            }
+          }
+          rows.add((
+            isFirst ? label : '',
+            entry.key,
+            simStr,
+            isFirst ? absensiStr : '',
+            _modeColor(entry.key),
+            isFirst,
+          ));
+          isFirst = false;
+        }
       }
     }
 
-    return _section(
-      'Progres Khotaman & Kecepatan',
+    final colWidths = [
+      const FlexColumnWidth(2.2),
+      const FlexColumnWidth(1.8),
+      const FlexColumnWidth(1.5),
+      const FlexColumnWidth(1.6),
+    ];
+
+    Widget headerCell(String text) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onSurf), textAlign: TextAlign.center),
+        );
+
+    return _SectionWidget(
+      title: 'Perkembangan Mingguan',
+      styles: styles,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Table
+          Table(
+            columnWidths: {0: colWidths[0], 1: colWidths[1], 2: colWidths[2], 3: colWidths[3]},
+            border: TableBorder.all(color: onSurf.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: kColor,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  kLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+              // Header row
+              TableRow(
+                decoration: BoxDecoration(color: surfHigh.withValues(alpha: 0.6)),
                 children: [
-                  Text(
-                    'Total Pencapaian: ${_f(halReg)} Hal',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: _kText1,
-                    ),
-                  ),
-                  if (!hasCepat)
-                    Text(
-                      '(Butuh min. 3 sesi lulus)',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _kText2,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
+                  headerCell('Periode'),
+                  headerCell('Mode'),
+                  headerCell('Simakan\nL/U/T'),
+                  headerCell('Absensi\nH/S/I/T'),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          MultiSegmentProgressBar(
-            title: 'Progres Jilid',
-            icon: Icons.menu_book_rounded,
-            capai: halReg,
-            total: totReg,
-            checkpoints:
-                widget.santri['checkpoints'] ??
-                widget.santri['checkpoint'] ??
-                widget.santri['t_kelas_checkpoint'] ??
-                widget.santri['check_points'],
-            baseColor: const Color(0xFF6610F2),
-          ),
-          if (totLat > 0) ...[
-            const SizedBox(height: 12),
-            MultiSegmentProgressBar(
-              title: 'Progres Latihan',
-              icon: Icons.edit_note_rounded,
-              capai: halLat,
-              total: totLat,
-              checkpoints:
-                  widget.santri['checkpoints'] ??
-                  widget.santri['checkpoint'] ??
-                  widget.santri['t_kelas_checkpoint'] ??
-                  widget.santri['check_points'],
-              baseColor: const Color(0xFF14B8A6),
-            ),
-          ],
-          if (nextCheckpoint != null) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.shade200),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.flag_rounded,
-                      color: Colors.orange.shade800,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Checkpoint: Halaman ${nextCheckpoint["halaman_target"]}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.orange.shade900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          nextCheckpoint['keterangan'] ?? 'Mid-Test',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange.shade800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (aksHistory.isNotEmpty) ...[
-            for (var item in aksHistory) ...[
-              Builder(
-                builder: (context) {
-                  final int sCycle =
-                      int.tryParse(item['jml_tes']?.toString() ?? '0') ?? 0;
-                  final double sHal =
-                      double.tryParse(item['hal_aks']?.toString() ?? '0') ?? 0;
-
-                  return Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      MultiSegmentProgressBar(
-                        title: 'Akselerasi $sCycle',
-                        icon: Icons.rocket_launch_rounded,
-                        capai: sHal,
-                        total: totReg,
-                        baseColor: const Color(0xFFEA5455),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ] else if (jmlTes > 0) ...[
-            const SizedBox(height: 12),
-            MultiSegmentProgressBar(
-              title: 'Akselerasi $jmlTes',
-              icon: Icons.rocket_launch_rounded,
-              capai: halAks,
-              total: totReg,
-              baseColor: const Color(0xFFEA5455),
-            ),
-          ],
-          const Divider(height: 30),
-          _speedRow(
-            'Mode Reguler',
-            kec['rasioReg'],
-            kec['kecAktReg'],
-            kec['kecBakuReg'],
-          ),
-          _speedRow(
-            'Rata-rata Keseluruhan',
-            kec['rasioTotal'],
-            kec['kecAktTotal'],
-            kec['kecBakuTotal'],
-            isBold: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPredictionCard(
-    Map<String, dynamic> prediksi,
-    Map<String, dynamic> santri,
-  ) {
-    final double totReg =
-        double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
-    final double parsedTotLat =
-        double.tryParse(santri['target_latihan']?.toString() ?? '0') ?? 0;
-    final double totLat = parsedTotLat > 0 ? parsedTotLat : totReg;
-    final bool isSelesai =
-        (santri['status']?.toString().toLowerCase().contains('khotam') ??
-            false) ||
-        (santri['status']?.toString().toLowerCase().contains('siap test') ??
-            false);
-
-    if (isSelesai) {
-      return _section(
-        'Prediksi Khatam',
-        child: Row(
-          children: [
-            const Icon(Icons.verified_rounded, color: Colors.green, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Santri telah menyelesaikan seluruh target jilid ini.',
-                style: TextStyle(
-                  color: Colors.green.shade700,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (prediksi['tersedia'] != true) {
-      return _section(
-        'Prediksi Khatam',
-        child: Text(
-          prediksi['pesan']?.toString() ?? 'Belum ada data prediksi.',
-          style: TextStyle(color: _kText2),
-        ),
-      );
-    }
-
-    final int selisih =
-        int.tryParse(prediksi['selisih_hari']?.toString() ?? '0') ?? 0;
-
-    return _section(
-      'Prediksi Khatam',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Target Lembaga',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: _kText1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _predDetailedRow(
-            'Reguler',
-            prediksi['baku_reg_tgl'],
-            prediksi['baku_reg_hari'],
-          ),
-          if (totLat > 0)
-            _predDetailedRow(
-              'Latihan',
-              prediksi['baku_lat_tgl'],
-              prediksi['baku_lat_hari'],
-            ),
-          _predDetailedRow(
-            'Total',
-            prediksi['baku_tot_tgl'],
-            prediksi['baku_tot_hari'],
-            isBold: true,
-          ),
-          const Divider(height: 20),
-          Text(
-            'Target Aktual',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: _kText1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _predDetailedRow(
-            'Reguler',
-            prediksi['akt_reg_tgl'],
-            prediksi['akt_reg_hari'],
-          ),
-          if (totLat > 0)
-            _predDetailedRow(
-              'Latihan',
-              prediksi['akt_lat_tgl'],
-              prediksi['akt_lat_hari'],
-            ),
-          _predDetailedRow(
-            'Total',
-            prediksi['akt_tot_tgl'],
-            prediksi['akt_tot_hari'],
-            isBold: true,
-            highlight: true,
-          ),
-          const Divider(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Selisih Waktu',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: _kText1,
-                ),
-              ),
-              Text(
-                '$selisih Sesi',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: selisih > 0 ? Colors.red.shade600 : _kAccent,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWeeklyTableCard(List<Map<String, dynamic>> weekly) {
-    double sumLulus = 0;
-    double sumUlang = 0;
-    double sumTotal = 0;
-    int sumH = 0;
-    int sumI = 0;
-    int sumS = 0;
-    int sumA = 0;
-
-    for (var w in weekly) {
-      final abs = w['absensi'] ?? {};
-      sumH += int.tryParse(abs['H']?.toString() ?? '0') ?? 0;
-      sumI += int.tryParse(abs['I']?.toString() ?? '0') ?? 0;
-      sumS += int.tryParse(abs['S']?.toString() ?? '0') ?? 0;
-      sumA +=
-          int.tryParse(abs['T']?.toString() ?? '0') ??
-          0; // T is used for Alpa in some contexts here
-
-      final modes = (w['modes'] is Map) ? (w['modes'] as Map) : {};
-      modes.forEach((_, m) {
-        final halLulus =
-            double.tryParse(m['hal_lulus']?.toString() ?? '0') ?? 0;
-        final halUlang =
-            double.tryParse(m['hal_ulang']?.toString() ?? '0') ?? 0;
-        sumLulus += halLulus;
-        sumUlang += halUlang;
-        sumTotal += (halLulus + halUlang);
-      });
-    }
-
-    return _section(
-      'Perkembangan Mingguan',
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowHeight: 60,
-          columnSpacing: 16,
-          horizontalMargin: 0,
-          headingRowColor: WidgetStateProperty.all(Colors.grey.shade50),
-          columns: const [
-            DataColumn(
-              label: Text(
-                'Periode',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Mode',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Setoran\n(L/U/T)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-            DataColumn(
-              label: Text(
-                'Absen\n(H/I/S/A)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-          ],
-          rows: [
-            if (weekly.isEmpty)
-              const DataRow(
-                cells: [
-                  DataCell(
-                    Text(
-                      'Belum ada data',
-                      style: TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                  ),
-                  DataCell(Text('')),
-                  DataCell(Text('')),
-                  DataCell(Text('')),
-                ],
-              )
-            else ...[
-              ...weekly
-                  .map((w) {
-                    final abs = w['absensi'] ?? {};
-                    final modes = (w['modes'] is Map)
-                        ? (w['modes'] as Map)
-                        : {};
-
-                    List<DataRow> subRows = [];
-                    if (modes.isEmpty) {
-                      subRows.add(
-                        DataRow(
-                          cells: [
-                            DataCell(
-                              Text(
-                                w['label'] ?? '-',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              const Text(
-                                'No Data',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                            DataCell(const Text('-')),
-                            DataCell(
-                              Text(
-                                '${abs['H']}/${abs['I']}/${abs['S']}/${abs['T']}',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    } else {
-                      bool firstMode = true;
-                      modes.forEach((modeName, m) {
-                        final halLulus = m['hal_lulus'] ?? 0;
-                        final halUlang = m['hal_ulang'] ?? 0;
-                        final total = halLulus + halUlang;
-
-                        subRows.add(
-                          DataRow(
-                            cells: [
-                              DataCell(
-                                Text(
-                                  firstMode ? (w['label'] ?? '-') : '',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        modeName
-                                            .toString()
-                                            .toLowerCase()
-                                            .contains('akselerasi')
-                                        ? Colors.red.shade50
-                                        : (modeName.toString().toLowerCase() ==
-                                                  'reguler'
-                                              ? Colors.blue.shade50
-                                              : Colors.teal.shade50),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    modeName.toString().toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          modeName
-                                              .toString()
-                                              .toLowerCase()
-                                              .contains('akselerasi')
-                                          ? Colors.red.shade700
-                                          : (modeName
-                                                        .toString()
-                                                        .toLowerCase() ==
-                                                    'reguler'
-                                                ? Colors.blue.shade700
-                                                : Colors.teal.shade700),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  '${_f(halLulus)}/${_f(halUlang)}/${_f(total)}',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              ),
-                              DataCell(
-                                Text(
-                                  firstMode
-                                      ? '${abs['H']}/${abs['I']}/${abs['S']}/${abs['T']}'
-                                      : '',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                        firstMode = false;
-                      });
-                    }
-                    return subRows;
-                  })
-                  .expand((e) => e),
-              // TOTAL ROW
-              DataRow(
-                color: WidgetStateProperty.all(
-                  Colors.green.withValues(alpha: 0.05),
-                ),
-                cells: [
-                  const DataCell(
-                    Text(
-                      'TOTAL AKUMULASI',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                  const DataCell(
-                    Text(
-                      'PERIODE INI',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      '${_f(sumLulus)}/${_f(sumUlang)}/${_f(sumTotal)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Text(
-                      '$sumH/$sumI/$sumS/$sumA',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMasalahCard(List<Map<dynamic, dynamic>> masalah) {
-    return _section(
-      'Masalah Aktif',
-      child: masalah.isEmpty
-          ? Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: _kAccent,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Tidak ada masalah yang aktif',
-                  style: TextStyle(color: _kAccent),
-                ),
-              ],
-            )
-          : Column(
-              children: masalah.map((m) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
+              // Data rows
+              ...rows.map((r) {
+                final (periode, mode, simakan, absensi, color, isFirst) = r;
+                return TableRow(
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.shade100),
+                    color: isFirst && periode.isNotEmpty
+                        ? color.withValues(alpha: 0.04)
+                        : null,
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.red.shade600,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              m['jenis_masalah']?.toString() ?? '-',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Colors.red.shade700,
+                  children: [
+                    // Periode
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 5),
+                      child: Text(periode, style: const TextStyle(fontSize: 10), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ),
+                    // Mode badge
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                      child: mode == '-'
+                          ? Text('-', style: TextStyle(fontSize: 10, color: onSurf), textAlign: TextAlign.center)
+                          : Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)),
+                                child: Text(mode.toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
                               ),
                             ),
-                            if ((m['deskripsi']?.toString() ?? '').isNotEmpty)
-                              Text(
-                                m['deskripsi']!.toString(),
-                                style: TextStyle(fontSize: 12, color: _kText2),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    // Simakan
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                      child: Text(simakan, style: const TextStyle(fontSize: 10), textAlign: TextAlign.center),
+                    ),
+                    // Absensi
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                      child: Text(absensi, style: const TextStyle(fontSize: 10), textAlign: TextAlign.center),
+                    ),
+                  ],
                 );
-              }).toList(),
-            ),
-    );
-  }
-
-  Future<void> _sendWaReport(String target) async {
-    setState(() => _sendingWa = true);
-    try {
-      final nis = widget.santri['nis']?.toString() ?? '';
-      final res = await ApiService.sendWaReport(nis: nis, target: target);
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res['message'] ?? 'Laporan berhasil dikirim!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal mengirim laporan: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _sendingWa = false);
-    }
-  }
-
-  Widget _speedRow(
-    String label,
-    dynamic rasio,
-    dynamic aktual,
-    dynamic baku, {
-    bool isBold = false,
-  }) {
-    final double vAct = double.tryParse(aktual?.toString() ?? '0') ?? 0;
-    final double vBak = double.tryParse(baku?.toString() ?? '0') ?? 0;
-    final double vPct = double.tryParse(rasio?.toString() ?? '0') ?? 0;
-
-    String act = _f(double.parse(vAct.toStringAsFixed(2)));
-    String bak = _f(double.parse(vBak.toStringAsFixed(2)));
-    String pct = _f(double.parse(vPct.toStringAsFixed(1)));
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isBold ? _kText1 : _kText2,
-                    fontSize: 13,
-                    fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-                if (!isBold)
-                  Text(
-                    'Target: $bak Hal/Sesi',
-                    style: TextStyle(fontSize: 10, color: _kText2),
-                  ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Row(
+              }),
+              // Total row
+              TableRow(
+                decoration: BoxDecoration(color: surfHigh.withValues(alpha: 0.8)),
                 children: [
-                  Text(
-                    act,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: _kText1,
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 5),
+                    child: Text('TOTAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: onSurf)),
                   ),
-                  Text(
-                    ' / $bak Hal/Sesi',
-                    style: TextStyle(fontSize: 11, color: _kText2),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                    child: Text('AKUMULASI', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: onSurf), textAlign: TextAlign.center),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$pct%',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.green,
-                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                    child: Text(totalSim > 0 ? '$totalL/$totalU/$totalSim' : '-', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                    child: Text(totalH + totalS + totalI + totalAlpa > 0 ? '$totalH/$totalS/$totalI/$totalAlpa' : '-', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   ),
                 ],
               ),
+            ],
+          ),
+          // Legend
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _legendItem('L = Lulus', const Color(0xFF22C55E)),
+              const SizedBox(width: 12),
+              _legendItem('U = Ulang', Colors.red),
+              const SizedBox(width: 12),
+              _legendItem('T = Total', Colors.grey),
             ],
           ),
         ],
@@ -1534,563 +765,221 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     );
   }
 
-  Widget _predDetailedRow(
-    String label,
-    dynamic tgl,
-    dynamic hari, {
-    bool isBold = false,
-    bool highlight = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('> $label', style: TextStyle(color: _kText2, fontSize: 12)),
-          Text(
-            '${tgl ?? '-'} (${hari ?? 0} Sesi)',
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              fontSize: 12,
-              color: highlight ? _kAccent : _kText1,
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _legendItem(String text, Color color) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(text, style: TextStyle(fontSize: 9, color: color)),
+    ]);
   }
 
-  // --- TAB 2: Riwayat -------------------------------------------------------
-  Widget _buildRiwayat() {
-    final rawRiwayat = _detail?['riwayat'];
-    final rawList = rawRiwayat is List ? rawRiwayat : [];
-    final List<Map<String, dynamic>> riwayat = rawList
-        .whereType<Map<String, dynamic>>()
-        .toList();
+  Widget _buildMasalahCard(BuildContext context, List<Map<dynamic, dynamic>> masalah, AppCustomStyles? styles) {
+    return _SectionWidget(
+      title: 'Masalah Aktif',
+      styles: styles,
+      child: masalah.isEmpty
+          ? Row(children: [
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 20),
+              const SizedBox(width: 8),
+              Text('Tidak ada masalah yang aktif', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ])
+          : Column(children: masalah.map((m) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              title: Text(m['jenis_masalah']?.toString() ?? 'Masalah', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              subtitle: Text(m['keterangan']?.toString() ?? '-', style: const TextStyle(fontSize: 11)),
+            )).toList()),
+    );
+  }
+}
 
-    if (riwayat.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.history_rounded, size: 56, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text('Belum ada riwayat simakan', style: TextStyle(color: _kText2)),
-          ],
-        ),
-      );
-    }
+class _RiwayatTab extends StatefulWidget {
+  final List<dynamic> riwayat;
+  final Function(Map<dynamic, dynamic>, {bool onlyEditDate}) onEdit;
+  final Function(int) onDelete;
+
+  const _RiwayatTab({required this.riwayat, required this.onEdit, required this.onDelete});
+
+  @override
+  State<_RiwayatTab> createState() => _RiwayatTabState();
+}
+
+class _RiwayatTabState extends State<_RiwayatTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  String _formatIndonesianDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '-';
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    
+    final hijri = HijriCalendar.fromDate(dt);
+    final hijriStr = '${hijri.hDay} ${hijri.longMonthName} ${hijri.hYear}H';
+    final masehiStr = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(dt);
+    
+    return '$masehiStr\n$hijriStr';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final styles = Theme.of(context).extension<AppCustomStyles>();
+    final onSurfaceVar = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    if (widget.riwayat.isEmpty) return const Center(child: Text('Belum ada riwayat'));
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: riwayat.length,
+      itemCount: widget.riwayat.length,
       itemBuilder: (context, i) {
-        final r = riwayat[i];
-
-        String tglDisplay = '-';
-        String jamDisplay = '';
-        final rawTgl = r['tgl_simak']?.toString();
-        if (rawTgl != null && rawTgl.isNotEmpty && rawTgl != 'null') {
-          final dt = DateTime.tryParse(rawTgl);
-          if (dt != null) {
-            tglDisplay = DateFormat('dd MMM yyyy').format(dt);
-            if (rawTgl.contains(':')) {
-              jamDisplay = DateFormat('HH:mm').format(dt);
-            }
-          }
-        }
-
-        final status = r['status']?.toString().toLowerCase() ?? '';
-        final isLulus = status == 'lulus';
-
-        final int jmlTesItem =
-            int.tryParse(r['jml_tes']?.toString() ?? '0') ?? 0;
-        String modeStr = r['mode_belajar']?.toString().toUpperCase() ?? '-';
-        if (modeStr == 'AKSELERASI' && jmlTesItem > 0) {
-          modeStr = 'AKSELERASI $jmlTesItem';
-        }
-
+        final r = widget.riwayat[i];
+        final isLulus = r['status']?.toString().toLowerCase() == 'lulus' || r['status_halaman']?.toString().toLowerCase() == 'lulus';
+        final halAwal = r['hal_awal']?.toString() ?? '-';
+        final halAkhir = r['hal_akhir']?.toString() ?? '-';
+        
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(10),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tanggal & Waktu di kiri
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tglDisplay,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                          if (jamDisplay.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              jamDisplay,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: styles?.cardBorder ?? Colors.white.withValues(alpha: 0.1))),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatIndonesianDate(r['tgl_simak'] ?? r['tanggal']), 
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, height: 1.4)
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Mode Belajar & Badge Lulus/Mengulang
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: modeStr.contains('AKSELERASI')
-                                      ? Colors.red.shade50
-                                      : (modeStr.contains('REGULER')
-                                            ? Colors.blue.shade50
-                                            : Colors.teal.shade50),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  modeStr,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: modeStr.contains('AKSELERASI')
-                                        ? Colors.red.shade700
-                                        : (modeStr.contains('REGULER')
-                                              ? Colors.blue.shade700
-                                              : Colors.teal.shade700),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isLulus
-                                      ? _kAccent.withAlpha(25)
-                                      : Colors.red.shade50,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  isLulus ? 'LULUS' : 'MENGULANG',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: isLulus
-                                        ? _kAccent
-                                        : Colors.red.shade700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Detail Halaman
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.menu_book_rounded,
-                                size: 14,
-                                color: Colors.indigo.shade400,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${r['halaman'] ?? 0} Halaman',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: _kText1,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const SizedBox(width: 18),
-                              Text(
-                                '(Hal. ${r['hal_awal'] ?? 0} s/d ${r['hal_akhir'] ?? 0})',
-                                style: TextStyle(fontSize: 11, color: _kText2),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          // Detail TM
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.people_alt_outlined,
-                                size: 14,
-                                color: Colors.orange.shade600,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Tatap Muka: ${r['jml_kehadiran'] ?? 1}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _kText2,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Tombol Edit & Hapus (Vertikal di pojok kanan)
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        // Tombol Edit
-                        IconButton(
-                          onPressed: () => _tampilkanBottomSheetEdit(
-                            r,
-                            onlyEditDate: i != 0,
-                          ),
-                          icon: Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: Colors.blue.shade700,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Edit Riwayat',
-                        ),
-                        // Tombol Hapus
-                        IconButton(
-                          onPressed: () {
-                            if (i != 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "Tidak boleh dihapus karena ada progres terbaru!",
-                                  ),
-                                  backgroundColor: Colors.red,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                              return;
-                            }
-                            int id =
-                                int.tryParse(
-                                  r['id']?.toString() ??
-                                      r['id_prestasi']?.toString() ??
-                                      '0',
-                                ) ??
-                                0;
-                            if (id != 0) _hapusData(id);
-                          },
-                          icon: Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red.shade700,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          tooltip: 'Hapus Riwayat',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-
-                // Catatan
-                if ((r['catatan']?.toString() ?? '').isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Divider(height: 1),
                   ),
-                  Row(
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: (isLulus ? Colors.green : Colors.red).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)), child: Text(isLulus ? 'LULUS' : 'MENGULANG', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isLulus ? const Color(0xFF22C55E) : Colors.red))),
+                ],
+              ),
+              const Divider(height: 24),
+              Row(
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.edit_note_rounded,
-                        size: 16,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          r['catatan'].toString(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade800,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ),
+                      Text('Progres Halaman', style: TextStyle(fontSize: 10, color: onSurfaceVar)),
+                      const SizedBox(height: 4),
+                      Text('Hal: $halAwal s/d $halAkhir', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     ],
                   ),
+                  const Spacer(),
+                  IconButton(icon: const Icon(Icons.edit_outlined, size: 18), onPressed: () => widget.onEdit(r, onlyEditDate: i != 0)),
+                  IconButton(icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red), onPressed: () => widget.onDelete(int.tryParse(r['id']?.toString() ?? '0') ?? 0)),
                 ],
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
+}
 
-  // --- TAB 3: Form Input Cepat ----------------------------------------------
-  Widget _buildInput() {
-    final santri = Map<String, dynamic>.from(_detail?['santri'] ?? {});
-    double capaiHal =
-        double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
-    double totalHal =
-        double.tryParse(santri['total_hal']?.toString() ?? '0') ?? 0;
-    double latSek = double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
+class _InputTab extends StatefulWidget {
+  final Map<String, dynamic>? detail;
+  final Map<String, dynamic> santri;
+  final List<Map<String, dynamic>> catatanMaster;
+  final VoidCallback onSuccess;
 
-    final int jmlTes = int.tryParse(santri['jml_tes']?.toString() ?? '0') ?? 0;
-    final double capaiAks =
-        double.tryParse(santri['capai_aks']?.toString() ?? '0') ?? 0;
-    // âš ï¸ Sesuai backend: isAkselerasi jika jml_tes>0 ATAU sudah ada capai_aks>0
-    final bool isAkselerasi = jmlTes > 0 || capaiAks > 0;
-    final int jmlGagalBerturut =
-        int.tryParse(santri['jml_gagal_berturut']?.toString() ?? '0') ?? 0;
+  const _InputTab({required this.detail, required this.santri, required this.catatanMaster, required this.onSuccess});
 
-    bool isLatihan = !isAkselerasi && (capaiHal >= totalHal) && (totalHal > 0);
-    double halAwalBenar = isAkselerasi
-        ? capaiAks
-        : (isLatihan ? latSek : capaiHal);
+  @override
+  State<_InputTab> createState() => _InputTabState();
+}
 
-    final nextCP = _detail?['nextCheckpoint'];
-    final double cpTarget = nextCP != null
-        ? (double.tryParse(nextCP['halaman_target']?.toString() ?? '0') ?? 0)
-        : 0.0;
+class _InputTabState extends State<_InputTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
-    final bool isFinishedReg = (totalHal > 0 && capaiHal >= totalHal);
-    final double currentLimit = isFinishedReg
-        ? totalHal
-        : (cpTarget > 0 ? cpTarget : totalHal);
-    final bool isAtCP =
-        (!isFinishedReg && cpTarget > 0 && capaiHal >= cpTarget);
-    final bool latihanSelesai = (latSek >= currentLimit && currentLimit > 0);
-    final bool aksSelesai = (totalHal > 0 && capaiAks >= totalHal);
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final s = widget.detail?['santri'] ?? widget.santri;
+    final int jmlTes = int.tryParse(s['jml_tes']?.toString() ?? '0') ?? 0;
+    final double capaiAks = double.tryParse(s['capai_aks']?.toString() ?? '0') ?? 0;
 
-    bool isTerkunci = false;
-    String alasanKunci = '';
-
-    if (isAkselerasi) {
-      if (aksSelesai) {
-        isTerkunci = true;
-        alasanKunci = 'Buku Akselerasi telah selesai.';
-      }
-    } else if (isLatihan || isAtCP) {
-      if (latihanSelesai) {
-        isTerkunci = true;
-        alasanKunci = isFinishedReg
-            ? 'Buku Reguler dan target Latihan tercapai.'
-            : 'Target Checkpoint dan Latihan tercapai.';
+    double initHal = double.tryParse(s['capai_hal']?.toString() ?? '0') ?? 0;
+    final riwayat = widget.detail?['riwayat'];
+    if (riwayat is List && riwayat.isNotEmpty) {
+      final lastProgress = riwayat.first;
+      final isLulus = lastProgress['status']?.toString().toLowerCase() == 'lulus' || lastProgress['status_halaman']?.toString().toLowerCase() == 'lulus';
+      if (isLulus) {
+        initHal = double.tryParse(lastProgress['hal_akhir']?.toString() ?? '0') ?? initHal;
+      } else {
+        initHal = double.tryParse(lastProgress['hal_awal']?.toString() ?? '0') ?? initHal;
       }
     }
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: _kAccent,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            // -- Banner Streak Tidak Lulus --------------------------------
-            if (jmlGagalBerturut > 0)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.red.shade300, width: 1.5),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.trending_down_rounded,
-                        color: Colors.red.shade700,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$jmlGagalBerturutÃ— Tidak Lulus Berturut-turut',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Colors.red.shade800,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Santri ini belum berhasil lulus dalam $jmlGagalBerturut sesi terakhir secara berurutan.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.red.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            // -- Form Input ------------------------------------------------
-            DetailInputFormWidget(
-              nis: widget.santri['nis']?.toString() ?? '',
-              initialHalAwal: halAwalBenar,
-              isLatihan: isLatihan || isAtCP,
-              isAkselerasi: isAkselerasi,
-              jmlTes: jmlTes,
-              isTerkunci: isTerkunci,
-              alasanKunci: alasanKunci,
-              jmlGagalBerturut: jmlGagalBerturut,
-              catatanMaster: _catatanMaster,
-              kelasSettings:
-                  _detail?['kelas_settings'] as Map<String, dynamic>? ?? {},
-              metodeList:
-                  (_detail?['metode_list'] as List?)
-                      ?.whereType<Map>()
-                      .map((e) => Map<String, dynamic>.from(e))
-                      .toList() ??
-                  [],
-              idKelas: int.tryParse(santri['id_kelas']?.toString() ?? '0') ?? 0,
-              onSuccess: _load,
-            ),
-          ],
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: DetailInputFormWidget(
+        nis: s['nis']?.toString() ?? '',
+        initialHalAwal: initHal,
+        isLatihan: false,
+        isAkselerasi: jmlTes > 0 || capaiAks > 0,
+        jmlTes: jmlTes,
+        catatanMaster: widget.catatanMaster,
+        kelasSettings: Map<String, dynamic>.from(widget.detail?['kelas_settings'] ?? {}),
+        metodeList: List<Map<String, dynamic>>.from(widget.detail?['metode_list'] ?? []),
+        idKelas: int.tryParse(s['id_kelas']?.toString() ?? '0') ?? 0,
+        onSuccess: widget.onSuccess,
       ),
     );
   }
+}
 
-  Widget _section(String title, {required Widget child}) {
+class _SectionWidget extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final AppCustomStyles? styles;
+  const _SectionWidget({required this.title, required this.child, this.styles});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(10),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: _kHeader.withAlpha(15),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: _kHeader,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(padding: const EdgeInsets.all(18), child: child),
-        ],
-      ),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: styles?.cardBorder ?? Colors.white.withValues(alpha: 0.05))),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)), const SizedBox(height: 16), child]),
     );
   }
+}
 
-  Widget _infoRow(String label, String value, {Widget? trailing}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(color: _kText2, fontSize: 14)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: _kText1,
-                    ),
-                  ),
-                ),
-                if (trailing != null) ...[const SizedBox(width: 8), trailing],
-              ],
-            ),
-          ),
-        ],
+class _InfoRowWidget extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color onSurfaceVar;
+  const _InfoRowWidget({required this.label, required this.value, required this.onSurfaceVar});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontSize: 12, color: onSurfaceVar)), Flexible(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.end, maxLines: 2, overflow: TextOverflow.ellipsis))]));
+  }
+}
+
+class _SubSectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _SubSectionHeader({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
       ),
+      child: Row(children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+      ]),
     );
   }
 }

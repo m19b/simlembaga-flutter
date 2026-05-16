@@ -6,9 +6,6 @@ import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
 
 const Color _kHeader = Color(0xFF0F4C2A);
 const Color _kAccent = Color(0xFF16A34A);
-const Color _kBg = Color(0xFFF8FAFC);
-const Color _kText1 = Color(0xFF1E293B);
-const Color _kText2 = Color(0xFF64748B);
 
 class DetailInputFormWidget extends StatefulWidget {
   final String nis;
@@ -239,7 +236,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: isPrimary ? Colors.red.shade600 : _kText2,
+              color: isPrimary ? Colors.red.shade600 : Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -252,11 +249,11 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: textColor ?? _kText1,
+            color: textColor ?? Theme.of(context).colorScheme.onSurface,
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: isPrimary ? Colors.white : _kBg,
+            fillColor: isPrimary ? Theme.of(context).colorScheme.surface : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -269,7 +266,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: isPrimary ? _kAccent : Colors.grey.shade400,
+                color: isPrimary ? _kAccent : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
               ),
             ),
             prefixIcon: onMinus != null
@@ -303,10 +300,10 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Form(
-        key: _formKey,
+    return Form(
+      key: _formKey,
+      child: Padding(
+        padding: const EdgeInsets.all(4), // Padding disesuaikan karena parent sudah punya padding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -318,7 +315,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: _kText1,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 GestureDetector(
@@ -549,9 +546,9 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: _isLulus ? _kAccent : Colors.white,
+                        color: _isLulus ? _kAccent : Theme.of(context).colorScheme.surface,
                         border: Border.all(
-                          color: _isLulus ? _kAccent : Colors.grey.shade300,
+                          color: _isLulus ? _kAccent : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                         borderRadius: const BorderRadius.horizontal(
                           left: Radius.circular(8),
@@ -561,7 +558,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                       child: Text(
                         'Lulus',
                         style: TextStyle(
-                          color: _isLulus ? Colors.white : _kText2,
+                          color: _isLulus ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -574,11 +571,11 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: !_isLulus ? Colors.red.shade500 : Colors.white,
+                        color: !_isLulus ? Colors.red.shade500 : Theme.of(context).colorScheme.surface,
                         border: Border.all(
                           color: !_isLulus
                               ? Colors.red.shade500
-                              : Colors.grey.shade300,
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                         borderRadius: const BorderRadius.horizontal(
                           right: Radius.circular(8),
@@ -588,7 +585,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                       child: Text(
                         'Mengulang',
                         style: TextStyle(
-                          color: !_isLulus ? Colors.white : _kText2,
+                          color: !_isLulus ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -608,11 +605,11 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: _isDisimak ? Colors.blue.shade600 : Colors.white,
+                        color: _isDisimak ? Colors.blue.shade600 : Theme.of(context).colorScheme.surface,
                         border: Border.all(
                           color: _isDisimak
                               ? Colors.blue.shade600
-                              : Colors.grey.shade300,
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                         borderRadius: const BorderRadius.horizontal(
                           left: Radius.circular(8),
@@ -622,7 +619,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                       child: Text(
                         'Ya, Disimak',
                         style: TextStyle(
-                          color: _isDisimak ? Colors.white : _kText2,
+                          color: _isDisimak ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -637,11 +634,11 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                       decoration: BoxDecoration(
                         color: !_isDisimak
                             ? Colors.orange.shade600
-                            : Colors.white,
+                            : Theme.of(context).colorScheme.surface,
                         border: Border.all(
                           color: !_isDisimak
                               ? Colors.orange.shade600
-                              : Colors.grey.shade300,
+                              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                         borderRadius: const BorderRadius.horizontal(
                           right: Radius.circular(8),
@@ -651,7 +648,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                       child: Text(
                         'Tidak',
                         style: TextStyle(
-                          color: !_isDisimak ? Colors.white : _kText2,
+                          color: !_isDisimak ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -667,9 +664,9 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: Colors.green.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -683,15 +680,15 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                     ),
                     const SizedBox(height: 16),
                     if (_showMetode && widget.metodeList.isNotEmpty) ...[
-                      Text('Metode Belajar', style: TextStyle(fontSize: 12, color: _kText2, fontWeight: FontWeight.w600)),
+                      Text('Metode Belajar', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<int>(
                         value: _idMetode,
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.shade200)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.shade200)),
+                          fillColor: Theme.of(context).colorScheme.surface,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.2))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.2))),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         ),
                         items: [
@@ -714,7 +711,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                             onChanged: (v) => setState(() => _gunakanPeraga = v),
                           ),
                           const SizedBox(width: 8),
-                          Text('Gunakan Peraga', style: TextStyle(fontWeight: FontWeight.bold, color: _kText1)),
+                          Text('Gunakan Peraga', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                         ],
                       ),
                       if (_gunakanPeraga) ...[
@@ -728,9 +725,9 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                                 decoration: InputDecoration(
                                   labelText: 'Halaman',
                                   filled: true,
-                                  fillColor: Colors.white,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.shade200)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.shade200)),
+                                  fillColor: Theme.of(context).colorScheme.surface,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.2))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.2))),
                                 ),
                               ),
                             ),
@@ -742,9 +739,9 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                                 decoration: InputDecoration(
                                   labelText: 'Keterangan',
                                   filled: true,
-                                  fillColor: Colors.white,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.shade200)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.shade200)),
+                                  fillColor: Theme.of(context).colorScheme.surface,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.2))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.green.withValues(alpha: 0.2))),
                                 ),
                               ),
                             ),
@@ -766,7 +763,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                   'Tidak ada template catatan standar.',
                   style: TextStyle(
                     fontSize: 12,
-                    color: _kText2,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -801,7 +798,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                           _ketCtrl.text = current.join(', ');
                         });
                       },
-                      backgroundColor: Colors.grey.shade100,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                       selectedColor: _kAccent.withValues(alpha: 0.15),
                       checkmarkColor: _kAccent,
                       shape: RoundedRectangleBorder(
@@ -809,7 +806,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                       ),
                       side: BorderSide.none,
                       labelStyle: TextStyle(
-                        color: isSel ? _kAccent : _kText2,
+                        color: isSel ? _kAccent : Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
                         fontSize: 12,
                       ),
@@ -902,23 +899,23 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
       style: TextStyle(
         fontWeight: FontWeight.w600,
         fontSize: 13,
-        color: _kText1,
+        color: Theme.of(context).colorScheme.onSurface,
       ),
     ),
   );
 
   InputDecoration _inputDeco(String hint) => InputDecoration(
     hintText: hint,
-    hintStyle: TextStyle(color: Colors.grey.shade400),
+    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
     filled: true,
-    fillColor: Colors.white,
+    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.grey.shade200),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1)),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.grey.shade200),
+      borderSide: BorderSide(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1)),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),

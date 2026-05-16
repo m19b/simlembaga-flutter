@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class RowStateModel {
   final Map<String, dynamic> santri;
@@ -70,13 +70,24 @@ class RowStateModel {
 
   void setModeOverride(String newMode) {
     modeBelajar = newMode;
-    if (newMode == 'akselerasi') {
-      halAwal = double.tryParse(santri['capai_aks']?.toString() ?? '0') ?? 0;
-    } else if (newMode == 'latihan') {
-      halAwal = double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
+    
+    final String lastMode = santri['last_mode']?.toString() ?? '';
+    final String lastStatus = santri['last_status']?.toString() ?? '';
+    final double lastHalAkhir = double.tryParse(santri['last_hal_akhir']?.toString() ?? '0') ?? 0;
+    
+    if (newMode == lastMode && lastHalAkhir > 0) {
+        final double lastHalTotal = double.tryParse(santri['last_hal_total']?.toString() ?? '0') ?? 0;
+        halAwal = lastStatus.toLowerCase() == 'lulus' ? lastHalAkhir : (lastHalAkhir - lastHalTotal);
     } else {
-      halAwal = double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
+        if (newMode == 'akselerasi') {
+          halAwal = double.tryParse(santri['capai_aks']?.toString() ?? '0') ?? 0;
+        } else if (newMode == 'latihan') {
+          halAwal = double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
+        } else {
+          halAwal = double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
+        }
     }
+    
     // Setel default form
     halTotal = 1.0;
     halCtrl.text = '1';

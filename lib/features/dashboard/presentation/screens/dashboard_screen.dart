@@ -11,20 +11,27 @@ import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/absen_screen.dart';
+import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/pra_tahfidz_screen.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/rekap_absen_screen.dart';
 import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/presentation/bloc/dashboard_cubit.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/masalah_screen.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/progress_screen.dart';
+import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_screen.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/tahfidz_coming_soon_screen.dart';
 import 'package:manajemen_tahsin_app/features/profile/presentation/profile_screen.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
 import 'package:manajemen_tahsin_app/features/tes/presentation/daftar_tes_screen.dart';
 import 'package:manajemen_tahsin_app/features/tes/presentation/bloc/tes_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/presentation/widgets/stat_card.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/presentation/widgets/dashboard_bottom_tabs.dart';
+import 'package:manajemen_tahsin_app/features/hari_libur/presentation/hari_libur_screen.dart';
+import 'package:manajemen_tahsin_app/features/hari_libur/data/repositories/hari_libur_repository.dart';
+import 'package:manajemen_tahsin_app/features/hari_libur/presentation/bloc/hari_libur_cubit.dart';
+import 'package:manajemen_tahsin_app/features/hari_libur/presentation/widgets/upcoming_holiday_widget.dart';
 
 // --- Colors ---
 const Color kBgColor = Color(0xFFF3F4F6);
@@ -42,14 +49,25 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => DashboardCubit(
-        repository: DashboardRepository(
-          networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
-          localDataSource: LocalDataSourceImpl(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => DashboardCubit(
+            repository: DashboardRepository(
+              networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+              localDataSource: LocalDataSourceImpl(),
+            ),
+            activeKelompokCubit: context.read<ActiveKelompokCubit>(),
+          ),
         ),
-        activeKelompokCubit: context.read<ActiveKelompokCubit>(),
-      ),
+        BlocProvider(
+          create: (_) => HariLiburCubit(
+            repository: HariLiburRepository(
+              networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+            ),
+          ),
+        ),
+      ],
       child: const _DashboardView(),
     );
   }
@@ -80,6 +98,7 @@ class _DashboardViewState extends State<_DashboardView> {
   void initState() {
     super.initState();
     context.read<DashboardCubit>().fetchDashboard();
+    _fetchHariLibur();
     _updateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateTime();
@@ -92,6 +111,14 @@ class _DashboardViewState extends State<_DashboardView> {
         _currentTime = DateFormat('HH:mm:ss').format(DateTime.now());
       });
     }
+  }
+
+  void _fetchHariLibur() {
+    final idKelompok = context.read<ActiveKelompokCubit>().state.activeId;
+    context.read<HariLiburCubit>().fetch(
+      tahun: DateTime.now().year,
+      idKelompok: idKelompok,
+    );
   }
 
   @override
@@ -261,6 +288,25 @@ class _DashboardViewState extends State<_DashboardView> {
                           _buildJadwalTerdekat("Jadwal Mengajar Terdekat", nextMengajar),
                         if (nextKelas != null)
                           _buildJadwalTerdekat("Jadwal Kelas Terdekat", nextKelas),
+                        // ── Libur terdekat ──
+                        BlocBuilder<HariLiburCubit, HariLiburState>(
+                          builder: (context, hlState) {
+                            if (hlState is HariLiburLoaded) {
+                              return UpcomingHolidayWidget(
+                                  allHolidays: hlState.items);
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                        if (state.isRefreshing)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
                         const SizedBox(height: 16),
                         DashboardBottomTabs(data: data, currentTime: _currentTime),
                         const SizedBox(height: 40),
@@ -284,9 +330,22 @@ class _DashboardViewState extends State<_DashboardView> {
       toolbarHeight: 56,
       pinned: true,
       elevation: 0,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF111827) : kHeaderColor,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : kHeaderColor,
       actions: [
         const SizedBox(width: 4),
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.person_outline,
+                color: Colors.white, size: 20),
+          ),
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen())),
+        ),
         IconButton(
           icon: Container(
             padding: const EdgeInsets.all(6),
@@ -329,32 +388,8 @@ class _DashboardViewState extends State<_DashboardView> {
             background: Stack(
               fit: StackFit.expand,
               children: [
-                Container(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF111827) : kHeaderColor),
-                Positioned(
-                  right: -50,
-                  top: -50,
-                  child: Container(
-                    width: 250,
-                    height: 250,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.05), width: 40),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: -30,
-                  bottom: -20,
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: Colors.white.withOpacity(0.05), width: 20),
-                    ),
-                  ),
+                const Positioned.fill(
+                  child: GlobalHeaderBackground(),
                 ),
                 Positioned(
                   left: 20,
@@ -387,12 +422,17 @@ class _DashboardViewState extends State<_DashboardView> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            _buildContextChip(Icons.person_outline, kelompok),
-                            const SizedBox(width: 8),
-                            _buildContextChip(Icons.school_outlined, kelas),
-                          ],
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildKelompokSelector(kelompok),
+                              const SizedBox(width: 8),
+                              _buildCategorySelector(),
+                              const SizedBox(width: 8),
+                              _buildContextChip(Icons.school_outlined, kelas),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -428,6 +468,94 @@ class _DashboardViewState extends State<_DashboardView> {
     );
   }
 
+  Widget _buildKelompokSelector(String fallbackNama) {
+    return BlocBuilder<ActiveKelompokCubit, ActiveKelompokState>(
+      builder: (context, state) {
+        if (state.allowedKelompok.isEmpty) {
+          return _buildContextChip(Icons.business_outlined, fallbackNama);
+        }
+
+        // Pastikan activeId ada di dalam list items
+        int? validActiveId = state.activeId > 0 ? state.activeId : null;
+        final hasActiveId = state.allowedKelompok.any((k) {
+          final id = k['id_kelompok'] ?? k['id'];
+          final intId = id is String ? int.tryParse(id) : (id as int?);
+          return intId == validActiveId;
+        });
+        if (!hasActiveId) validActiveId = null;
+
+        return Container(
+          height: 26,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: validActiveId,
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+              dropdownColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[900] : kHeaderColor,
+              isDense: true,
+              style: GoogleFonts.dmSans(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+              onChanged: (val) {
+                if (val != null) {
+                  context.read<ActiveKelompokCubit>().changeKelompok(val);
+                }
+              },
+              items: state.allowedKelompok.map((k) {
+                final id = k['id_kelompok'] ?? k['id'];
+                final intId = id is String ? int.tryParse(id) : (id as int?);
+                final nama = k['kelompok'] ?? k['nama_kelompok'] ?? 'Unknown';
+                return DropdownMenuItem<int>(
+                  value: intId ?? 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.business_outlined, color: Colors.white, size: 14),
+                      const SizedBox(width: 6),
+                      Text(nama),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    final cubit = context.read<DashboardCubit>();
+    final activeId = cubit.activeKategori;
+    
+    return Container(
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int?>(
+          value: activeId,
+          icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+          dropdownColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[900] : kHeaderColor,
+          isDense: true,
+          style: GoogleFonts.dmSans(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+          onChanged: (val) => cubit.setKategori(val),
+          items: const [
+            DropdownMenuItem(value: null, child: Text('Semua Modul')),
+            DropdownMenuItem(value: 1, child: Text('📚 Tahsin')),
+            DropdownMenuItem(value: 2, child: Text('📖 Tahfidz')),
+            DropdownMenuItem(value: 3, child: Text('🌱 Pra Tahfidz')),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDateAndCountdown(String countdownText) {
     final hijri = HijriCalendar.now();
     return Padding(
@@ -437,6 +565,7 @@ class _DashboardViewState extends State<_DashboardView> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withOpacity(0.05),
@@ -453,7 +582,21 @@ class _DashboardViewState extends State<_DashboardView> {
                     color: kHeaderColor, size: 18),
                 const SizedBox(width: 8),
                 Text(
-                  '${hijri.hDay} ${hijri.longMonthName} ${hijri.hYear} H',
+                  '${hijri.hDay} ${const [
+                    '',
+                    'Muharram',
+                    'Safar',
+                    'Rabiul Awal',
+                    'Rabiul Akhir',
+                    'Jumadil Awal',
+                    'Jumadil Akhir',
+                    'Rajab',
+                    "Sya'ban",
+                    'Ramadan',
+                    'Syawal',
+                    "Dzulqa'dah",
+                    'Dzulhijjah',
+                  ][hijri.hMonth]} ${hijri.hYear} H',
                   style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.bold, fontSize: 13, color: Theme.of(context).colorScheme.onSurface),
                 ),
@@ -496,6 +639,7 @@ class _DashboardViewState extends State<_DashboardView> {
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -755,6 +899,7 @@ class _DashboardViewState extends State<_DashboardView> {
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
           ),
           child: Row(
             children: [
@@ -868,7 +1013,7 @@ class _DashboardViewState extends State<_DashboardView> {
           onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => const ComingSoonScreen(title: 'Progres Pra Tahfidz')))),
+                  builder: (_) => const PraTahfidzScreen()))),
       _MenuItemData(
           icon: Icons.auto_stories_rounded,
           label: 'Progres\nTahfidz',
@@ -876,7 +1021,7 @@ class _DashboardViewState extends State<_DashboardView> {
           onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => const ComingSoonScreen(title: 'Progres Tahfidz')))),
+                  builder: (_) => const TahfidzScreen()))),
       _MenuItemData(
           icon: Icons.sports_basketball_outlined,
           label: 'Program\nEkstrakurikuler',
@@ -910,11 +1055,11 @@ class _DashboardViewState extends State<_DashboardView> {
           onTap: () => Navigator.push(context,
               MaterialPageRoute(builder: (_) => const MasalahScreen()))),
       _MenuItemData(
-          icon: Icons.person_outline,
-          label: 'Pengaturan\nProfil',
-          color: Colors.blueGrey,
+          icon: Icons.calendar_month_rounded,
+          label: 'Hari\nLibur',
+          color: Colors.red.shade400,
           onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()))),
+              MaterialPageRoute(builder: (_) => const HariLiburScreen()))),
     ];
 
     return Column(
@@ -953,6 +1098,7 @@ class _DashboardViewState extends State<_DashboardView> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05)),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

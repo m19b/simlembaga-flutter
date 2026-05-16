@@ -12,7 +12,8 @@ class DashboardLoading extends DashboardState {}
 
 class DashboardLoaded extends DashboardState {
   final DashboardModel data;
-  DashboardLoaded(this.data);
+  final bool isRefreshing;
+  DashboardLoaded(this.data, {this.isRefreshing = false});
 }
 
 class DashboardError extends DashboardState {
@@ -24,6 +25,8 @@ class DashboardCubit extends Cubit<DashboardState> {
   final DashboardRepository repository;
   final ActiveKelompokCubit activeKelompokCubit;
   late final StreamSubscription _kelompokSubscription;
+
+  int? activeKategori;
 
   DashboardCubit({
     required this.repository,
@@ -40,12 +43,25 @@ class DashboardCubit extends Cubit<DashboardState> {
 
   Future<void> fetchDashboard({bool forceRefresh = false}) async {
     if (state is DashboardLoading && !forceRefresh) return;
-    emit(DashboardLoading());
+    
+    if (state is DashboardLoaded) {
+      emit(DashboardLoaded((state as DashboardLoaded).data, isRefreshing: true));
+    } else {
+      emit(DashboardLoading());
+    }
+
     try {
-      final data = await repository.getDashboardData(forceRefresh: forceRefresh);
-      emit(DashboardLoaded(data));
+      final data = await repository.getDashboardData(forceRefresh: forceRefresh, idKategori: activeKategori);
+      emit(DashboardLoaded(data, isRefreshing: false));
     } catch (e) {
       emit(DashboardError(e.toString()));
+    }
+  }
+
+  void setKategori(int? idKategori) {
+    if (activeKategori != idKategori) {
+      activeKategori = idKategori;
+      fetchDashboard(forceRefresh: true);
     }
   }
 

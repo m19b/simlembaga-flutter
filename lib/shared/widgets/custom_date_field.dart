@@ -25,18 +25,29 @@ class CustomDateField extends StatelessWidget {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: const Color(0xFF0F4C2A), // Emerald/Green theme
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Theme.of(context).colorScheme.onSurface,
-            ),
-            dialogBackgroundColor: Colors.white,
+            colorScheme: Theme.of(context).brightness == Brightness.dark
+                ? ColorScheme.dark(
+                    primary: Colors.green.shade400,
+                    onPrimary: Colors.black,
+                    surface: Theme.of(context).colorScheme.surface,
+                    onSurface: Colors.white,
+                  )
+                : ColorScheme.light(
+                    primary: const Color(0xFF0F4C2A),
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: Theme.of(context).colorScheme.onSurface,
+                  ),
+            dialogBackgroundColor: Theme.of(context).brightness == Brightness.dark 
+                ? Theme.of(context).dialogBackgroundColor 
+                : Colors.white,
             datePickerTheme: DatePickerThemeData(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              headerBackgroundColor: const Color(0xFF0F4C2A),
+              headerBackgroundColor: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.green.shade900 
+                  : const Color(0xFF0F4C2A),
               headerForegroundColor: Colors.white,
             ),
           ),
@@ -78,7 +89,11 @@ class CustomDateField extends StatelessWidget {
             Icon(
               Icons.calendar_month,
               size: isCompact ? 14 : 18,
-              color: isWhite ? Colors.white : const Color(0xFF0F4C2A),
+              color: isWhite 
+                  ? Colors.white 
+                  : (Theme.of(context).brightness == Brightness.dark 
+                      ? Colors.green.shade400 
+                      : const Color(0xFF0F4C2A)),
             ),
             SizedBox(width: isCompact ? 6 : 12),
             if (!isCompact)

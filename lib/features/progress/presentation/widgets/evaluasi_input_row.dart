@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // import 'package:google_fonts/google_fonts.dart';
 
-const Color _kText1 = Color(0xFF111827);
-
 
 /// Custom widget: Progress Stepper + TM input dalam SATU baris horizontal.
 class EvaluasiInputRow extends StatelessWidget {
@@ -47,15 +45,17 @@ class EvaluasiInputRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Theme.of(context).dividerColor),
+              border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
             ),
-            child: Row(
-              children: [
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                 // ── Tombol AWAL (Kiri) ──
                 Expanded(
                   flex: 2,
                   child: Material(
-                    color: disabled ? Theme.of(context).disabledColor.withOpacity(0.05) : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.blue.shade50),
+                    color: disabled ? Theme.of(context).disabledColor.withOpacity(0.05) : (Theme.of(context).brightness == Brightness.dark ? Colors.red.withOpacity(0.2) : Colors.red.shade50),
                     borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
                     child: InkWell(
                       onTap: disabled ? null : onDecrementProgress,
@@ -63,14 +63,14 @@ class EvaluasiInputRow extends StatelessWidget {
                       child: Container(
                         padding: EdgeInsets.zero,
                         decoration: BoxDecoration(
-                          border: Border(right: BorderSide(color: Theme.of(context).dividerColor)),
+                          border: Border(right: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.remove_rounded, size: 16, color: disabled ? Colors.grey.shade400 : _kText1),
+                            Icon(Icons.remove_rounded, size: 18, color: disabled ? Colors.grey.shade400 : Colors.red.shade700),
                             const SizedBox(width: 2),
-                            _infoCol(context, 'Awal', _fmt(awal), disabled: disabled),
+                            _infoCol(context, 'Awal', _fmt(awal), color: disabled ? null : Colors.red.shade700, disabled: disabled),
                           ],
                         ),
                       ),
@@ -87,8 +87,15 @@ class EvaluasiInputRow extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('Total Hal', style: TextStyle(fontSize: 9, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.bold)),
-                        SizedBox(
+                        Container(
                           height: 24,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(6),
+                            color: Theme.of(context).brightness == Brightness.dark 
+                                ? Colors.black.withValues(alpha: 0.2) 
+                                : Colors.grey.shade50,
+                          ),
                           child: TextFormField(
                             controller: progressController,
                             enabled: !disabled,
@@ -97,8 +104,8 @@ class EvaluasiInputRow extends StatelessWidget {
                               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                             ],
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface),
-                            decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface),
+                            decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.only(bottom: 4)),
                             onChanged: onProgressChanged,
                           ),
                         ),
@@ -111,7 +118,7 @@ class EvaluasiInputRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: Material(
-                    color: disabled ? Theme.of(context).disabledColor.withOpacity(0.05) : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.blue.shade50),
+                    color: disabled ? Theme.of(context).disabledColor.withOpacity(0.05) : (Theme.of(context).brightness == Brightness.dark ? Colors.green.withOpacity(0.2) : Colors.green.shade50),
                     borderRadius: const BorderRadius.horizontal(right: Radius.circular(9)),
                     child: InkWell(
                       onTap: disabled ? null : onIncrementProgress,
@@ -119,14 +126,14 @@ class EvaluasiInputRow extends StatelessWidget {
                       child: Container(
                         padding: EdgeInsets.zero,
                         decoration: BoxDecoration(
-                          border: Border(left: BorderSide(color: Theme.of(context).dividerColor)),
+                          border: Border(left: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _infoCol(context, 'Akhir', _fmt(akhir), color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.primary, disabled: disabled),
+                            _infoCol(context, 'Akhir', _fmt(akhir), color: disabled ? Theme.of(context).disabledColor : Colors.green.shade700, disabled: disabled),
                             const SizedBox(width: 2),
-                            Icon(Icons.add_rounded, size: 16, color: disabled ? Colors.grey.shade400 : _kText1),
+                            Icon(Icons.add_rounded, size: 18, color: disabled ? Colors.grey.shade400 : Colors.green.shade700),
                           ],
                         ),
                       ),
@@ -135,6 +142,7 @@ class EvaluasiInputRow extends StatelessWidget {
                 ),
               ],
             ),
+           ),
           ),
         ),
 
@@ -148,10 +156,10 @@ class EvaluasiInputRow extends StatelessWidget {
             // Kita buat input kecil saja yang bisa diketik/diklik.
           },
           child: Container(
-            width: 50,
+            width: 65,
             height: 48,
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
+              border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
               borderRadius: BorderRadius.circular(10),
               color: Theme.of(context).cardColor,
             ),
@@ -160,14 +168,22 @@ class EvaluasiInputRow extends StatelessWidget {
               children: [
                 Text('TM', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
                 const SizedBox(height: 2),
-                IntrinsicWidth(
+                Container(
+                  height: 20,
+                  width: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: Theme.of(context).brightness == Brightness.dark 
+                        ? Colors.black.withValues(alpha: 0.2) 
+                        : Colors.grey.shade50,
+                  ),
                   child: TextFormField(
                     controller: tmController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
-                    decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                    decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.only(bottom: 6)),
                     onChanged: onTmChanged,
                   ),
                 ),

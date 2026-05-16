@@ -162,7 +162,7 @@ class ApiService {
   static Future<void> checkConnection() async {
     try {
       final client = await DioClient.getNewInstanceWithShortTimeout(2);
-      // Jika server memberikan status code apapun (bahkan 404 / 500), berarti server HIDUP dan nyambung!
+      // Jika server memberikan status code apapun (termasuk 401/404), berarti server HIDUP dan nyambung internet!
       client.options.validateStatus = (status) => true;
       
       final response = await client.get('api/guru/settings'); 
@@ -178,8 +178,10 @@ class ApiService {
 
   // ─── Dashboard ─────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getDashboardGuru() async {
-    return _get('guru/dashboard');
+  static Future<Map<String, dynamic>> getDashboardGuru({int? idKategori}) async {
+    final Map<String, dynamic> query = {};
+    if (idKategori != null && idKategori > 0) query['id_kategori'] = idKategori;
+    return _get('guru/dashboard', queryParameters: query.isEmpty ? null : query);
   }
 
   // ─── Absensi ───────────────────────────────────────────────────────────────
@@ -467,7 +469,7 @@ class ApiService {
   }) async {
     try {
       final client = await DioClient.dio;
-      final fullUrl = '${client.options.baseUrl}/api/$endpoint';
+      final fullUrl = '${client.options.baseUrl}api/$endpoint';
       debugPrint("📡 API_GET: $fullUrl");
       if (queryParameters != null) debugPrint("🔍 PARAMS: $queryParameters");
 
@@ -488,7 +490,7 @@ class ApiService {
   ) async {
     try {
       final client = await DioClient.dio;
-      final fullUrl = '${client.options.baseUrl}/api/$endpoint';
+      final fullUrl = '${client.options.baseUrl}api/$endpoint';
       debugPrint("📡 API_POST: $fullUrl");
       debugPrint("📦 BODY: $body");
 
@@ -587,7 +589,22 @@ class ApiService {
     return _post('guru/catatan-master/hapus', {'id_catatan': idCatatan});
   }
 
+  // ─── Hari Libur ─────────────────────────────────────────────────────────────
+
+  /// GET /api/guru/hari-libur?tahun={tahun}
+  /// Header wajib X-Active-Kelompok dikirim otomatis oleh DioClient interceptor.
+  static Future<Map<String, dynamic>> getHariLibur({
+    required int tahun,
+    required int idKelompok,
+  }) async {
+    return _get(
+      'guru/hari-libur',
+      queryParameters: {'tahun': tahun, 'id_kelompok': idKelompok},
+    );
+  }
+
   // ─── Profile ────────────────────────────────────────────────────────────────
+
 
   /// GET /api/guru/profile — Ambil data profil pengguna yang sedang login
   static Future<Map<String, dynamic>> getProfile() async {
@@ -641,5 +658,114 @@ class ApiService {
       'tgl_akhir': tglAkhir,
       if (idKelompok != null) 'id_kelompok': idKelompok,
     });
+  }
+
+  // ─── Pra-Tahfidz ─────────────────────────────────────────────────────────────
+
+  /// GET /api/guru/pra-tahfidz — List santri beserta riwayat setoran hari ini
+  static Future<Map<String, dynamic>> getPraTahfidzList({String? tanggal}) async {
+    final Map<String, dynamic> q = {};
+    if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
+    return _get('guru/pra-tahfidz', queryParameters: q.isEmpty ? null : q);
+  }
+
+  /// GET /api/guru/pra-tahfidz/detail/:nis — Detail santri + buku prestasi
+  static Future<Map<String, dynamic>> getPraTahfidzDetail(String nis) async {
+    return _get('guru/pra-tahfidz/detail/$nis');
+  }
+
+  /// GET /api/guru/pra-tahfidz/dashboard/:nis — Data grafik analitik performa
+  static Future<Map<String, dynamic>> getPraTahfidzDashboard(
+    String nis, {
+    String? tglDari,
+    String? tglSampai,
+  }) async {
+    final Map<String, dynamic> q = {};
+    if (tglDari != null) q['tgl_dari'] = tglDari;
+    if (tglSampai != null) q['tgl_sampai'] = tglSampai;
+    return _get('guru/pra-tahfidz/dashboard/$nis', queryParameters: q.isEmpty ? null : q);
+  }
+
+  /// POST /api/guru/pra-tahfidz/input-cepat — Simpan setoran tunggal
+  static Future<Map<String, dynamic>> inputCepatPraTahfidz(
+    Map<String, dynamic> payload,
+  ) async {
+    return _post('guru/pra-tahfidz/input-cepat', payload);
+  }
+
+  /// POST /api/guru/pra-tahfidz/input-massal — Simpan setoran massal
+  static Future<Map<String, dynamic>> inputMassalPraTahfidz(
+    Map<String, dynamic> payload,
+  ) async {
+    return _post('guru/pra-tahfidz/input-massal', payload);
+  }
+
+  /// POST /api/guru/pra-tahfidz/update/:id — Edit riwayat setoran
+  static Future<Map<String, dynamic>> updatePraTahfidz(
+    int idPrestasi,
+    Map<String, dynamic> data,
+  ) async {
+    return _post('guru/pra-tahfidz/update/$idPrestasi', data);
+  }
+
+  /// POST /api/guru/pra-tahfidz/delete/:id — Hapus riwayat setoran
+  static Future<Map<String, dynamic>> deletePraTahfidz(int idPrestasi) async {
+    return _post('guru/pra-tahfidz/delete/$idPrestasi', {});
+  }
+
+  // ─── Tahfidz Al-Qur'an ──────────────────────────────────────────────────────
+
+  /// GET /api/tahfidz-quran — List santri + evaluasi hari ini (Ziyadah/Sabaq/Manzil)
+  static Future<Map<String, dynamic>> getTahfidzList({String? tanggal}) async {
+    final Map<String, dynamic> q = {};
+    if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
+    return _get('guru/tahfidz-quran', queryParameters: q.isEmpty ? null : q);
+  }
+
+  /// GET /api/tahfidz-quran/detail/:nis — Detail Buku Prestasi Santri
+  static Future<Map<String, dynamic>> getTahfidzDetail(String nis) async {
+    return _get('guru/tahfidz-quran/detail/$nis');
+  }
+
+  /// GET /api/tahfidz-quran/dashboard/:nis — Data grafik analitik performa
+  static Future<Map<String, dynamic>> getTahfidzDashboard(
+    String nis, {
+    String? tglDari,
+    String? tglSampai,
+  }) async {
+    final Map<String, dynamic> q = {};
+    if (tglDari != null) q['tgl_dari'] = tglDari;
+    if (tglSampai != null) q['tgl_sampai'] = tglSampai;
+    return _get('guru/tahfidz-quran/dashboard/$nis', queryParameters: q.isEmpty ? null : q);
+  }
+
+  /// POST /api/tahfidz-quran/input-cepat — Simpan setoran tunggal
+  static Future<Map<String, dynamic>> inputCepatTahfidz(
+    Map<String, dynamic> payload,
+  ) async {
+    return _post('guru/tahfidz-quran/input-cepat', payload);
+  }
+
+  /// POST /api/tahfidz-quran/input-massal — Simpan setoran kelas
+  static Future<Map<String, dynamic>> inputMassalTahfidz(
+    Map<String, dynamic> payload,
+  ) async {
+    return _post('guru/tahfidz-quran/input-massal', payload);
+  }
+
+  /// POST /api/tahfidz-quran/update/:id — Edit riwayat setoran
+  static Future<Map<String, dynamic>> updateTahfidz(
+    int idPrestasi,
+    Map<String, dynamic> data,
+  ) async {
+    return _post('guru/tahfidz-quran/update/$idPrestasi', data);
+  }
+
+  /// POST /api/tahfidz-quran/delete/:id — Hapus riwayat setoran
+  static Future<Map<String, dynamic>> deleteTahfidz(
+    int idPrestasi,
+    String nis,
+  ) async {
+    return _post('guru/tahfidz-quran/delete/$idPrestasi', {'nis': nis});
   }
 }

@@ -33,7 +33,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final results = await Future.wait([
         const FlutterSecureStorage().read(key: 'jwt_token'),
-        SharedPreferences.getInstance().then((p) => p.getString('LOGGED_IN_USER')),
+        SharedPreferences.getInstance().then(
+          (p) => p.getString('LOGGED_IN_USER'),
+        ),
       ]).timeout(const Duration(seconds: 3));
 
       final token = results[0];
@@ -41,9 +43,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      if (token != null && token.isNotEmpty && userStr != null && userStr.isNotEmpty) {
+      if (token != null &&
+          token.isNotEmpty &&
+          userStr != null &&
+          userStr.isNotEmpty) {
         final user = UserModel.fromJson(json.decode(userStr));
-        
+
         // Inisialisasi ActiveKelompokCubit
         await context.read<ActiveKelompokCubit>().initialize(user.kelompokList);
 
@@ -143,9 +148,12 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // Logo / Icon
               Container(
-                padding: const EdgeInsets.all(12), // Mengurangi padding agar logo lebih terlihat
+                padding: const EdgeInsets.all(
+                  12,
+                ), // Mengurangi padding agar logo lebih terlihat
                 decoration: BoxDecoration(
-                  color: Colors.white, // Mengganti background menjadi putih agar netral untuk logo
+                  color: Colors
+                      .white, // Mengganti background menjadi putih agar netral untuk logo
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -172,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'BIZA v1.3',
+                'Bismillah',
                 style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
               const SizedBox(height: 36),

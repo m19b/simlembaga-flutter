@@ -88,20 +88,20 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: isTerkunci ? Colors.green.withOpacity(0.1) : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: isRiwayatUlang
             ? Border.all(color: Colors.orange.shade300, width: 1.5)
-            : (isTerkunci ? Border.all(color: Colors.green.shade200) : Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5))),
+            : (isTerkunci ? Border.all(color: Colors.green.shade100) : Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1))),
         boxShadow: [
           BoxShadow(
             color: isRiwayatUlang
                 ? Colors.orange.withOpacity(0.12)
-                : Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+                : Colors.black.withOpacity(0.03),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -131,20 +131,20 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      width: 40,
-                      height: 40,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(color: primaryColor, shape: BoxShape.circle),
                       alignment: Alignment.center,
-                      child: Text('${idx + 1}', style: TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: Text('${idx + 1}', style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,7 +187,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 EvaluasiInputRow(
                   disabled: isTerkunci,
                   awal: row.halAwal,
@@ -238,7 +238,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           height: 44,
                           decoration: BoxDecoration(
                             color: isTerkunci ? (isDark ? const Color(0xFF374151) : Colors.grey.shade100) : (row.lulus ? Colors.green.withOpacity(0.12) : (isDark ? Colors.red.withOpacity(0.1) : Colors.red.shade50)),
-                            border: Border.all(color: isTerkunci ? Theme.of(context).dividerColor : (row.lulus ? Colors.green : Colors.red.shade400), width: 1.5),
+                            border: Border.all(color: isTerkunci ? Theme.of(context).dividerColor : (row.lulus ? Colors.green.shade700 : Colors.red.shade700), width: 0.8),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
@@ -261,7 +261,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           height: 44,
                           decoration: BoxDecoration(
                             color: isTerkunci ? (isDark ? const Color(0xFF374151) : Colors.grey.shade100) : (row.catatanGuru.isNotEmpty ? Colors.blue.shade600 : Theme.of(context).cardColor),
-                            border: Border.all(color: isTerkunci ? Theme.of(context).dividerColor : (row.catatanGuru.isNotEmpty ? Colors.blue.shade600 : Theme.of(context).dividerColor)),
+                            border: Border.all(color: isTerkunci ? Theme.of(context).dividerColor : (row.catatanGuru.isNotEmpty ? Colors.blue.shade800 : (isDark ? Colors.grey.shade600 : Colors.grey.shade400)), width: 0.8),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(

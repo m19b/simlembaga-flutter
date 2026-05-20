@@ -169,7 +169,7 @@ class _ProgressViewState extends State<_ProgressView>
                         ValueListenableBuilder<List<Map<String, dynamic>>>(
                           valueListenable: _kelasListNotifier,
                           builder: (context, kelasList, child) {
-                            if (kelasList.length <= 1) return const SizedBox.shrink();
+                            if (kelasList.isEmpty) return const SizedBox.shrink();
                             return ValueListenableBuilder<int?>(
                               valueListenable: _selectedKelasNotifier,
                               builder: (context, selectedKelasId, child) {
@@ -1494,14 +1494,19 @@ class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with Automatic
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Batal'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               HapticFeedback.heavyImpact();
               context.read<CatatanMasterCubit>().deleteCatatan(item.idCatatan);
               Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade100,
+              foregroundColor: Colors.red.shade900,
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.delete_outline, size: 18),
+            label: const Text('Hapus'),
           ),
         ],
       ),

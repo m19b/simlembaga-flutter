@@ -19,6 +19,7 @@ subprojects {
     afterEvaluate {
         if (project.hasProperty("android") && project.name != "app") {
             project.extensions.configure<com.android.build.gradle.LibraryExtension>("android") {
+                compileSdk = 36
                 if (namespace == null) {
                     val manifestPath = project.file("src/main/AndroidManifest.xml")
                     if (manifestPath.exists()) {

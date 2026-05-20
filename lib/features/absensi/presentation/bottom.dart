@@ -39,7 +39,17 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
     try {
       final res = await ApiService.getAbsenHarian(tanggal: _tanggal);
       final Map<String, dynamic> resData = res['data'] ?? res;
-      _santriList = resData['santri'] ?? [];
+      final rawList = resData['santri'] ?? [];
+
+      // ── DEDUP: pastikan tidak ada santri double berdasarkan NIS ──
+      final Map<String, dynamic> dedupMap = {};
+      for (var s in rawList) {
+        final nis = s['nis']?.toString() ?? '';
+        if (nis.isNotEmpty && !dedupMap.containsKey(nis)) {
+          dedupMap[nis] = s;
+        }
+      }
+      _santriList = dedupMap.values.toList();
 
       _absenState.clear();
       for (var s in _santriList) {

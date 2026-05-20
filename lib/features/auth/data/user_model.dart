@@ -6,6 +6,9 @@ class UserModel {
   final String? nig;        // Nomor Induk Guru (dari backend)
   final int idKelompok;    // Kelompok/Cabang aktif
   final List<Map<String, dynamic>> kelompokList;
+  final String? fotoUser;
+  final String? logoMetode;
+  final String? logoLembaga;
 
   UserModel({
     required this.id,
@@ -15,6 +18,9 @@ class UserModel {
     this.nig,
     this.idKelompok = 0,
     this.kelompokList = const [],
+    this.fotoUser,
+    this.logoMetode,
+    this.logoLembaga,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -48,6 +54,9 @@ class UserModel {
                      ? int.tryParse(json['id_kelompok'].toString()) ?? 0
                      : 0,
       kelompokList: parsedKelompokList,
+      fotoUser:    json['foto_user']?.toString(),
+      logoMetode:  json['logo_metode']?.toString(),
+      logoLembaga: json['logo_lembaga']?.toString(),
     );
   }
 
@@ -60,6 +69,9 @@ class UserModel {
       if (nig != null) 'nig': nig,
       'id_kelompok': idKelompok,
       'kelompok_list': kelompokList,
+      if (fotoUser != null) 'foto_user': fotoUser,
+      if (logoMetode != null) 'logo_metode': logoMetode,
+      if (logoLembaga != null) 'logo_lembaga': logoLembaga,
     };
   }
 }

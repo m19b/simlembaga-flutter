@@ -347,16 +347,7 @@ class _AbsenScreenState extends State<AbsenScreen>
       return Scaffold(
         backgroundColor: bgColor,
         appBar: _buildCustomAppBar(),
-        body: Container(
-          margin: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: const AbsenMassalTab(),
-        ),
+        body: const AbsenMassalTab(),
         bottomNavigationBar: _buildCustomBottomNav(),
       );
     }

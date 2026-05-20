@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -93,10 +97,12 @@ String mapSesi(String? sesi) {
 class _DashboardViewState extends State<_DashboardView> {
   late Timer _timer;
   String _currentTime = '';
+  UserModel? _currentUser;
 
   @override
   void initState() {
     super.initState();
+    _loadUser();
     context.read<DashboardCubit>().fetchDashboard();
     _fetchHariLibur();
     _updateTime();
@@ -110,6 +116,18 @@ class _DashboardViewState extends State<_DashboardView> {
       setState(() {
         _currentTime = DateFormat('HH:mm:ss').format(DateTime.now());
       });
+    }
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('LOGGED_IN_USER');
+    if (userStr != null) {
+      if (mounted) {
+        setState(() {
+          _currentUser = UserModel.fromJson(json.decode(userStr));
+        });
+      }
     }
   }
 
@@ -401,6 +419,68 @@ class _DashboardViewState extends State<_DashboardView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_currentUser != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Left: Foto User
+                                if (_currentUser!.fotoUser != null && _currentUser!.fotoUser!.isNotEmpty)
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.transparent, width: 0),
+                                    ),
+                                    child: ClipOval(
+                                      child: CachedNetworkImage(
+                                        imageUrl: _currentUser!.fotoUser!,
+                                        height: 46,
+                                        width: 46,
+                                        fit: BoxFit.cover,
+                                        placeholder: (context, url) => Container(
+                                          height: 46,
+                                          width: 46,
+                                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+                                        ),
+                                        errorWidget: (context, url, error) => const SizedBox(height: 46, width: 46),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(height: 46),
+                                // Right: Logo Metode & Logo Lembaga
+                                Row(
+                                  children: [
+                                    if (_currentUser!.logoMetode != null && _currentUser!.logoMetode!.isNotEmpty)
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: CachedNetworkImage(
+                                          imageUrl: _currentUser!.logoMetode!,
+                                          height: 40,
+                                          fit: BoxFit.contain,
+                                          placeholder: (context, url) => Container(height: 40, width: 40, color: Colors.white.withOpacity(0.1)),
+                                          errorWidget: (context, url, error) => const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    if (_currentUser!.logoMetode != null && _currentUser!.logoMetode!.isNotEmpty && _currentUser!.logoLembaga != null && _currentUser!.logoLembaga!.isNotEmpty)
+                                      const SizedBox(width: 8),
+                                    if (_currentUser!.logoLembaga != null && _currentUser!.logoLembaga!.isNotEmpty)
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: CachedNetworkImage(
+                                          imageUrl: _currentUser!.logoLembaga!,
+                                          height: 40,
+                                          fit: BoxFit.contain,
+                                          placeholder: (context, url) => Container(height: 40, width: 40, color: Colors.white.withOpacity(0.1)),
+                                          errorWidget: (context, url, error) => const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         Text("Assalamu'alaikum Wr. Wb.,",
                             style: GoogleFonts.dmSans(
                                 color: Colors.white70, fontSize: 13)),

@@ -80,6 +80,30 @@ class AppTheme {
     highlightColor: Colors.black.withValues(alpha: 0.05),
     cardColor: Colors.white,
     dividerTheme: const DividerThemeData(color: Color(0xFFE5E7EB)),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF0F4C2A), // Simpan/Submit
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF4B5563), // Batal/Tutup
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: const Color(0xFF4B5563),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
     useMaterial3: true,
     extensions: [
       AppCustomStyles(
@@ -100,6 +124,9 @@ class AppTheme {
       primary: primaryColor,
       onPrimary: Colors.white,
       surface: Colors.black, // True AMOLED Black
+      surfaceContainer: Color(0xFF121212), // Elevated surface
+      surfaceContainerHigh: Color(0xFF1A1A1A),
+      surfaceContainerHighest: Color(0xFF242424),
       onSurface: Colors.white,
       onSurfaceVariant: Color(0xFF9CA3AF),
     ),
@@ -111,15 +138,59 @@ class AppTheme {
       centerTitle: true,
       iconTheme: IconThemeData(color: Colors.white),
     ),
+    cardTheme: CardThemeData(
+      color: const Color(0xFF121212),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: const Color(0xFF121212),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Color(0xFF121212),
+      surfaceTintColor: Colors.transparent,
+    ),
     splashColor: Colors.white.withValues(alpha: 0.05),
     highlightColor: Colors.white.withValues(alpha: 0.05),
-    cardColor: Colors.black,
-    dividerTheme: const DividerThemeData(color: Color(0xFF374151)),
+    cardColor: const Color(0xFF121212),
+    dividerTheme: const DividerThemeData(color: Color(0xFF242424)),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF0F4C2A), // Green for submit
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF9CA3AF),
+        side: const BorderSide(color: Color(0xFF374151)),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: const Color(0xFF9CA3AF),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
     useMaterial3: true,
     extensions: [
       AppCustomStyles(
-        headerBorder: Colors.white.withValues(alpha: 0.1),
-        cardBorder: Colors.white.withValues(alpha: 0.1),
+        headerBorder: Colors.white.withValues(alpha: 0.08),
+        cardBorder: Colors.white.withValues(alpha: 0.05),
         success: Color(0xFF325240), // Pastel/dim green for dark mode
         warning: Color(0xFF7A542A), // Pastel/dim orange for dark mode
         error: Color(0xFF7A2A2A), // Pastel/dim red for dark mode

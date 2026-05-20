@@ -223,20 +223,20 @@ class ApiConfig {
     if (validPort != null) {
       // Kalo user secara eksplisit ketik port (misal biza:8080), kita hormati itu
       if (!await checkPort(resolvedIp, validPort)) {
-        // Jika port yang diketik mati, fallback auto deteksi
-        validPort = null;
+        throw Exception(
+          "Host $resolvedIp terhubung, tapi port $validPort ditolak/mati. Pastikan Firewall mengizinkan port $validPort.",
+        );
       }
     }
 
     if (validPort == null) {
-      if (await checkPort(resolvedIp, 80)) {
-        validPort =
-            null; // Caddy Linux jalan di port 80, secara default tidak perlu port
-      } else if (await checkPort(resolvedIp, 8080)) {
-        validPort = 8080; // PHP Spark Windows jalan di port 8080
+      if (await checkPort(resolvedIp, 8080)) {
+        validPort = 8080; // Biza Server Windows jalan di port 8080
+      } else if (await checkPort(resolvedIp, 80)) {
+        validPort = null; // Caddy Linux jalan di port 80
       } else {
         throw Exception(
-          "Host $resolvedIp terhubung, tapi server menolak (port 80/8080 mati). Pastikan Caddy / PHP Spark aktif.",
+          "Host $resolvedIp terhubung, tapi server menolak (port 8080/80 mati). Pastikan Biza Server aktif dan Firewall mengizinkan.",
         );
       }
     }

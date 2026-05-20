@@ -64,23 +64,15 @@ class SettingsDialog {
                           final ip = ipController.text.trim();
                           setStateDialog(() => isChecking = true);
 
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  '⏳ Mengecek koneksi ke server...',
-                                ),
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          }
-
                           try {
+                            // 1. Simpan IP + resolve hostname
                             final resolvedHost = await ApiConfig.setIp(ip);
+                            // 2. Reset Dio agar instance baru gunakan IP yang baru disimpan
                             DioClient.reset();
+                            // 3. Ping server — gunakan endpoint publik (tidak butuh auth)
                             await ApiService.checkConnection();
-                            if (!ctx.mounted) return;
 
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -91,20 +83,19 @@ class SettingsDialog {
                               ),
                             );
 
-                            // Close dialog on success
-                            Navigator.pop(ctx);
+                            // Tutup dialog setelah sukses
+                            if (ctx.mounted) Navigator.pop(ctx);
                           } catch (e) {
-                            if (!ctx.mounted) return;
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            final msg = e.toString().replaceFirst(
-                              'Exception: ',
-                              '',
-                            );
+                            final msg = e
+                                .toString()
+                                .replaceFirst('Exception: ', '');
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('❌ $msg'),
                                 backgroundColor: Colors.red[700],
-                                duration: const Duration(seconds: 4),
+                                duration: const Duration(seconds: 5),
                               ),
                             );
                           } finally {

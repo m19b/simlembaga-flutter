@@ -16,7 +16,7 @@ plugins {
 
 android {
     namespace = "com.example.manajemen_tahsin_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     signingConfigs {

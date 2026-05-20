@@ -158,21 +158,27 @@ class ApiService {
     return _get('guru/filter/kelas', queryParameters: q.isEmpty ? null : q);
   }
 
-  /// Memeriksa apakah server bisa dijangkau dengan timeout pendek (2 detik)
+  /// Memeriksa apakah server bisa dijangkau dengan timeout pendek.
+  /// Menggunakan endpoint LOGIN (publik) agar tidak butuh auth token.
+  /// Server dianggap HIDUP jika mengembalikan status code APAPUN (termasuk 401/405).
   static Future<void> checkConnection() async {
     try {
-      final client = await DioClient.getNewInstanceWithShortTimeout(2);
-      // Jika server memberikan status code apapun (termasuk 401/404), berarti server HIDUP dan nyambung internet!
+      final client = await DioClient.getNewInstanceWithShortTimeout(5);
+      // Terima SEMUA status code agar tidak throw DioException hanya karena 401/405
       client.options.validateStatus = (status) => true;
-      
-      final response = await client.get('api/guru/settings'); 
+      // Ping ke endpoint publik yang valid untuk memastikan respons JSON dari CI4
+      final response = await client.get('api/v1/update/check');
       debugPrint("Ping Server Sukses. Status Code: ${response.statusCode}");
+      // Cek apakah response berupa map/JSON yang menandakan itu benar-benar server CI4 (bukan server apache/iis nyasar)
+      if (response.data is! Map) {
+         throw Exception("Server terhubung, tapi tidak merespons dalam format sistem. (Kemungkinan nyasar ke XAMPP/IIS, pastikan port 8080 benar)");
+      }
     } on DioException catch (e) {
       debugPrint("Ping Server Gagal (DioException): ${e.message}");
-      _handleDioError(e); // Ini akan melemparkan pesan yang sudah kita buat sebelumnya
+      _handleDioError(e); // Ini akan throw pesan yang ramah
     } catch (e) {
       debugPrint("Ping Server Error Umum: $e");
-      throw Exception("Gagal menghubungi server. Eror: $e");
+      throw Exception("Gagal menghubungi server. Error: $e");
     }
   }
 

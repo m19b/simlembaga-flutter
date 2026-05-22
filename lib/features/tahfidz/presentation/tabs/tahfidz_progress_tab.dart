@@ -407,6 +407,29 @@ class _TahfidzSantriCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              // ── Posisi Bacaan (Juz · Surah:Ayat · Hal) ───────────
+              if (santri['juz'] != null && santri['cur_halaman'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.menu_book_rounded,
+                          size: 14, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Juz ${santri['juz']} · ${santri['surah_mulai'] ?? ''}:${santri['ayat_mulai'] ?? ''} · Hal. ${santri['cur_halaman']}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // ── Stats row: Ziyadah / Sabaq / Manzil / Mutqin ───────────
               Row(
                 children: [

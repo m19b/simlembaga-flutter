@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 
@@ -89,7 +90,7 @@ class ApiConfig {
     if (isIp) {
       resolvedIp = targetHostname;
     } else {
-      print("🚀 Memulai proses resolusi hostname: $targetHostname");
+      debugPrint("🚀 Memulai proses resolusi hostname: $targetHostname");
 
       // -- STRATEGI 1: OS Resolver Standar (DNS/Hosts) --
       try {
@@ -100,10 +101,10 @@ class ApiConfig {
         ).timeout(const Duration(seconds: 4));
         if (ips.isNotEmpty) {
           resolvedIp = ips.first.address;
-          print("✅ OS Resolver (S1): $targetHostname -> $resolvedIp");
+          debugPrint("✅ OS Resolver (S1): $targetHostname -> $resolvedIp");
         }
       } catch (e) {
-        print("ℹ️ OS Resolver (S1) failed: $e");
+        debugPrint("ℹ️ OS Resolver (S1) failed: $e");
       }
 
       // -- STRATEGI 2: OS Resolver dengan tambahan suffix .local (Banyak Windows handle ini otomatis) --
@@ -115,7 +116,7 @@ class ApiConfig {
           );
           if (ips.isNotEmpty) {
             resolvedIp = ips.first.address;
-            print(
+            debugPrint(
               "✅ OS Resolver (.local): Found $targetHostname.local -> $resolvedIp",
             );
           }
@@ -136,7 +137,7 @@ class ApiConfig {
           );
           if (ips.isNotEmpty) {
             resolvedIp = ips.first.address;
-            print(
+            debugPrint(
               "✅ OS Resolver (Stripped .local): Found $cleanName -> $resolvedIp",
             );
           }
@@ -150,7 +151,7 @@ class ApiConfig {
           mdnsHost = '$mdnsHost.local';
         }
 
-        print("🔍 Mencoba mDNS manual untuk: $mdnsHost ...");
+        debugPrint("🔍 Mencoba mDNS manual untuk: $mdnsHost ...");
 
         // mDNS client dengan binding yang aman
         final MDnsClient client = MDnsClient(
@@ -187,11 +188,11 @@ class ApiConfig {
 
           await for (final IPAddressResourceRecord record in results) {
             resolvedIp = record.address.address;
-            print("✅ mDNS Manual: $mdnsHost -> $resolvedIp");
+            debugPrint("✅ mDNS Manual: $mdnsHost -> $resolvedIp");
             break;
           }
         } catch (e) {
-          print("⚠️ mDNS Manual Error: $e");
+          debugPrint("⚠️ mDNS Manual Error: $e");
         } finally {
           client.stop();
         }
@@ -246,7 +247,7 @@ class ApiConfig {
         : "$resolvedIp:$validPort";
     finalHost += remainingPath;
 
-    print("Disimpan sebagai: $finalHost");
+    debugPrint("Disimpan sebagai: $finalHost");
     await prefs.setString(_ipKey, finalHost);
     return finalHost;
   }

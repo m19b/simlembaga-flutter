@@ -75,7 +75,6 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
     final textSub = isDark ? theme.colorScheme.onSurfaceVariant : Colors.grey.shade600;
     final handleColor = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
     const accentGreen = Color(0xFF16A34A);
-    const headerGreen = Color(0xFF0F4C2A);
 
     final inputDecoration = InputDecoration(
       filled: true,

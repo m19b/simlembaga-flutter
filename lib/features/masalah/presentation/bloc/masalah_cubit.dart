@@ -48,7 +48,7 @@ class MasalahCubit extends Cubit<MasalahState> {
         selesai: data['selesai'] ?? [],
       ));
     } catch (e) {
-      emit(MasalahError(e.toString()));
+      emit(MasalahError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 

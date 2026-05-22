@@ -143,7 +143,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -259,7 +259,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.03),
+                                      color: Colors.black.withValues(alpha: 0.03),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
@@ -626,7 +626,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50.withOpacity(0.5),
+                            color: Colors.orange.shade50.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.orange.shade100),
                           ),
@@ -677,7 +677,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50.withOpacity(0.5),
+                            color: Colors.red.shade50.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.red.shade200),
                           ),
@@ -860,7 +860,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -1052,7 +1052,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: bgColor ?? badgeColor?.withOpacity(0.1),
+              color: bgColor ?? badgeColor?.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(

@@ -259,7 +259,7 @@ class MasalahCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                 height: 1.4,
                               ),
                             ),
@@ -271,14 +271,14 @@ class MasalahCard extends StatelessWidget {
                               Icon(
                                 Icons.calendar_today_rounded,
                                 size: 11,
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 _fmtTgl(tgl),
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                 ),
                               ),
                               const Spacer(),
@@ -306,7 +306,7 @@ class MasalahCard extends StatelessWidget {
                                     Icon(
                                       Icons.chevron_right_rounded,
                                       size: 16,
-                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                     ),
                                   ],
                                 ),
@@ -378,13 +378,13 @@ class MasalahChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+          Icon(icon, size: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
           const SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
               fontSize: 10,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -442,7 +442,7 @@ class _MasalahSkeletonCardState extends State<MasalahSkeletonCard>
                 Container(
                   width: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
+                    color: Colors.grey.withValues(alpha: 0.3),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(14),
                       bottomLeft: Radius.circular(14),
@@ -502,7 +502,7 @@ class MasalahSkelBox extends StatelessWidget {
     width: w,
     height: h,
     decoration: BoxDecoration(
-      color: Colors.grey.withOpacity(opacity),
+      color: Colors.grey.withValues(alpha: opacity),
       borderRadius: BorderRadius.circular(r),
     ),
   );

@@ -26,7 +26,7 @@ class ComingSoonScreen extends StatelessWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: (isDark ? Colors.green.shade400 : const Color(0xFF065F46)).withOpacity(0.1),
+                  color: (isDark ? Colors.green.shade400 : const Color(0xFF065F46)).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -58,9 +58,9 @@ class ComingSoonScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.amber.withOpacity(0.1) : Colors.amber.shade50,
+                  color: isDark ? Colors.amber.withValues(alpha: 0.1) : Colors.amber.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? Colors.amber.shade700.withOpacity(0.3) : Colors.amber.shade300),
+                  border: Border.all(color: isDark ? Colors.amber.shade700.withValues(alpha: 0.3) : Colors.amber.shade300),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

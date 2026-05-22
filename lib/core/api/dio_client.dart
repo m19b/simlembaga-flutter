@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'global_interceptor.dart';
+import 'retry_interceptor.dart';
 
 class DioClient {
   static Dio? _dio;
@@ -9,22 +10,23 @@ class DioClient {
     if (_dio != null) return _dio!;
 
     final baseUrl = await ApiConfig.getBaseUrl();
-    
-    _dio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {
-        'Accept': 'application/json',
-      },
-    ));
+
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+        headers: {'Accept': 'application/json'},
+      ),
+    );
 
     // Pasang Interceptor
+    _dio!.interceptors.add(RetryInterceptor(dio: _dio!));
     _dio!.interceptors.add(GlobalInterceptor());
 
     return _dio!;
   }
-  
+
   // Method untuk reset instance dio saat IP Address Server diubah di pengaturan LoginScreen
   static void reset() {
     _dio = null;
@@ -33,10 +35,12 @@ class DioClient {
   /// Membuat instance baru dengan timeout kustom (untuk cek koneksi cepat)
   static Future<Dio> getNewInstanceWithShortTimeout(int seconds) async {
     final baseUrl = await ApiConfig.getBaseUrl();
-    return Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5), // Ditingkatkan ke 5 detik untuk mencegah ping gagal di jaringan lokal lambat
-      receiveTimeout: const Duration(seconds: 5),
-    ));
+    return Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: Duration(seconds: seconds),
+        receiveTimeout: Duration(seconds: seconds),
+      ),
+    );
   }
 }

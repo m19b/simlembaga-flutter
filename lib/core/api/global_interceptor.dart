@@ -13,13 +13,25 @@ class GlobalInterceptor extends Interceptor {
   // Custom header name untuk CI4 Token
   static const String _authHeaderKey = 'Authorization';
 
+  // Cache token di memori untuk mencegah ANR di Android akibat akses Keystore terus-menerus
+  static String? _cachedToken;
+
+  static void setToken(String token) {
+    _cachedToken = token;
+  }
+
+  static void clearToken() {
+    _cachedToken = null;
+  }
+
   // Lock flag untuk mencegah multiple 401 redirect secara serentak
   static bool _isHandling401 = false;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    // Ambil token dari secure storage
-    final token = await _storage.read(key: 'jwt_token');
+    // Ambil token dari memori atau secure storage (mencegah ANR)
+    _cachedToken ??= await _storage.read(key: 'jwt_token');
+
 
     options.headers['Accept'] = 'application/json';
     
@@ -29,9 +41,9 @@ class GlobalInterceptor extends Interceptor {
     }
     
     // Inject token ke Header jika ada
-    if (token != null && token.isNotEmpty) {
-      debugPrint("Token dikirim: $token");
-      options.headers[_authHeaderKey] = 'Bearer $token';
+    if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+      debugPrint("Token dikirim: $_cachedToken");
+      options.headers[_authHeaderKey] = 'Bearer $_cachedToken';
     }
 
     return handler.next(options);
@@ -57,6 +69,7 @@ class GlobalInterceptor extends Interceptor {
         if (response.statusCode == 200 && response.data != null) {
            final newToken = response.data['data'] != null ? response.data['data']['token'] : response.data['token'];
            if (newToken != null) {
+              _cachedToken = newToken;
               await _storage.write(key: 'jwt_token', value: newToken);
               err.requestOptions.headers[_authHeaderKey] = 'Bearer $newToken';
               final retryResponse = await dio.fetch(err.requestOptions);
@@ -93,7 +106,8 @@ class GlobalInterceptor extends Interceptor {
   /// Eksekusi pembersihan dan pemaksaan logout saat 401 terjadi
   Future<void> _handleUnauthorized() async {
     try {
-      // 1. Hapus token dari secure storage
+      // 1. Hapus token dari memori & secure storage
+      clearToken();
       await _storage.delete(key: 'jwt_token');
 
       // 2. Hapus state user dari shared preferences
@@ -102,7 +116,7 @@ class GlobalInterceptor extends Interceptor {
 
       // 3. Maksa redirect ke LoginScreen via global navigatorKey
       final context = navigatorKey.currentContext;
-      if (context != null) {
+      if (context != null && context.mounted) {
         // Karena `navigatorKey` ada di MaterialApp, path minimal /login atau widget LoginScreen
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         

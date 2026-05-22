@@ -369,7 +369,6 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   PreferredSizeWidget _buildCustomAppBar() {
-    final cs = Theme.of(context).colorScheme;
     final iconOverlay = Colors.white.withValues(alpha: 0.15);
 
     return AppHeaderBar(
@@ -469,7 +468,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                             color: const Color(0xFF22C55E),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF22C55E).withOpacity(0.5),
+                                color: const Color(0xFF22C55E).withValues(alpha: 0.5),
                                 blurRadius: 4,
                                 spreadRadius: 2,
                               ),
@@ -606,7 +605,7 @@ class _AbsenScreenState extends State<AbsenScreen>
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5))),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.5))),
       ),
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
@@ -810,7 +809,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                   color: Colors.grey.shade200,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -1081,7 +1080,7 @@ class _AbsenScreenState extends State<AbsenScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

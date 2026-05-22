@@ -197,10 +197,10 @@ class TahfidzRepository {
         final res = await ApiService.inputCepatTahfidz(payload);
         return res['status'] == 200 || res['status'] == true;
       } catch (e) {
-        return _enqueuePayload('tahfidz-quran/input-cepat', payload);
+        return _enqueuePayload('api/guru/tahfidz-quran/input-cepat', payload);
       }
     }
-    return _enqueuePayload('tahfidz-quran/input-cepat', payload);
+    return _enqueuePayload('api/guru/tahfidz-quran/input-cepat', payload);
   }
 
   // ===========================================================================
@@ -213,10 +213,10 @@ class TahfidzRepository {
         await ApiService.inputMassalTahfidz(payload);
         return true;
       } catch (e) {
-        return _enqueuePayload('tahfidz-quran/input-massal', payload);
+        return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload);
       }
     }
-    return _enqueuePayload('tahfidz-quran/input-massal', payload);
+    return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload);
   }
 
   // ===========================================================================
@@ -233,12 +233,12 @@ class TahfidzRepository {
         return true;
       } catch (e) {
         return _enqueuePayload(
-          'tahfidz-quran/update/$idPrestasi',
+          'api/guru/tahfidz-quran/update/$idPrestasi',
           data,
         );
       }
     }
-    return _enqueuePayload('tahfidz-quran/update/$idPrestasi', data);
+    return _enqueuePayload('api/guru/tahfidz-quran/update/$idPrestasi', data);
   }
 
   // ===========================================================================
@@ -256,13 +256,13 @@ class TahfidzRepository {
         return true;
       } catch (e) {
         return _enqueuePayload(
-          'tahfidz-quran/delete/$idPrestasi',
+          'api/guru/tahfidz-quran/delete/$idPrestasi',
           {'nis': nis},
         );
       }
     }
     return _enqueuePayload(
-      'tahfidz-quran/delete/$idPrestasi',
+      'api/guru/tahfidz-quran/delete/$idPrestasi',
       {'nis': nis},
     );
   }

@@ -46,7 +46,7 @@ class SantriCubit extends Cubit<SantriState> {
       final data = await repository.getSantriList(idKelompok: idKelompok, idKelas: idKelas, forceRefresh: forceRefresh);
       emit(SantriLoaded(data));
     } catch (e) {
-      emit(SantriError(e.toString()));
+      emit(SantriError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 

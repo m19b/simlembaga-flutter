@@ -9,8 +9,14 @@ import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dar
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
+import 'package:manajemen_tahsin_app/core/state/sync_badge_cubit.dart';
+import 'package:manajemen_tahsin_app/core/state/indicator_settings_cubit.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:manajemen_tahsin_app/core/widgets/global_network_indicator.dart';
+import 'package:manajemen_tahsin_app/features/hari_libur/data/repositories/hari_libur_repository.dart';
+import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
+import 'package:manajemen_tahsin_app/features/santri/domain/repositories/santri_repository.dart';
+import 'package:manajemen_tahsin_app/features/sync/presentation/bloc/initial_sync_cubit.dart';
 
 // Global navigator key untuk melakukan redirect tanpa Context (misal saat 401 Unauthorized)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -28,11 +34,36 @@ class MyApp extends StatelessWidget {
             localDataSource: LocalDataSourceImpl(),
           ),
         ),
+        RepositoryProvider<SantriRepository>(
+          create: (_) => SantriRepository(
+            networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+            localDataSource: LocalDataSourceImpl(),
+          ),
+        ),
+        RepositoryProvider<TahsinRepository>(
+          create: (_) => TahsinRepository(
+            networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+          ),
+        ),
+        RepositoryProvider<HariLiburRepository>(
+          create: (_) => HariLiburRepository(
+            networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+          ),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider(create: (_) => ThemeCubit()),
           BlocProvider(create: (_) => ActiveKelompokCubit()),
+          BlocProvider(create: (_) => SyncBadgeCubit()),
+          BlocProvider(create: (_) => IndicatorSettingsCubit()),
+          BlocProvider(
+            create: (context) => InitialSyncCubit(
+              santriRepository: context.read<SantriRepository>(),
+              tahsinRepository: context.read<TahsinRepository>(),
+              hariLiburRepository: context.read<HariLiburRepository>(),
+            ),
+          ),
         ],
         child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {

@@ -45,7 +45,7 @@ class EvaluasiInputRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+              border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
             ),
             child: IntrinsicHeight(
               child: Row(
@@ -55,7 +55,7 @@ class EvaluasiInputRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: Material(
-                    color: disabled ? Theme.of(context).disabledColor.withOpacity(0.05) : (Theme.of(context).brightness == Brightness.dark ? Colors.red.withOpacity(0.2) : Colors.red.shade50),
+                    color: disabled ? Theme.of(context).disabledColor.withValues(alpha: 0.05) : (Theme.of(context).brightness == Brightness.dark ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade50),
                     borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
                     child: InkWell(
                       onTap: disabled ? null : onDecrementProgress,
@@ -63,7 +63,7 @@ class EvaluasiInputRow extends StatelessWidget {
                       child: Container(
                         padding: EdgeInsets.zero,
                         decoration: BoxDecoration(
-                          border: Border(right: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
+                          border: Border(right: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2))),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -86,7 +86,7 @@ class EvaluasiInputRow extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Total Hal', style: TextStyle(fontSize: 9, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.bold)),
+                        Text('Total Hal', style: TextStyle(fontSize: 9, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.bold)),
                         Container(
                           height: 24,
                           width: 48,
@@ -118,7 +118,7 @@ class EvaluasiInputRow extends StatelessWidget {
                 Expanded(
                   flex: 2,
                   child: Material(
-                    color: disabled ? Theme.of(context).disabledColor.withOpacity(0.05) : (Theme.of(context).brightness == Brightness.dark ? Colors.green.withOpacity(0.2) : Colors.green.shade50),
+                    color: disabled ? Theme.of(context).disabledColor.withValues(alpha: 0.05) : (Theme.of(context).brightness == Brightness.dark ? Colors.green.withValues(alpha: 0.2) : Colors.green.shade50),
                     borderRadius: const BorderRadius.horizontal(right: Radius.circular(9)),
                     child: InkWell(
                       onTap: disabled ? null : onIncrementProgress,
@@ -126,7 +126,7 @@ class EvaluasiInputRow extends StatelessWidget {
                       child: Container(
                         padding: EdgeInsets.zero,
                         decoration: BoxDecoration(
-                          border: Border(left: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.2))),
+                          border: Border(left: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2))),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -159,14 +159,14 @@ class EvaluasiInputRow extends StatelessWidget {
             width: 65,
             height: 48,
             decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.2)),
+              border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
               borderRadius: BorderRadius.circular(10),
               color: Theme.of(context).cardColor,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('TM', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+                Text('TM', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                 const SizedBox(height: 2),
                 Container(
                   height: 20,
@@ -211,7 +211,7 @@ class EvaluasiInputRow extends StatelessWidget {
         children: [
           Text(
             label.replaceAll('Hal ', ''), // Shorten label: 'Awal' instead of 'Hal Awal'
-            style: TextStyle(fontSize: 9, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 9, color: disabled ? Theme.of(context).disabledColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), fontWeight: FontWeight.bold),
             overflow: TextOverflow.ellipsis,
           ),
           Text(

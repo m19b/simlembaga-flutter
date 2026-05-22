@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:manajemen_tahsin_app/app.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/utils/sync_manager.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 
 void main() async {
   // 1. Pastikan mesin Flutter sudah menyala sebelum menjalankan perintah lain
@@ -13,6 +14,9 @@ void main() async {
 
   // Inisialisasi Isar Database untuk Offline-First Architecture
   await IsarDb.init();
+
+  // Mulai network checker berkala
+  LocalNetworkChecker().startChecking();
 
   // Mulai Sync Manager di background
   OfflineSyncManager().startSyncMonitor();

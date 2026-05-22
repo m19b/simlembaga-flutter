@@ -44,17 +44,24 @@ class DashboardCubit extends Cubit<DashboardState> {
   Future<void> fetchDashboard({bool forceRefresh = false}) async {
     if (state is DashboardLoading && !forceRefresh) return;
     
-    if (state is DashboardLoaded) {
-      emit(DashboardLoaded((state as DashboardLoaded).data, isRefreshing: true));
+    // Cache-Then-Network: Load local data first
+    final localData = await repository.getLocalData(activeKategori);
+    if (localData != null) {
+      emit(DashboardLoaded(localData, isRefreshing: true));
     } else {
       emit(DashboardLoading());
     }
 
     try {
-      final data = await repository.getDashboardData(forceRefresh: forceRefresh, idKategori: activeKategori);
-      emit(DashboardLoaded(data, isRefreshing: false));
+      final freshData = await repository.fetchFreshData(activeKategori);
+      emit(DashboardLoaded(freshData, isRefreshing: false));
     } catch (e) {
-      emit(DashboardError(e.toString()));
+      if (localData == null) {
+        emit(DashboardError(e.toString().replaceAll('Exception: ', '')));
+      } else {
+        // Tetap tampilkan data lokal jika gagal narik data baru
+        emit(DashboardLoaded(localData, isRefreshing: false));
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/app.dart';
+import 'package:rxdart/rxdart.dart';
 
 class OfflineSyncManager {
   static final OfflineSyncManager _instance = OfflineSyncManager._internal();
@@ -19,7 +20,9 @@ class OfflineSyncManager {
   Isar get _isar => IsarDb.instance;
 
   void startSyncMonitor() {
-    _subscription = LocalNetworkChecker().onStatusChange.listen((status) {
+    _subscription = LocalNetworkChecker().onStatusChange
+        .debounceTime(const Duration(seconds: 3))
+        .listen((status) {
       if (status == LocalNetworkStatus.online) {
         _syncQueue();
       }
@@ -28,6 +31,10 @@ class OfflineSyncManager {
 
   void stopSyncMonitor() {
     _subscription?.cancel();
+  }
+
+  Future<void> syncQueueManual() async {
+    await _syncQueue();
   }
 
   Future<void> _syncQueue() async {
@@ -48,11 +55,42 @@ class OfflineSyncManager {
         try {
           final dio = await DioClient.dio;
           final payload = jsonDecode(item.payloadJson) as Map<String, dynamic>;
+          String endpoint = item.endpoint;
           
-          final response = await dio.post(item.endpoint, data: payload);
+          // Fix old wrong endpoints from TahsinRepository (tahsin -> progress)
+          if (endpoint.contains('api/guru/tahsin/')) {
+            endpoint = endpoint.replaceAll('api/guru/tahsin/', 'api/guru/progress/');
+          }
+          // Fix old wrong endpoints from TahfidzRepository (missing api/guru/)
+          if (endpoint.startsWith('tahfidz-quran/')) {
+            endpoint = 'api/guru/$endpoint';
+          }
+          // Ensure it starts with api/ 
+          if (!endpoint.startsWith('api/')) {
+            endpoint = 'api/$endpoint';
+          }
+          endpoint = endpoint.replaceAll('api/api/', 'api/');
+
+          final response = await dio.post(endpoint, data: payload);
           
-          // Jika sukses 200/201, hapus antrean dari Isar
+          bool isSuccess = false;
+          // Cek HTTP Status Code
           if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
+            isSuccess = true;
+            // Cek detail payload balikan dari server (CI4 sering kembalikan HTTP 200 tapi isinya error 400)
+            if (response.data is Map) {
+              final resData = response.data as Map;
+              if (resData.containsKey('status')) {
+                final status = resData['status'];
+                if (status != 200 && status != true) {
+                  isSuccess = false;
+                  debugPrint("❌ API mengembalikan HTTP 200 tapi JSON status = $status");
+                }
+              }
+            }
+          }
+
+          if (isSuccess) {
             await _isar.writeTxn(() async {
               await _isar.offlineQueues.delete(item.id);
             });

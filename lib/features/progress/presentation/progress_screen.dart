@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/bloc/tahsin_cubit.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
+import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
@@ -64,6 +65,9 @@ class _ProgressViewState extends State<_ProgressView>
       ValueNotifier([]);
   final ValueNotifier<int?> _selectedKelasNotifier = ValueNotifier(null);
   final GlobalKey<ProgressInputScreenState> _inputKey = GlobalKey<ProgressInputScreenState>();
+
+  final GlobalKey<RiwayatGlobalTabState> _riwayatKey = GlobalKey<RiwayatGlobalTabState>();
+  DateTime _riwayatTanggal = DateTime.now();
 
   // ValueNotifier untuk tab index — menghindari setState penuh setiap kali tab berubah
   final ValueNotifier<int> _tabIndexNotifier = ValueNotifier(0);
@@ -125,6 +129,7 @@ class _ProgressViewState extends State<_ProgressView>
                     toolbarHeight: 48,
                     backgroundColor: Colors.transparent,
                     elevation: 0,
+                    titleSpacing: 0, // Geser judul ke kiri
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
                     actionsIconTheme: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
@@ -221,13 +226,13 @@ class _ProgressViewState extends State<_ProgressView>
                             onPressed: () => setState(() => _isSearchOpen = true),
                           ),
                       ],
-                      if (tabIdx == 1)
+                      if (tabIdx == 1) ...[
                         Padding(
                           padding: const EdgeInsets.only(right: 8.0),
                           child: ElevatedButton.icon(
                             onPressed: () => _inputKey.currentState?.simpan(),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white.withValues(alpha: 0.2),
+                              backgroundColor: Colors.green,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -238,12 +243,28 @@ class _ProgressViewState extends State<_ProgressView>
                             label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           ),
                         ),
-                      if (tabIdx == 2)
+                      ],
+                      if (tabIdx == 2) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: CustomDateField(
+                            selectedDate: _riwayatTanggal,
+                            isCompact: true,
+                            isWhite: true,
+                            onDateSelected: (date) {
+                              if (date != null && date != _riwayatTanggal) {
+                                setState(() => _riwayatTanggal = date);
+                                _riwayatKey.currentState?.setTanggal(date);
+                              }
+                            },
+                          ),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.picture_as_pdf),
                           tooltip: 'Kirim Laporan Perbandingan ke WA Saya',
                           onPressed: () => _showSendReportSheet(context),
                         ),
+                      ],
                       if (tabIdx == 3)
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline, color: Colors.white),
@@ -286,8 +307,10 @@ class _ProgressViewState extends State<_ProgressView>
             selectedKelasNotifier: _selectedKelasNotifier,
           ),
           ProgressInputScreen(key: _inputKey), // Component tab Input
-          RiwayatGlobalTab(repository: context.read<TahsinCubit>().repository),
-          const _CatatanEmbeddedTab(),
+            RiwayatGlobalTab(
+              key: _riwayatKey,
+              repository: context.read<TahsinCubit>().repository,
+            ),const _CatatanEmbeddedTab(),
         ],
       ),
       bottomNavigationBar: _buildCustomBottomNav(),
@@ -314,7 +337,7 @@ class _ProgressViewState extends State<_ProgressView>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -504,7 +527,7 @@ class _SendReportBottomSheetState extends State<_SendReportBottomSheet> {
           Text(
             'Laporan ini berisi perbandingan performa seluruh santri di kelas Anda dalam periode tertentu.',
             style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 13,
             ),
           ),
@@ -615,6 +638,18 @@ class _SantriListTabState extends State<_SantriListTab>
     super.initState();
     widget.searchCtrl.addListener(_onSearch);
     widget.selectedKelasNotifier.addListener(_onKelasFilterChanged);
+    
+    // Inisialisasi kelompok ID dari cubit global agar tidak null
+    _selectedKelompokId = ActiveKelompokCubit.activeKelompokId;
+    if (_selectedKelompokId == 0 || _selectedKelompokId == null) {
+      final activeState = context.read<ActiveKelompokCubit>().state;
+      if (activeState.activeId > 0) {
+        _selectedKelompokId = activeState.activeId;
+      } else if (activeState.allowedKelompok.isNotEmpty) {
+        _selectedKelompokId = int.tryParse(activeState.allowedKelompok.first['id_kelompok']?.toString() ?? '0');
+      }
+    }
+
     _load();
   }
 
@@ -662,10 +697,12 @@ class _SantriListTabState extends State<_SantriListTab>
     if (_isFetching) return;
     _isFetching = true;
     try {
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
       await context.read<TahsinCubit>().fetchProgressList(
         idKelompok: _selectedKelompokId,
         idKelas: _selectedKelasId,
         forceRefresh: forceRefresh,
+        tanggal: todayStr,
       );
     } finally {
       _isFetching = false;
@@ -705,7 +742,9 @@ class _SantriListTabState extends State<_SantriListTab>
                   return m;
                 }).toList();
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  widget.kelasListNotifier.value = _kelasList;
+                  if (mounted) {
+                    widget.kelasListNotifier.value = _kelasList;
+                  }
                 });
               }
             }
@@ -781,7 +820,7 @@ class _SantriListTabState extends State<_SantriListTab>
               _error,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 24),
@@ -857,7 +896,7 @@ class _SantriListTabState extends State<_SantriListTab>
                                 ? Colors.white
                                 : Theme.of(
                                     context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                  ).colorScheme.onSurface.withValues(alpha: 0.6),
                             fontWeight: isSel
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -920,7 +959,7 @@ class _SantriListTabState extends State<_SantriListTab>
                                     style: TextStyle(
                                       color: Theme.of(
                                         context,
-                                      ).colorScheme.onSurface.withOpacity(0.6),
+                                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                                     ),
                                   ),
                                   const SizedBox(height: 20),
@@ -985,6 +1024,9 @@ class _SantriCard extends StatelessWidget {
         double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
     final double totalHal =
         double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
+    final double halMulai =
+        double.tryParse(santri['hal_mulai']?.toString() ?? '1') ?? 1;
+    final double baseHal = (halMulai > 0) ? halMulai - 1 : 0;
     // ignore: unused_local_variable
     final int pctHal = int.tryParse(santri['pctHal']?.toString() ?? '0') ?? 0;
     // halProgress computed but not used directly in current layout
@@ -1150,11 +1192,12 @@ class _SantriCard extends StatelessWidget {
                         icon: Icons.menu_book_rounded,
                         capai: capaiHal,
                         total: totalHal,
+                        baseHal: baseHal,
                         checkpoints: santri['checkpoints'] ?? santri['checkpoint'] ?? santri['t_kelas_checkpoint'] ?? santri['check_points'],
                         baseColor: const Color(0xFF6610F2),
                         trailingText: Text(
                           '(${santri['sisa_tm_baku'] ?? 0} TM)',
-                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -1186,7 +1229,7 @@ class _SantriCard extends StatelessWidget {
                                   color: Theme.of(context)
                                       .colorScheme
                                       .onSurface
-                                      .withOpacity(0.6),
+                                      .withValues(alpha: 0.6),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1199,6 +1242,7 @@ class _SantriCard extends StatelessWidget {
                           icon: Icons.edit_note_rounded,
                           capai: latSek,
                           total: targetLat,
+                          baseHal: baseHal,
                           checkpoints: santri['checkpoints'] ?? santri['checkpoint'] ?? santri['t_kelas_checkpoint'] ?? santri['check_points'],
                           baseColor: const Color(0xFF14B8A6),
                         ),
@@ -1232,6 +1276,7 @@ class _SantriCard extends StatelessWidget {
                                   icon: Icons.rocket_launch_rounded,
                                   capai: sHal,
                                   total: totalHal,
+                                  baseHal: baseHal,
                                   baseColor: const Color(0xFFEA5455),
                                 ),
                               );
@@ -1245,6 +1290,7 @@ class _SantriCard extends StatelessWidget {
                           icon: Icons.rocket_launch_rounded,
                           capai: capaiAks,
                           total: totalHal,
+                          baseHal: baseHal,
                           baseColor: const Color(0xFFEA5455),
                         ),
                       ],
@@ -1555,7 +1601,7 @@ class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with Automatic
                     style: TextStyle(
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -1674,36 +1720,44 @@ class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with Automatic
               ),
               // -- List --
               Expanded(
-                child: _filteredList.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                child: RefreshIndicator(
+                  color: Theme.of(context).extension<AppCustomStyles>()?.success ?? Colors.green,
+                  onRefresh: () =>
+                      context.read<CatatanMasterCubit>().loadCatatan(
+                        idKelas: _selectedKelasId,
+                        idKelompok: _selectedKelompokId,
+                      ),
+                  child: _filteredList.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            Icon(
-                              Icons.notes_rounded,
-                              size: 64,
-                              color: Colors.grey.shade300,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Tidak ada catatan ditemukan',
-                              style: TextStyle(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.6),
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.5,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.notes_rounded,
+                                      size: 64,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Tidak ada catatan ditemukan',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        color: Theme.of(context).extension<AppCustomStyles>()!.success,
-                        onRefresh: () =>
-                            context.read<CatatanMasterCubit>().loadCatatan(
-                              idKelas: _selectedKelasId,
-                              idKelompok: _selectedKelompokId,
-                            ),
-                        child: ListView.builder(
+                        )
+                      : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
                           itemCount: _filteredList.length,
                           itemBuilder: (context, index) {
@@ -1793,7 +1847,7 @@ class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with Automatic
                                               color: Theme.of(context)
                                                   .colorScheme
                                                   .onSurface
-                                                  .withOpacity(0.6),
+                                                  .withValues(alpha: 0.6),
                                             ),
                                           ),
                                           const Spacer(),

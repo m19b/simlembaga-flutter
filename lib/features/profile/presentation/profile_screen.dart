@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 
@@ -424,7 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ).colorScheme.primary.withValues(alpha: 0.1),
                     backgroundImage: _pickedImageFile != null
                         ? FileImage(_pickedImageFile!) as ImageProvider
-                        : (_fotoUrl.isNotEmpty ? NetworkImage(_fotoUrl) : null),
+                        : (_fotoUrl.isNotEmpty ? CachedNetworkImageProvider(_fotoUrl) : null),
                     child: (_pickedImageFile == null && _fotoUrl.isEmpty)
                         ? Icon(
                             Icons.person,

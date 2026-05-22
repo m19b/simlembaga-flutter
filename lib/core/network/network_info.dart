@@ -13,7 +13,7 @@ class NetworkInfoImpl implements NetworkInfo {
 
   @override
   Future<bool> get isConnected async {
-    return await localNetworkChecker.checkConnection();
+    return localNetworkChecker.currentStatus == LocalNetworkStatus.online;
   }
 
   @override

@@ -87,7 +87,7 @@ class TahfidzCubit extends Cubit<TahfidzState> {
       );
       emit(TahfidzLoaded(data));
     } catch (e) {
-      emit(TahfidzError(e.toString()));
+      emit(TahfidzError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
@@ -101,7 +101,7 @@ class TahfidzCubit extends Cubit<TahfidzState> {
       final data = await repository.getDetail(nis, forceRefresh: forceRefresh);
       emit(TahfidzDetailLoaded(data));
     } catch (e) {
-      emit(TahfidzDetailError(e.toString()));
+      emit(TahfidzDetailError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 

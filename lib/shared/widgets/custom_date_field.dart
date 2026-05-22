@@ -79,7 +79,7 @@ class CustomDateField extends StatelessWidget {
             ? const EdgeInsets.symmetric(horizontal: 10, vertical: 5)
             : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isWhite ? Colors.white.withOpacity(0.15) : null,
+          color: isWhite ? Colors.white.withValues(alpha: 0.15) : null,
           border: isCompact ? null : Border.all(color: Theme.of(context).dividerColor),
           borderRadius: BorderRadius.circular(isCompact ? 20 : 12),
         ),

@@ -10,7 +10,7 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
 
   Future<void> loadCatatan({int? idKelompok, int? idKelas}) async {
     try {
-      if (state is! CatatanMasterLoaded) {
+      if (!isClosed && state is! CatatanMasterLoaded) {
         emit(CatatanMasterLoading());
       }
 
@@ -28,12 +28,16 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
         _cachedFilterMeta = resp['data']['filter_meta'];
       }
 
-      emit(CatatanMasterLoaded(
-        catatan: list,
-        filterMeta: _cachedFilterMeta,
-      ));
+      if (!isClosed) {
+        emit(CatatanMasterLoaded(
+          catatan: list,
+          filterMeta: _cachedFilterMeta,
+        ));
+      }
     } catch (e) {
-      emit(CatatanMasterError(e.toString().replaceAll('Exception: ', '')));
+      if (!isClosed) {
+        emit(CatatanMasterError(e.toString().replaceAll('Exception: ', '')));
+      }
     }
   }
 
@@ -53,19 +57,21 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
     final currentState = state;
     if (currentState is CatatanMasterLoaded) {
       try {
-        emit(CatatanMasterActionProgress(_cachedFilterMeta));
+        if (!isClosed) emit(CatatanMasterActionProgress(_cachedFilterMeta));
         await action();
         // Reload after success
         await loadCatatan();
-        if (state is CatatanMasterLoaded) {
+        if (!isClosed && state is CatatanMasterLoaded) {
           emit((state as CatatanMasterLoaded).copyWith(message: successMsg));
         }
       } catch (e) {
-        emit(CatatanMasterLoaded(
-          catatan: currentState.catatan,
-          filterMeta: currentState.filterMeta,
-          message: 'Error: ${e.toString().replaceAll('Exception: ', '')}',
-        ));
+        if (!isClosed) {
+          emit(CatatanMasterLoaded(
+            catatan: currentState.catatan,
+            filterMeta: currentState.filterMeta,
+            message: 'Error: ${e.toString().replaceAll('Exception: ', '')}',
+          ));
+        }
       }
     }
   }

@@ -47,7 +47,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
 
     String modeText = 'REGULER';
     Color modeColor = Colors.deepPurple;
-    Color modeBg = isDark ? Colors.deepPurple.withOpacity(0.2) : Colors.deepPurple.shade50;
+    Color modeBg = isDark ? Colors.deepPurple.withValues(alpha: 0.2) : Colors.deepPurple.shade50;
 
     final double totalHal = double.tryParse(s['total_hal']?.toString() ?? '0') ?? 0;
     final bool isFinishedReg = (totalHal > 0 && capaiHal >= totalHal);
@@ -69,14 +69,14 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
     if (modeBelajar == 'akselerasi') {
       modeText = jmlTes > 0 ? 'AKSELERASI $jmlTes✕' : 'AKSELERASI';
       modeColor = isDark ? Colors.red.shade400 : Colors.red.shade700;
-      modeBg = isDark ? Colors.red.withOpacity(0.2) : Colors.red.shade50;
+      modeBg = isDark ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade50;
       if (aksSelesai) {
         isTerkunci = true;
       }
     } else if (modeBelajar == 'latihan') {
       modeText = isAtCP ? 'LATIHAN (CHKP)' : 'LATIHAN';
       modeColor = isAtCP ? (isDark ? Colors.orange.shade400 : Colors.orange.shade800) : (isDark ? Colors.teal.shade400 : Colors.teal);
-      modeBg = isAtCP ? (isDark ? Colors.orange.withOpacity(0.2) : Colors.orange.shade50) : (isDark ? Colors.teal.withOpacity(0.2) : Colors.teal.shade50);
+      modeBg = isAtCP ? (isDark ? Colors.orange.withValues(alpha: 0.2) : Colors.orange.shade50) : (isDark ? Colors.teal.withValues(alpha: 0.2) : Colors.teal.shade50);
       if (latihanSelesai) {
         isTerkunci = true;
       }
@@ -90,16 +90,16 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isTerkunci ? Colors.green.withOpacity(0.1) : Theme.of(context).cardColor,
+        color: isTerkunci ? Colors.green.withValues(alpha: 0.1) : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: isRiwayatUlang
             ? Border.all(color: Colors.orange.shade300, width: 1.5)
-            : (isTerkunci ? Border.all(color: Colors.green.shade100) : Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1))),
+            : (isTerkunci ? Border.all(color: Colors.green.shade100) : Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.1))),
         boxShadow: [
           BoxShadow(
             color: isRiwayatUlang
-                ? Colors.orange.withOpacity(0.12)
-                : Colors.black.withOpacity(0.03),
+                ? Colors.orange.withValues(alpha: 0.12)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -108,28 +108,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isRiwayatUlang)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.orange.withOpacity(0.2) : Colors.orange.shade50,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded, size: 13, color: isDark ? Colors.orange.shade400 : Colors.orange.shade700),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$jmlGagal× Tidak Lulus Berturut-turut',
-                    style: TextStyle(fontSize: 10, color: isDark ? Colors.orange.shade300 : Colors.orange.shade800, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
+          // Removed old isRiwayatUlang banner in favor of inline badges
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Column(
@@ -153,14 +132,54 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              Text(nis, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+                              Text(nis, style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: isDark ? Colors.indigo.withOpacity(0.2) : Colors.indigo.shade50, borderRadius: BorderRadius.circular(6)),
+                                decoration: BoxDecoration(color: isDark ? Colors.indigo.withValues(alpha: 0.2) : Colors.indigo.shade50, borderRadius: BorderRadius.circular(6)),
                                 child: Text(kelas, style: TextStyle(fontSize: 9, color: isDark ? Colors.indigo.shade300 : Colors.indigo, fontWeight: FontWeight.bold)),
                               ),
                             ],
+                          ),
+                          Builder(
+                            builder: (context) {
+                              final int cntReg = int.tryParse(s['cntUlang']?.toString() ?? '0') ?? 0;
+                              final int cntLat = int.tryParse(s['cntUlangLat']?.toString() ?? '0') ?? 0;
+                              int streakGagal = cntReg + cntLat;
+                              if (streakGagal <= 0) {
+                                streakGagal = int.tryParse(s['streak_tidak_lulus']?.toString() ?? s['jml_gagal_berturut']?.toString() ?? '0') ?? 0;
+                              }
+                              final int streakSimak = int.tryParse(s['streak_tidak_disimak']?.toString() ?? s['jml_tidak_disimak_berturut']?.toString() ?? '0') ?? 0;
+                              
+                              if (streakGagal <= 0 && streakSimak <= 0) return const SizedBox.shrink();
+
+                              Color bgUlang = isDark ? Colors.orange.withValues(alpha: 0.2) : Colors.orange.shade100;
+                              Color textUlang = isDark ? Colors.orangeAccent.shade100 : Colors.orange.shade900;
+                              Color bgSimak = isDark ? Colors.amber.withValues(alpha: 0.2) : Colors.amber.shade100;
+                              Color textSimak = isDark ? Colors.amberAccent.shade100 : Colors.amber.shade900;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Wrap(
+                                  spacing: 4,
+                                  runSpacing: 4,
+                                  children: [
+                                    if (streakGagal > 0)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(color: bgUlang, borderRadius: BorderRadius.circular(4)),
+                                        child: Text('⚠️ Mengulang ${streakGagal}x', style: TextStyle(fontSize: 9, color: textUlang, fontWeight: FontWeight.bold)),
+                                      ),
+                                    if (streakSimak > 0)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(color: bgSimak, borderRadius: BorderRadius.circular(4)),
+                                        child: Text('⚠️ Tidak Disimak ${streakSimak}x', style: TextStyle(fontSize: 9, color: textSimak, fontWeight: FontWeight.bold)),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }
                           ),
                         ],
                       ),
@@ -174,9 +193,9 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                         decoration: BoxDecoration(
                           color: isTerkunci ? Theme.of(context).dividerColor : modeBg,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isTerkunci ? Colors.grey.shade400 : modeColor.withOpacity(0.2)),
+                          border: Border.all(color: isTerkunci ? Colors.grey.shade400 : modeColor.withValues(alpha: 0.2)),
                         ),
-                        child: Text(modeText, style: TextStyle(fontSize: 10, color: isTerkunci ? Theme.of(context).colorScheme.onSurface.withOpacity(0.6) : modeColor, fontWeight: FontWeight.bold)),
+                        child: Text(modeText, style: TextStyle(fontSize: 10, color: isTerkunci ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6) : modeColor, fontWeight: FontWeight.bold)),
                       ),
                       itemBuilder: (ctx) => [
                         const PopupMenuItem(value: 'reguler', child: Text('Reguler', style: TextStyle(fontSize: 12))),
@@ -237,7 +256,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           duration: const Duration(milliseconds: 180),
                           height: 44,
                           decoration: BoxDecoration(
-                            color: isTerkunci ? (isDark ? const Color(0xFF374151) : Colors.grey.shade100) : (row.lulus ? Colors.green.withOpacity(0.12) : (isDark ? Colors.red.withOpacity(0.1) : Colors.red.shade50)),
+                            color: isTerkunci ? (isDark ? const Color(0xFF374151) : Colors.grey.shade100) : (row.lulus ? Colors.green.withValues(alpha: 0.12) : (isDark ? Colors.red.withValues(alpha: 0.1) : Colors.red.shade50)),
                             border: Border.all(color: isTerkunci ? Theme.of(context).dividerColor : (row.lulus ? Colors.green.shade700 : Colors.red.shade700), width: 0.8),
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -267,9 +286,9 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.notes_rounded, color: isTerkunci ? Colors.grey.shade400 : (row.catatanGuru.isNotEmpty ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), size: 18),
+                              Icon(Icons.notes_rounded, color: isTerkunci ? Colors.grey.shade400 : (row.catatanGuru.isNotEmpty ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)), size: 18),
                               const SizedBox(width: 4),
-                              Text('Catatan', style: TextStyle(color: isTerkunci ? Colors.grey.shade400 : (row.catatanGuru.isNotEmpty ? Colors.white : Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), fontWeight: FontWeight.bold, fontSize: 12)),
+                              Text('Catatan', style: TextStyle(color: isTerkunci ? Colors.grey.shade400 : (row.catatanGuru.isNotEmpty ? Colors.white : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)), fontWeight: FontWeight.bold, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -283,16 +302,16 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           duration: const Duration(milliseconds: 180),
                           height: 44,
                           decoration: BoxDecoration(
-                            color: isTerkunci ? (isDark ? const Color(0xFF374151) : Colors.grey.shade100) : (row.disimak ? primaryColor.withOpacity(0.12) : Theme.of(context).cardColor),
+                            color: isTerkunci ? (isDark ? const Color(0xFF374151) : Colors.grey.shade100) : (row.disimak ? primaryColor.withValues(alpha: 0.12) : Theme.of(context).cardColor),
                             border: Border.all(color: isTerkunci ? Theme.of(context).dividerColor : (row.disimak ? primaryColor : Theme.of(context).dividerColor)),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(row.disimak ? Icons.library_books_rounded : Icons.book_outlined, color: isTerkunci ? Colors.grey.shade400 : (row.disimak ? primaryColor : Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), size: 18),
+                              Icon(row.disimak ? Icons.library_books_rounded : Icons.book_outlined, color: isTerkunci ? Colors.grey.shade400 : (row.disimak ? primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)), size: 18),
                               const SizedBox(width: 4),
-                              Text(row.disimak ? 'Disimak' : 'Tdk Disimak', style: TextStyle(color: isTerkunci ? Colors.grey.shade400 : (row.disimak ? primaryColor : Theme.of(context).colorScheme.onSurface.withOpacity(0.6)), fontWeight: FontWeight.bold, fontSize: 12)),
+                              Text(row.disimak ? 'Disimak' : 'Tdk Disimak', style: TextStyle(color: isTerkunci ? Colors.grey.shade400 : (row.disimak ? primaryColor : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)), fontWeight: FontWeight.bold, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -306,7 +325,7 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.green.withOpacity(0.2) : Colors.green.shade50,
+                      color: isDark ? Colors.green.withValues(alpha: 0.2) : Colors.green.shade50,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: isDark ? Colors.green.shade700 : Colors.green.shade200),
                     ),

@@ -8,6 +8,7 @@ import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/general_settings_model.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'dio_client.dart';
+import 'global_interceptor.dart';
 
 /// Centralized API service. Menggunakan Dio dan Stateless Token Authentication.
 class ApiService {
@@ -16,44 +17,59 @@ class ApiService {
 
   static void _handleDioError(DioException e) {
     String humanReadableMsg = "Terjadi kesalahan jaringan.";
-    if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
-      humanReadableMsg = "Koneksi ke server timeout. Gagal terhubung, pastikan server aktif atau IP benar.";
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      humanReadableMsg =
+          "Koneksi ke server timeout. Gagal terhubung, pastikan server aktif atau IP benar.";
     } else if (e.type == DioExceptionType.connectionError) {
-      humanReadableMsg = "Koneksi ditolak oleh server. Pastikan HP dan PC (server) terhubung di jaringan WiFi yang sama, dan IP server benar.";
+      humanReadableMsg =
+          "Koneksi ditolak oleh server. Pastikan HP dan PC (server) terhubung di jaringan WiFi yang sama, dan IP server benar.";
     } else if (e.response != null) {
       // 1. Coba ambil error spesifik dari backend CI4 (seperti 'Password Salah', 'User tidak ditemukan')
       bool messageExtracted = false;
       try {
         final data = e.response?.data;
-        if (data is Map && data.containsKey('message') && data['message'] != null) {
+        if (data is Map &&
+            data.containsKey('message') &&
+            data['message'] != null) {
           humanReadableMsg = data['message'];
           messageExtracted = true;
-        } else if (data is Map && data.containsKey('error') && data['error'] != null) {
+        } else if (data is Map &&
+            data.containsKey('error') &&
+            data['error'] != null) {
           humanReadableMsg = data['error'].toString();
           messageExtracted = true;
         }
       } catch (_) {}
 
-      // 2. Jika backend tdk mengirim message khusus, gunakan pesan standar sesuai status error
-      if (!messageExtracted) {
+      if (!messageExtracted && e.response?.data != null) {
+        // Output raw body if it is not JSON to help debugging CI4 crashes
+        humanReadableMsg = 'Gagal memuat data dari server. Raw Server Response:\n${e.response?.data.toString()}';
+      } else if (!messageExtracted) {
         if (e.response?.statusCode == 400) {
-          humanReadableMsg = "Permintaan tidak valid (400 Bad Request). Periksa isian Anda.";
+          humanReadableMsg =
+              "Permintaan tidak valid (400 Bad Request). Periksa isian Anda.";
         } else if (e.response?.statusCode == 401) {
-          humanReadableMsg = "Sesi telah berakhir atau akses ditolak (401). Silakan login kembali.";
+          humanReadableMsg =
+              "Sesi telah berakhir atau akses ditolak (401). Silakan login kembali.";
         } else if (e.response?.statusCode == 403) {
           humanReadableMsg = "Anda tidak memiliki izin (403 Forbidden).";
         } else if (e.response?.statusCode == 404) {
-          humanReadableMsg = "Endpoint (Alamat API) tidak ditemukan di server (404).";
+          humanReadableMsg =
+              "Endpoint (Alamat API) tidak ditemukan di server (404).";
         } else if (e.response?.statusCode == 500) {
-          humanReadableMsg = "Terjadi kesalahan sistem internal di aplikasi server (500).";
+          humanReadableMsg =
+              "Terjadi kesalahan sistem internal di aplikasi server (500).";
         } else {
-          humanReadableMsg = "Server mengembalikan status: ${e.response?.statusCode}";
+          humanReadableMsg =
+              "Server mengembalikan status: ${e.response?.statusCode}";
         }
       }
     } else {
-      humanReadableMsg = "Tidak bisa menghubungi server sama sekali. Periksa kembali IP Server dan pastikan HP terkoneksi WiFi.";
+      humanReadableMsg =
+          "Tidak bisa menghubungi server sama sekali. Periksa kembali IP Server dan pastikan HP terkoneksi WiFi.";
     }
-    
+
     // Log detail error ke console developer (biar tidak hilang untuk debugging programmer)
     debugPrint("=== DETAIL DIO ERROR ===");
     debugPrint("TIPE: ${e.type.name}");
@@ -62,7 +78,7 @@ class ApiService {
       debugPrint("STATUS: ${e.response?.statusCode}");
       debugPrint("BALASAN: ${e.response?.data}");
     }
-    
+
     throw Exception(humanReadableMsg);
   }
 
@@ -70,7 +86,9 @@ class ApiService {
 
   static Future<UserModel> login(String identity, String password) async {
     try {
-      final client = await DioClient.dio;
+      // 🌟 Menggunakan instance Dio khusus tanpa RetryInterceptor dan dengan timeout 3 detik
+      // Agar saat offline, tidak perlu menunggu 30 detik (karena retry 3x) untuk masuk ke mode bypass.
+      final client = await DioClient.getNewInstanceWithShortTimeout(3);
       final response = await client.post(
         'api/login',
         data: {'identity': identity, 'password': password},
@@ -85,8 +103,12 @@ class ApiService {
         // final token = data['token'];
         final token = data['data'] != null ? data['data']['token'] : null;
         if (token != null && token.toString().isNotEmpty) {
+          GlobalInterceptor.setToken(token.toString());
           await _storage.write(key: 'jwt_token', value: token.toString());
         }
+
+        // Simpan password dengan aman untuk kebutuhan verifikasi login offline
+        await _storage.write(key: 'cached_password', value: password);
 
         // Antisipasi mapping data sesuai standar baru
         final userData = data['data']['user'] ?? data['data'];
@@ -94,9 +116,13 @@ class ApiService {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_userKey, json.encode(user.toJson()));
+        if (user.fotoUser != null) {
+          await prefs.setString('cached_foto_profil', user.fotoUser!);
+        }
+        await prefs.setString('cached_nama_guru', user.username);
 
-        // 🌟 PERBAIKAN STUCK DI DASHBOARD LINUX: 
-        // Force reset instance Dio/TCP Pool setelah POST login. Caddy di Linux terkadang nge-hang 
+        // 🌟 PERBAIKAN STUCK DI DASHBOARD LINUX:
+        // Force reset instance Dio/TCP Pool setelah POST login. Caddy di Linux terkadang nge-hang
         // kalau kita reuse connection yang sama persis sedetik setelah request yang intens.
         DioClient.reset();
 
@@ -107,6 +133,36 @@ class ApiService {
         );
       }
     } on DioException catch (e) {
+      // 🌟 OFFLINE LOGIN BYPASS
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.connectionError || 
+          e.type == DioExceptionType.unknown) {
+        
+        final prefs = await SharedPreferences.getInstance();
+        final userStr = prefs.getString(_userKey);
+        final cachedPassword = await _storage.read(key: 'cached_password');
+        
+        if (userStr != null && userStr.isNotEmpty && cachedPassword != null) {
+           final user = UserModel.fromJson(json.decode(userStr));
+           
+           // Izinkan masuk HANYA jika identity cocok DENGAN password yang cocok dari cache
+           if ((user.username == identity || user.email == identity) && password == cachedPassword) {
+              // Berikan dummy token agar tidak langsung dianggap unauthenticated
+              final dummyToken = 'OFFLINE_CACHE_TOKEN';
+              GlobalInterceptor.setToken(dummyToken);
+              await _storage.write(key: 'jwt_token', value: dummyToken);
+              
+              DioClient.reset();
+              return user; 
+           } else {
+              // Jika salah kombinasi user/pass saat offline
+              throw Exception('Username atau password yang Anda masukkan salah.');
+           }
+        }
+        
+        throw Exception('Tidak bisa menghubungi server dan belum ada data login yang tersimpan di perangkat ini. Anda harus Online untuk login pertama kali.');
+      }
+
       _handleDioError(e);
       rethrow;
     } catch (e) {
@@ -118,16 +174,22 @@ class ApiService {
     try {
       final client = await DioClient.dio;
       // Opsional: beritahu server untuk mematikan token jika server mendukung blacklist token
-      client.post('api/logout').then((_) {}).catchError((_) {}); // Fire and forget agar UI tidak hang
+      client
+          .post('api/logout')
+          .then((_) {})
+          .catchError((_) {}); // Fire and forget agar UI tidak hang
     } catch (_) {
       // Abaikan error jaringan saat logout
     } finally {
       try {
         // Hapus token JWT lokal
+        GlobalInterceptor.clearToken();
         await _storage.delete(key: 'jwt_token');
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(_userKey);
+        // 🌟 JANGAN hapus _userKey agar fitur "Offline Login Bypass" bisa berjalan
+        // final prefs = await SharedPreferences.getInstance();
+        // await prefs.remove(_userKey);
+        
         ActiveKelompokCubit.activeKelompokId = 0; // Bersihkan state kelompk
         DioClient.reset(); // Reset Dio (misal user ganti server IP saat di login screen)
       } catch (e) {
@@ -144,10 +206,7 @@ class ApiService {
       return GeneralSettings.fromJson(result['data']);
     } catch (e) {
       // Return default branding if settings fail to load
-      return GeneralSettings(
-        namaAplikasi: 'SIM Lembaga',
-        namaLembaga: '',
-      );
+      return GeneralSettings(namaAplikasi: 'SIM Lembaga', namaLembaga: '');
     }
   }
 
@@ -164,14 +223,18 @@ class ApiService {
   static Future<void> checkConnection() async {
     try {
       final client = await DioClient.getNewInstanceWithShortTimeout(5);
-      // Terima SEMUA status code agar tidak throw DioException hanya karena 401/405
-      client.options.validateStatus = (status) => true;
       // Ping ke endpoint publik yang valid untuk memastikan respons JSON dari CI4
-      final response = await client.get('api/v1/update/check');
+      // Terima SEMUA status code — ping hanya butuh konfirmasi server BISA DIJANGKAU di jaringan.
+      final response = await client.post(
+        'api/login',
+        options: Options(validateStatus: (status) => true),
+      );
       debugPrint("Ping Server Sukses. Status Code: ${response.statusCode}");
       // Cek apakah response berupa map/JSON yang menandakan itu benar-benar server CI4 (bukan server apache/iis nyasar)
       if (response.data is! Map) {
-         throw Exception("Server terhubung, tapi tidak merespons dalam format sistem. (Kemungkinan nyasar ke XAMPP/IIS, pastikan port 8080 benar)");
+        throw Exception(
+          "Server terhubung, tapi tidak merespons dalam format sistem. (Kemungkinan nyasar ke XAMPP/IIS, pastikan port 8080 benar)",
+        );
       }
     } on DioException catch (e) {
       debugPrint("Ping Server Gagal (DioException): ${e.message}");
@@ -184,10 +247,15 @@ class ApiService {
 
   // ─── Dashboard ─────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getDashboardGuru({int? idKategori}) async {
+  static Future<Map<String, dynamic>> getDashboardGuru({
+    int? idKategori,
+  }) async {
     final Map<String, dynamic> query = {};
     if (idKategori != null && idKategori > 0) query['id_kategori'] = idKategori;
-    return _get('guru/dashboard', queryParameters: query.isEmpty ? null : query);
+    return _get(
+      'guru/dashboard',
+      queryParameters: query.isEmpty ? null : query,
+    );
   }
 
   // ─── Absensi ───────────────────────────────────────────────────────────────
@@ -223,7 +291,9 @@ class ApiService {
   }
 
   /// GET /api/guru/absen-mandiri — Status absen hari ini + riwayat bulan ini
-  static Future<Map<String, dynamic>> getStatusAbsenMandiri(int idKelompok) async {
+  static Future<Map<String, dynamic>> getStatusAbsenMandiri(
+    int idKelompok,
+  ) async {
     return _get(
       'guru/absen-guru',
       queryParameters: idKelompok > 0 ? {'id_kelompok': idKelompok} : null,
@@ -244,7 +314,6 @@ class ApiService {
       if (lng != null) 'lng': lng,
     });
   }
-
 
   // ─── Fungsi Baru Untuk Tab Absen Massal ────────────────────────────────────
 
@@ -267,15 +336,53 @@ class ApiService {
   ) async {
     return _post('guru/absen-santri/simpan', payload);
   }
-
   // ─── Progres Belajar ───────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getProgressList({String? cari, int? idKelompok, int? idKelas, int page = 1, int limit = 20, String? filterKehadiran, String? tanggal, int? sesi}) async {
-    final Map<String, dynamic> q = {'id_kategori': 1, 'page': page, 'limit': limit};
+  static Future<Map<String, dynamic>> getDeltaProgress({
+    int? idKelompok,
+    int? idKelas,
+    String? lastSync,
+    List<String>? existingNis,
+  }) async {
+    final Map<String, dynamic> q = {};
+    if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
+    if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
+    
+    final payload = {
+      'existing_nis': existingNis ?? [],
+      if (lastSync != null && lastSync.isNotEmpty) 'last_sync': lastSync,
+    };
+    
+    return _post(
+      'guru/progress/getDeltaProgress',
+      payload,
+      queryParameters: q.isEmpty ? null : q,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getProgressList({
+    String? cari,
+    int? idKelompok,
+    int? idKelas,
+    int page = 1,
+    int limit = 20,
+    String? filterKehadiran,
+    String? tanggal,
+    int? sesi,
+  }) async {
+    final Map<String, dynamic> q = {
+      'id_kategori': 1,
+      'page': page,
+      'limit': limit,
+    };
     if (cari != null && cari.isNotEmpty) q['cari'] = cari;
     if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
     if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
-    if (filterKehadiran != null && filterKehadiran.isNotEmpty && filterKehadiran != 'semua') q['filter_kehadiran'] = filterKehadiran;
+    if (filterKehadiran != null &&
+        filterKehadiran.isNotEmpty &&
+        filterKehadiran != 'semua') {
+      q['filter_kehadiran'] = filterKehadiran;
+    }
     if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
     if (sesi != null) q['sesi'] = sesi;
     return _get('guru/progress', queryParameters: q);
@@ -299,12 +406,34 @@ class ApiService {
 
   // ─── Riwayat Global ───────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getRiwayatGlobal(String tanggal, {int page = 1, int limit = 20}) async {
-    return _get('guru/riwayat-global', queryParameters: {'tanggal': tanggal, 'id_kategori': 1, 'page': page, 'limit': limit});
+  static Future<Map<String, dynamic>> getRiwayatGlobal(
+    String tanggal, {
+    int page = 1,
+    int limit = 20,
+    int? idKelompok,
+  }) async {
+    final Map<String, dynamic> q = {
+      'tanggal': tanggal,
+      'page': page,
+      'limit': limit,
+    };
+    if (idKelompok != null) {
+      q['id_kelompok'] = idKelompok;
+    }
+    return _get(
+      'guru/riwayat-global',
+      queryParameters: q,
+    );
   }
 
-  static Future<Map<String, dynamic>> getRiwayatGlobalChart(String tglMulai, String tglAkhir) async {
-    return _get('guru/riwayat-global/chart', queryParameters: {'tgl_mulai': tglMulai, 'tgl_akhir': tglAkhir});
+  static Future<Map<String, dynamic>> getRiwayatGlobalChart(
+    String tglMulai,
+    String tglAkhir,
+  ) async {
+    return _get(
+      'guru/riwayat-global/chart',
+      queryParameters: {'tgl_mulai': tglMulai, 'tgl_akhir': tglAkhir},
+    );
   }
 
   // ─── Laporan Prestasi ──────────────────────────────────────────────────────
@@ -315,7 +444,11 @@ class ApiService {
     int page = 1,
     int limit = 20,
   }) async {
-    final Map<String, dynamic> q = {'id_kategori': 1, 'page': page, 'limit': limit};
+    final Map<String, dynamic> q = {
+      'id_kategori': 1,
+      'page': page,
+      'limit': limit,
+    };
     if (tglMulai != null && tglMulai.isNotEmpty) q['tgl_mulai'] = tglMulai;
     if (tglAkhir != null && tglAkhir.isNotEmpty) q['tgl_akhir'] = tglAkhir;
     return _get('guru/laporan', queryParameters: q);
@@ -333,8 +466,16 @@ class ApiService {
 
   // ─── Data Santri ────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getSantriList({String? cari, int page = 1, int limit = 20}) async {
-    final Map<String, dynamic> q = {'id_kategori': 1, 'page': page, 'limit': limit};
+  static Future<Map<String, dynamic>> getSantriList({
+    String? cari,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final Map<String, dynamic> q = {
+      'id_kategori': 1,
+      'page': page,
+      'limit': limit,
+    };
     if (cari != null && cari.isNotEmpty) q['cari'] = cari;
     return _get('guru/santri', queryParameters: q);
   }
@@ -366,10 +507,10 @@ class ApiService {
     return _get('guru/tes/antrian');
   }
 
-  static Future<Map<String, dynamic>> batalkanTes({required String idDaftar}) async {
-    return _post('guru/tes/batalkan', {
-      'id_daftar': idDaftar,
-    });
+  static Future<Map<String, dynamic>> batalkanTes({
+    required String idDaftar,
+  }) async {
+    return _post('guru/tes/batalkan', {'id_daftar': idDaftar});
   }
 
   static Future<Map<String, dynamic>> getRiwayatTes({
@@ -387,14 +528,20 @@ class ApiService {
 
   // ── MASALAH SANTRI ─────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getMasalahAktif({int? idKelompok, int? idKelas}) async {
+  static Future<Map<String, dynamic>> getMasalahAktif({
+    int? idKelompok,
+    int? idKelas,
+  }) async {
     final Map<String, dynamic> q = {};
     if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
     if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
     return _get('guru/masalah', queryParameters: q.isEmpty ? null : q);
   }
 
-  static Future<Map<String, dynamic>> getMasalahSelesai({int? idKelompok, int? idKelas}) async {
+  static Future<Map<String, dynamic>> getMasalahSelesai({
+    int? idKelompok,
+    int? idKelas,
+  }) async {
     final Map<String, dynamic> q = {};
     if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
     if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
@@ -417,7 +564,7 @@ class ApiService {
       'keterangan': keterangan,
       'tgl_deteksi': tglMasalah,
     };
-    print("Payload Masalah: $payload");
+    debugPrint("Payload Masalah: $payload");
     return _post('guru/masalah/store', payload);
   }
 
@@ -492,15 +639,23 @@ class ApiService {
 
   static Future<Map<String, dynamic>> _post(
     String endpoint,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
       final client = await DioClient.dio;
       final fullUrl = '${client.options.baseUrl}api/$endpoint';
       debugPrint("📡 API_POST: $fullUrl");
       debugPrint("📦 BODY: $body");
+      if (queryParameters != null) debugPrint("🔍 QUERY: $queryParameters");
 
-      final response = await client.post('api/$endpoint', data: body);
+      final response = await client.post(
+        'api/$endpoint',
+        data: body,
+        queryParameters: queryParameters,
+        options: Options(headers: {'Content-Type': 'application/json'}),
+      );
+      debugPrint("Repository: CI4 Response Status: ${response.statusCode}");
       return _parseResponseData(response);
     } on DioException catch (e) {
       _handleDioError(e);
@@ -511,7 +666,7 @@ class ApiService {
   static Map<String, dynamic> _parseResponseData(Response response) {
     final data = response.data;
     Map<String, dynamic> parsedData;
-    
+
     if (data is Map<String, dynamic>) {
       parsedData = data;
     } else if (data is Map) {
@@ -520,10 +675,12 @@ class ApiService {
         parsedData[key.toString()] = value;
       });
     } else {
-      throw Exception('Format respons tidak valid: Bukan JSON Object');
+      debugPrint("RAW RESPONSE DATA (Not a Map): $data");
+      throw Exception('Format respons tidak valid: Bukan JSON Object. Raw Data: $data');
     }
 
-    final isSuccess = parsedData['status'] == 200 || parsedData['status'] == true;
+    final isSuccess =
+        parsedData['status'] == 200 || parsedData['status'] == true;
     if (!isSuccess || parsedData['error'] == true) {
       throw Exception(parsedData['message'] ?? 'Gagal memproses permintaan.');
     }
@@ -531,15 +688,43 @@ class ApiService {
   }
 
   // pencarian santri (untuk form Catat Masalah)
-  static Future<List<Map<String, dynamic>>> cariSantri(String query) async {
+  static Future<UserModel> login(String identity, String password) async {
     try {
-      final result = await _get(
-        'guru/santri/cari',
-        queryParameters: {'q': query},
+      // 🌟 OFFLINE FAST-FAIL: Jika aplikasi sudah tahu sedang offline, jangan tunggu timeout 41 detik!
+      if (LocalNetworkChecker().currentStatus == LocalNetworkStatus.offline) {
+        final prefs = await SharedPreferences.getInstance();
+        final userStr = prefs.getString(_userKey);
+        final cachedPassword = await _storage.read(key: 'cached_password');
+
+        if (userStr != null && userStr.isNotEmpty && cachedPassword != null) {
+          final user = UserModel.fromJson(json.decode(userStr));
+          if ((user.username == identity || user.email == identity) && password == cachedPassword) {
+            final dummyToken = 'OFFLINE_CACHE_TOKEN';
+            GlobalInterceptor.setToken(dummyToken);
+            await _storage.write(key: 'jwt_token', value: dummyToken);
+            DioClient.reset();
+            return user;
+          } else {
+            throw Exception('Username atau password yang Anda masukkan salah.');
+          }
+        } else {
+          throw Exception('Anda sedang offline dan belum ada data login yang tersimpan di perangkat ini.');
+        }
+      }
+
+      // Jika online atau belum yakin offline, coba hit API (tapi dengan timeout singkat khusus login)
+      final client = await DioClient.getNewInstanceWithShortTimeout(5);
+      final response = await client.post(
+        'api/login',
+        data: {
+          'identity': identity,
+          'password': password,
+        },
       );
-      final data = result['data'];
-      if (data is List) {
-        return data.whereType<Map>().map((e) {
+      
+      final data = response.data;
+      final bool isSuccess = data['status'] == 200 || data['status'] == 'success';
+      return data.whereType<Map>().map((e) {
           final Map<String, dynamic> safeMap = {};
           e.forEach((key, value) {
             safeMap[key.toString()] = value;
@@ -583,11 +768,15 @@ class ApiService {
     return _get('guru/catatan-master', queryParameters: q.isEmpty ? null : q);
   }
 
-  static Future<Map<String, dynamic>> storeCatatanMaster(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> storeCatatanMaster(
+    Map<String, dynamic> data,
+  ) async {
     return _post('guru/catatan-master/store', data);
   }
 
-  static Future<Map<String, dynamic>> updateCatatanMaster(Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> updateCatatanMaster(
+    Map<String, dynamic> data,
+  ) async {
     return _post('guru/catatan-master/update', data);
   }
 
@@ -611,7 +800,6 @@ class ApiService {
 
   // ─── Profile ────────────────────────────────────────────────────────────────
 
-
   /// GET /api/guru/profile — Ambil data profil pengguna yang sedang login
   static Future<Map<String, dynamic>> getProfile() async {
     return _get('guru/profile');
@@ -633,7 +821,10 @@ class ApiService {
           ),
       });
       debugPrint('📡 API_POST_MULTIPART: api/guru/profile/update');
-      final response = await client.post('api/guru/profile/update', data: formData);
+      final response = await client.post(
+        'api/guru/profile/update',
+        data: formData,
+      );
       return _parseResponseData(response);
     } on DioException catch (e) {
       _handleDioError(e);
@@ -648,10 +839,7 @@ class ApiService {
     required String nis,
     required String target,
   }) async {
-    return _post('guru/progress/send-wa', {
-      'nis': nis,
-      'target': target,
-    });
+    return _post('guru/progress/send-wa', {'nis': nis, 'target': target});
   }
 
   static Future<Map<String, dynamic>> sendKolektifWaReport({
@@ -669,7 +857,9 @@ class ApiService {
   // ─── Pra-Tahfidz ─────────────────────────────────────────────────────────────
 
   /// GET /api/guru/pra-tahfidz — List santri beserta riwayat setoran hari ini
-  static Future<Map<String, dynamic>> getPraTahfidzList({String? tanggal}) async {
+  static Future<Map<String, dynamic>> getPraTahfidzList({
+    String? tanggal,
+  }) async {
     final Map<String, dynamic> q = {};
     if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
     return _get('guru/pra-tahfidz', queryParameters: q.isEmpty ? null : q);
@@ -689,7 +879,10 @@ class ApiService {
     final Map<String, dynamic> q = {};
     if (tglDari != null) q['tgl_dari'] = tglDari;
     if (tglSampai != null) q['tgl_sampai'] = tglSampai;
-    return _get('guru/pra-tahfidz/dashboard/$nis', queryParameters: q.isEmpty ? null : q);
+    return _get(
+      'guru/pra-tahfidz/dashboard/$nis',
+      queryParameters: q.isEmpty ? null : q,
+    );
   }
 
   /// POST /api/guru/pra-tahfidz/input-cepat — Simpan setoran tunggal
@@ -742,7 +935,10 @@ class ApiService {
     final Map<String, dynamic> q = {};
     if (tglDari != null) q['tgl_dari'] = tglDari;
     if (tglSampai != null) q['tgl_sampai'] = tglSampai;
-    return _get('guru/tahfidz-quran/dashboard/$nis', queryParameters: q.isEmpty ? null : q);
+    return _get(
+      'guru/tahfidz-quran/dashboard/$nis',
+      queryParameters: q.isEmpty ? null : q,
+    );
   }
 
   /// POST /api/tahfidz-quran/input-cepat — Simpan setoran tunggal

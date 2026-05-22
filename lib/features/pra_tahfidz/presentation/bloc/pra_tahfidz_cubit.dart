@@ -93,7 +93,7 @@ class PraTahfidzCubit extends Cubit<PraTahfidzState> {
       );
       emit(PraTahfidzLoaded(data));
     } catch (e) {
-      emit(PraTahfidzError(e.toString()));
+      emit(PraTahfidzError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 
@@ -105,7 +105,7 @@ class PraTahfidzCubit extends Cubit<PraTahfidzState> {
       final data = await repository.getDetail(nis, forceRefresh: forceRefresh);
       emit(PraTahfidzDetailLoaded(data));
     } catch (e) {
-      emit(PraTahfidzError(e.toString()));
+      emit(PraTahfidzError(e.toString().replaceAll('Exception: ', '')));
     }
   }
 

@@ -72,7 +72,7 @@ class SantriCardWidget extends StatelessWidget {
                 child: Text(
                   '$index',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -112,7 +112,7 @@ class SantriCardWidget extends StatelessWidget {
                             child: Text(
                               '($panggilan)',
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                             ),
                           ),
                         ],
@@ -123,7 +123,7 @@ class SantriCardWidget extends StatelessWidget {
                       children: [
                         Text(
                           nis,
-                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                         ),
                         const SizedBox(width: 6),
                         Container(
@@ -181,7 +181,7 @@ class SantriCardWidget extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     tglFormatted,
-                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                    style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
                   ),
                 ],
               ),

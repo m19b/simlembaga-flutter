@@ -59,7 +59,8 @@ class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
                       color: _isOnline ? Colors.blue.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: _isOnline ? Colors.blue.withValues(alpha: 0.5) : Colors.orange.withValues(alpha: 0.5),
+                        color: _isOnline ? Colors.blue : Colors.orange,
+                        width: 1.5,
                       ),
                     ),
                     child: Row(
@@ -93,10 +94,17 @@ class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
 
                 // Indikator Koneksi
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _isOnline ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
+                    color: _isOnline ? Colors.green.shade600 : Colors.red.shade600,
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isOnline ? Colors.green : Colors.red).withValues(alpha: 0.4),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -104,18 +112,16 @@ class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _isOnline ? Colors.green : Colors.red,
+                          color: Colors.white,
                         ),
                       ),
-                        if (!_isOnline) ...[
-                        const SizedBox(width: 4),
-                        const Text(
-                          'Offline',
-                          style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                      const SizedBox(width: 6),
+                      Text(
+                        _isOnline ? 'Online' : 'Offline',
+                        style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
                 ),

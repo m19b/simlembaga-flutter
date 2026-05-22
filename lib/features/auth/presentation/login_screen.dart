@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
-import 'package:manajemen_tahsin_app/features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'package:manajemen_tahsin_app/features/sync/presentation/screens/initial_sync_screen.dart';
 import 'package:manajemen_tahsin_app/core/widgets/settings_dialog.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await context.read<ActiveKelompokCubit>().initialize(user.kelompokList);
 
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(builder: (_) => const InitialSyncScreen()),
         );
       }
     } catch (e) {
@@ -94,10 +94,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Navigasi ke DashboardScreen, hapus semua route sebelumnya
+      // Navigasi ke InitialSyncScreen, hapus semua route sebelumnya
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const InitialSyncScreen()),
         (route) => false,
       );
     } catch (e, stacktrace) {

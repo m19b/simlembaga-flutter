@@ -466,7 +466,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                             icon: Container(
                               padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
+                                color: Colors.white.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(Icons.add_rounded,
@@ -494,10 +494,10 @@ class _MasalahScreenState extends State<MasalahScreen>
                       child: Container(
                         height: 40,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.white.withOpacity(0.3)),
+                              color: Colors.white.withValues(alpha: 0.3)),
                         ),
                         child: TextField(
                           controller: _searchCtrl,
@@ -507,7 +507,7 @@ class _MasalahScreenState extends State<MasalahScreen>
                           decoration: InputDecoration(
                             hintText: 'Cari nama, NIS, atau jenis...',
                             hintStyle: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
+                                color: Colors.white.withValues(alpha: 0.6),
                                 fontSize: 13),
                             prefixIcon: const Icon(Icons.search_rounded,
                                 color: Colors.white70, size: 18),
@@ -557,7 +557,7 @@ class _MasalahScreenState extends State<MasalahScreen>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -1544,7 +1544,7 @@ class _MasalahSkeletonCardState extends State<_MasalahSkeletonCard>
                 Container(
                   width: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
+                    color: Colors.grey.withValues(alpha: 0.3),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(14),
                       bottomLeft: Radius.circular(14),
@@ -1604,7 +1604,7 @@ class _SkelBox extends StatelessWidget {
     width: w,
     height: h,
     decoration: BoxDecoration(
-      color: Colors.grey.withOpacity(opacity),
+      color: Colors.grey.withValues(alpha: opacity),
       borderRadius: BorderRadius.circular(r),
     ),
   );

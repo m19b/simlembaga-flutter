@@ -7,6 +7,7 @@ import 'package:manajemen_tahsin_app/features/tahfidz/presentation/bloc/tahfidz_
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_screen.dart'
     show TahfidzSkeletonCard, formatHal;
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_detail_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 /// Tab 1 — Daftar santri dengan rekap Ziyadah / Sabaq / Manzil.
 class TahfidzProgressTab extends StatefulWidget {
@@ -489,7 +490,7 @@ class _AvatarOrFoto extends StatelessWidget {
       backgroundColor:
           Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
       backgroundImage: (foto != null && foto!.startsWith('http'))
-          ? NetworkImage(foto!)
+          ? CachedNetworkImageProvider(foto!) as ImageProvider
           : null,
       child: (foto == null || !foto!.startsWith('http'))
           ? Icon(

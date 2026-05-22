@@ -272,9 +272,9 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
               iconTheme: IconThemeData(color: onPrimary),
               centerTitle: false,
               title: Text(
-                _tabs.index == 0
-                    ? 'Detail Santri'
-                    : (_tabs.index == 1 ? 'Riwayat Simakan' : 'Input Simakan'),
+              _tabs.index == 0
+                  ? 'Detail Santri | ${widget.santri["nama_santri"] ?? ""}'
+                  : (_tabs.index == 1 ? 'Riwayat Simakan' : 'Input Simakan'),
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -465,9 +465,14 @@ class _RingkasanTabState extends State<_RingkasanTab>
 
     final prediksiRaw = widget.detail?['prediksi'];
     final Map<String, dynamic> prediksi = {};
-    if (prediksiRaw is Map)
+    if (prediksiRaw is Map) {
       prediksiRaw.forEach((k, v) => prediksi[k.toString()] = v);
-
+    }
+    final prediksiPerJilidRaw = widget.detail?['prediksi_per_jilid'];
+    final Map<String, dynamic> prediksiPerJilid = {};
+    if (prediksiPerJilidRaw is Map) {
+      prediksiPerJilidRaw.forEach((k, v) => prediksiPerJilid[k.toString()] = v);
+    }
     final masalahList = widget.detail?['masalah_aktif'] ?? [];
     final masalah = (masalahList is List ? masalahList : [])
         .whereType<Map>()
@@ -475,8 +480,9 @@ class _RingkasanTabState extends State<_RingkasanTab>
 
     final rekapRaw = widget.detail?['rekap_absensi'];
     final Map<String, dynamic> rekapAbsensi = {};
-    if (rekapRaw is Map)
+    if (rekapRaw is Map) {
       rekapRaw.forEach((k, v) => rekapAbsensi[k.toString()] = v);
+    }
 
     final weeklyList = widget.detail?['weekly'] ?? [];
     final weekly = (weeklyList is List ? weeklyList : [])
@@ -498,7 +504,13 @@ class _RingkasanTabState extends State<_RingkasanTab>
             styles,
           ),
           const SizedBox(height: 14),
-          _buildPredictionCard(context, prediksi, styles),
+          _buildPredictionCard(
+            context,
+            prediksi,
+            prediksiPerJilid,
+            styles,
+            int.tryParse(santri['id_kelas']?.toString() ?? '0'),
+          ),
           const SizedBox(height: 14),
           _buildWeeklyTableCard(context, weekly, styles),
           const SizedBox(height: 14),
@@ -773,6 +785,9 @@ class _RingkasanTabState extends State<_RingkasanTab>
         double.tryParse(santri['capai_hal']?.toString() ?? '0') ?? 0;
     final double totReg =
         double.tryParse(santri['total_hal']?.toString() ?? '604') ?? 604;
+    final double halMulai =
+        double.tryParse(santri['hal_mulai']?.toString() ?? '1') ?? 1;
+    final double baseHal = (halMulai > 0) ? halMulai - 1 : 0;
     final double halLat =
         double.tryParse(santri['lat_sek']?.toString() ?? '0') ?? 0;
     final double totLat = halLat > 0 ? totReg : 0;
@@ -806,6 +821,7 @@ class _RingkasanTabState extends State<_RingkasanTab>
             icon: Icons.menu_book_rounded,
             capai: halReg,
             total: totReg,
+            baseHal: baseHal,
             checkpoints: santri['checkpoints'],
             baseColor: const Color(0xFF6366F1),
           ),
@@ -816,6 +832,7 @@ class _RingkasanTabState extends State<_RingkasanTab>
               icon: Icons.edit_note_rounded,
               capai: halLat,
               total: totLat,
+              baseHal: baseHal,
               checkpoints: santri['checkpoints'],
               baseColor: const Color(0xFF14B8A6),
             ),
@@ -910,145 +927,123 @@ class _RingkasanTabState extends State<_RingkasanTab>
     );
   }
 
-  Widget _buildPredictionCard(
+   Widget _buildPredictionCard(
     BuildContext context,
     Map<String, dynamic> p,
+    Map<String, dynamic> pj,
     AppCustomStyles? styles,
+    int? idKelasSantri,
   ) {
-    final bool tersedia = p['tersedia'] == true || p['tersedia'] == 1;
-    final onSurf = Theme.of(context).colorScheme.onSurfaceVariant;
+    final onSurf = Theme.of(context).colorScheme.onSurface;
+    final tersedia = p['tersedia'] == true;
     final selisih = p['selisih_hari'];
 
+    if (!tersedia || pj.isEmpty) {
+      return _SectionWidget(
+        title: 'Prediksi Selesai Kelas',
+        styles: styles,
+        child: const Text(
+          'Data belum cukup untuk membuat prediksi.',
+          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+        ),
+      );
+    }
+
+    List perJilid = pj['per_jilid'] is List ? pj['per_jilid'] : [];
+    if (idKelasSantri != null && idKelasSantri > 0) {
+      perJilid = perJilid.where((e) {
+        if (e is Map) {
+          final idK = int.tryParse(e['id_kelas']?.toString() ?? '0') ?? 0;
+          return idK == idKelasSantri;
+        }
+        return true;
+      }).toList();
+    }
+
     return _SectionWidget(
-      title: 'Prediksi Khatam',
+      title: 'Prediksi Selesai Kelas',
       styles: styles,
-      child: !tersedia
-          ? const Text(
-              'Data belum cukup untuk membuat prediksi.',
-              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _predLabel('Target Lembaga', Colors.blue),
-                _predRow(
-                  '- Reguler',
-                  p['baku_reg_tgl'],
-                  p['baku_reg_hari'],
-                  onSurf,
-                ),
-                _predRow(
-                  '- Latihan',
-                  p['baku_lat_tgl'],
-                  p['baku_lat_hari'],
-                  onSurf,
-                ),
-                _predRow(
-                  '- Total',
-                  p['baku_tot_tgl'],
-                  p['baku_tot_hari'],
-                  onSurf,
-                ),
-                const SizedBox(height: 10),
-                _predLabel('Target Aktual', const Color(0xFF22C55E)),
-                _predRow(
-                  '- Reguler',
-                  p['akt_reg_tgl'],
-                  p['akt_reg_hari'],
-                  onSurf,
-                ),
-                _predRow(
-                  '- Latihan',
-                  p['akt_lat_tgl'],
-                  p['akt_lat_hari'],
-                  onSurf,
-                ),
-                _predRow(
-                  '- Total',
-                  p['akt_tot_tgl'],
-                  p['akt_tot_hari'],
-                  onSurf,
-                ),
-                const Divider(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Selisih Waktu',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: onSurf,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${_f(selisih)} Sesi',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange,
-                        ),
-                      ),
-                    ),
+                    const Text('Prediksi Aktual', style: TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text('${pj['tgl_khotaman_aktual'] ?? '-'}', style: TextStyle(color: onSurf, fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text('${pj['total_tm_aktual'] ?? 0} TM Aktual', style: const TextStyle(color: Color(0xFF22C55E), fontSize: 11)),
                   ],
                 ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('Target Lembaga', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    Text('${pj['tgl_khotaman_baku'] ?? '-'}', style: TextStyle(color: onSurf, fontWeight: FontWeight.bold, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text('${pj['total_tm_baku'] ?? 0} TM Target', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (selisih != null && selisih != 0) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(color: (selisih < 0 ? Colors.green : Colors.orange).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              child: Row(
+                children: [
+                  Icon(selisih < 0 ? Icons.trending_up : Icons.trending_down, size: 16, color: selisih < 0 ? Colors.green : Colors.orange),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      selisih < 0 ? 'Lebih cepat ${selisih.abs()} sesi dari target' : 'Lebih lambat $selisih sesi dari target',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: selisih < 0 ? Colors.green : Colors.orange),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          const Text('Rincian per Jilid', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 35,
+              dataRowMinHeight: 35,
+              dataRowMaxHeight: 45,
+              horizontalMargin: 0,
+              columnSpacing: 25,
+              columns: [
+                DataColumn(label: Text('Jilid/Buku', style: TextStyle(fontSize: 12, color: onSurf))),
+                DataColumn(label: Text('Target', style: TextStyle(fontSize: 12, color: onSurf))),
+                DataColumn(label: Text('Aktual', style: TextStyle(fontSize: 12, color: onSurf))),
               ],
-            ),
-    );
-  }
-
-  Widget _predLabel(String label, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  Widget _predRow(String label, dynamic date, dynamic days, Color onSurf) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(label, style: TextStyle(fontSize: 11, color: onSurf)),
-          ),
-          Expanded(
-            child: Text(
-              '${date ?? "-"}',
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontSize: 11),
-            ),
-          ),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: 70,
-            child: Text(
-              '(${_f(days)} Sesi)',
-              textAlign: TextAlign.end,
-              style: TextStyle(fontSize: 10, color: onSurf),
+              rows: perJilid.map((item) {
+                return DataRow(cells: [
+                  DataCell(Text('${item['tingkat'] ?? '-'}', style: TextStyle(fontSize: 12, color: onSurf))),
+                  DataCell(Text('${item['tgl_baku'] ?? '-'}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
+                  DataCell(Text('${item['tgl_aktual'] ?? '-'}', style: TextStyle(fontSize: 12, color: onSurf, fontWeight: FontWeight.w600))),
+                ]);
+              }).toList(),
             ),
           ),
         ],
       ),
     );
   }
+
 
   Color _modeColor(String mode) {
     switch (mode.toLowerCase()) {
@@ -1130,22 +1125,14 @@ class _RingkasanTabState extends State<_RingkasanTab>
           final modeData = entry.value;
           String simStr = '-';
           if (modeData is Map) {
-            final l =
-                int.tryParse(
-                  (modeData['lulus'] ?? modeData['l'] ?? modeData['hal'] ?? 0)
-                      .toString(),
-                ) ??
-                0;
-            final u =
-                int.tryParse(
-                  (modeData['ulang'] ?? modeData['u'] ?? 0).toString(),
-                ) ??
-                0;
-            final tot =
-                int.tryParse(
-                  (modeData['total'] ?? modeData['t'] ?? 0).toString(),
-                ) ??
-                0;
+            final lRaw = modeData['hal_lulus'] ?? modeData['L'] ?? modeData['lulus'] ?? modeData['l'] ?? modeData['hal'] ?? 0;
+            final l = (double.tryParse(lRaw.toString()) ?? 0).toInt();
+            
+            final uRaw = modeData['hal_ulang'] ?? modeData['U'] ?? modeData['ulang'] ?? modeData['u'] ?? 0;
+            final u = (double.tryParse(uRaw.toString()) ?? 0).toInt();
+            
+            final totRaw = modeData['jml_sesi'] ?? modeData['T'] ?? modeData['total'] ?? modeData['t'] ?? 0;
+            final tot = (double.tryParse(totRaw.toString()) ?? 0).toInt();
             if (tot > 0) {
               simStr = '$l/$u/$tot';
               totalL += l;
@@ -1504,8 +1491,9 @@ class _RiwayatTabState extends State<_RiwayatTab>
     final styles = Theme.of(context).extension<AppCustomStyles>();
     final onSurfaceVar = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    if (widget.riwayat.isEmpty)
+    if (widget.riwayat.isEmpty) {
       return const Center(child: Text('Belum ada riwayat'));
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -1728,11 +1716,20 @@ class _SectionWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: styles?.cardBorder ?? Colors.white.withValues(alpha: 0.05),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.black.withValues(alpha: 0.05),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(

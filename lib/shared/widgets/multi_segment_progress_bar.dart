@@ -13,6 +13,7 @@ class MultiSegmentProgressBar extends StatelessWidget {
   final IconData icon;
   final double capai;
   final double total;
+  final double baseHal;
   final List<dynamic>? checkpoints; // Data checkpoints santri
   final Color baseColor; // Warna text/icon base
   final Widget? trailingText;
@@ -23,6 +24,7 @@ class MultiSegmentProgressBar extends StatelessWidget {
     required this.icon,
     required this.capai,
     required this.total,
+    this.baseHal = 0,
     this.checkpoints,
     required this.baseColor,
     this.trailingText,
@@ -33,16 +35,16 @@ class MultiSegmentProgressBar extends StatelessWidget {
   /// - Jika > targetCP1: 2 Segmen (1 sebesar target CP1 warna Indigo, sisanya Hijau)
   /// - Khusus judul Akselerasi: selalu pakai merah jika tidak ada checkpoints logic
   static List<ProgressSegmentItem> calculateSegments(
-    double capai,
-    double total,
+    double relativeCapai,
+    double relativeTotal,
     dynamic rawCheckpoints,
     String title,
     Color baseColor,
   ) {
-    final double safeTotal = total <= 0 ? 1.0 : total;
-    final double safeCapai = capai.clamp(0.0, safeTotal);
+    final double safeTotal = relativeTotal <= 0 ? 1.0 : relativeTotal;
+    final double safeCapai = relativeCapai.clamp(0.0, safeTotal);
 
-    if (safeCapai == 0) return [];
+    if (safeCapai <= 0) return [];
 
     final bool isAkselerasi = title.toLowerCase().contains('akselerasi') || title.toLowerCase().contains('aks');
     if (isAkselerasi) {
@@ -114,8 +116,16 @@ class MultiSegmentProgressBar extends StatelessWidget {
     final double safeCapai = capai.isNaN || capai.isInfinite ? 0.0 : capai;
     final double safeTotal = total.isNaN || total.isInfinite || total <= 0 ? 1.0 : total;
     
-    final segments = calculateSegments(safeCapai, safeTotal, checkpoints, title, baseColor);
-    final double progress = (safeCapai / safeTotal).clamp(0.0, 1.0);
+    // Logika Relatif
+    final double safeBaseHal = baseHal < 0 ? 0.0 : baseHal;
+    double relativeCapai = safeCapai - safeBaseHal;
+    if (relativeCapai < 0) relativeCapai = 0;
+    
+    double relativeTotal = safeTotal - safeBaseHal;
+    if (relativeTotal <= 0) relativeTotal = 0;
+    
+    final segments = calculateSegments(relativeCapai, relativeTotal, checkpoints, title, baseColor);
+    final double progress = relativeTotal > 0 ? (relativeCapai / relativeTotal).clamp(0.0, 1.0) : 0.0;
     final int pct = (progress * 100).round();
 
     String _f(num v) => v.toString().replaceAll(RegExp(r'\.0$'), '');

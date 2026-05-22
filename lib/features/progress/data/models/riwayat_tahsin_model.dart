@@ -20,6 +20,12 @@ class RiwayatTahsinModel {
   String? modeBelajar;
   DateTime? createdAt;
 
+  @Index()
+  String? tanggal;
+
+  @Index()
+  int? sesi;
+
   // Safe Parsing dari API dengan Mapping Primary Key
   static RiwayatTahsinModel fromJson(Map<String, dynamic> json, int currentJilidId) {
     int? parsedId = int.tryParse(json['id']?.toString() ?? '');
@@ -33,7 +39,9 @@ class RiwayatTahsinModel {
       ..namaGuru = json['nama_guru']?.toString() ?? '-'
       ..statusHalaman = json['status_halaman']?.toString() ?? ''
       ..modeBelajar = json['mode_belajar']?.toString() ?? ''
-      ..createdAt = DateTime.tryParse(json['created_at']?.toString() ?? '');
+      ..createdAt = DateTime.tryParse(json['created_at']?.toString() ?? '')
+      ..tanggal = json['tanggal']?.toString() ?? (json['created_at'] != null ? json['created_at'].toString().substring(0, 10) : null)
+      ..sesi = int.tryParse(json['sesi']?.toString() ?? '');
   }
 
   Map<String, dynamic> toJson() {
@@ -47,6 +55,8 @@ class RiwayatTahsinModel {
       'status_halaman': statusHalaman,
       'mode_belajar': modeBelajar,
       'created_at': createdAt?.toIso8601String(),
+      'tanggal': tanggal,
+      'sesi': sesi,
     };
   }
 }

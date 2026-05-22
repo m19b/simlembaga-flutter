@@ -91,7 +91,6 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
         }
 
         // Use custom settings if available, default to transparent / theme colors if not
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         
         // Background color logic: if customized, use it. Else use theme's card color.
         final Color baseCardColor = settings.backgroundColor == Colors.transparent 
@@ -115,6 +114,10 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
               child: GestureDetector(
                 onTap: _handleTouch,
                 onDoubleTap: () {
+                  _handleTouch();
+                  _checkConnection();
+                },
+                onLongPress: () {
                   final navContext = navigatorKey.currentContext;
                   if (navContext != null) {
                     SettingsDialog.show(navContext);

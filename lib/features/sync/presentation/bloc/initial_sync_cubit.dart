@@ -21,6 +21,7 @@ class InitialSyncCubit extends Cubit<InitialSyncState> {
   }) : super(InitialSyncInitial());
 
   Future<void> runInitialSync() async {
+    emit(InitialSyncInitial()); // Reset state agar listener bisa merespon ulang
     try {
       final activeKelompokId = ActiveKelompokCubit.activeKelompokId;
 

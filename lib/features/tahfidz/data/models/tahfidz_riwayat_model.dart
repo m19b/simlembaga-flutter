@@ -20,6 +20,9 @@ class TahfidzRiwayatModel {
   @Index()
   int? idKelompok;
 
+  @Index()
+  int? sesi;
+
   // ── Ziyadah (Hafalan Baru = setoran) ────────────────────────────────────────
   double? ziyadahAwal;
   double? ziyadahTotal;
@@ -50,6 +53,7 @@ class TahfidzRiwayatModel {
       ..tanggal = DateTime.tryParse(json['tanggal']?.toString() ?? '')
       ..idKelas = int.tryParse(json['id_kelas']?.toString() ?? '')
       ..idKelompok = int.tryParse(json['id_kelompok']?.toString() ?? '')
+      ..sesi = int.tryParse(json['sesi']?.toString() ?? '1')
       ..ziyadahAwal =
           double.tryParse(json['setoran_hal_awal']?.toString() ?? '0') ?? 0.0
       ..ziyadahTotal =
@@ -91,6 +95,7 @@ class TahfidzRiwayatModel {
       'tanggal': tanggal?.toIso8601String(),
       'id_kelas': idKelas,
       'id_kelompok': idKelompok,
+      'sesi': sesi,
       'setoran_hal_awal': ziyadahAwal,
       'setoran_hal_total': ziyadahTotal,
       'setoran_hal_akhir': ziyadahAkhir,

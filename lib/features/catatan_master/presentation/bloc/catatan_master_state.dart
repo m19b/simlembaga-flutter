@@ -14,25 +14,29 @@ class CatatanMasterLoaded extends CatatanMasterState {
   final List<CatatanMaster> catatan;
   final Map<String, dynamic> filterMeta;
   final String? message; // Untuk success feedback
+  final bool isOfflineWarning;
 
   CatatanMasterLoaded({
     required this.catatan,
     required this.filterMeta,
     this.message,
+    this.isOfflineWarning = false,
   });
 
   @override
-  List<Object?> get props => [catatan, filterMeta, message];
+  List<Object?> get props => [catatan, filterMeta, message, isOfflineWarning];
 
   CatatanMasterLoaded copyWith({
     List<CatatanMaster>? catatan,
     Map<String, dynamic>? filterMeta,
     String? message,
+    bool? isOfflineWarning,
   }) {
     return CatatanMasterLoaded(
       catatan: catatan ?? this.catatan,
       filterMeta: filterMeta ?? this.filterMeta,
       message: message,
+      isOfflineWarning: isOfflineWarning ?? this.isOfflineWarning,
     );
   }
 }

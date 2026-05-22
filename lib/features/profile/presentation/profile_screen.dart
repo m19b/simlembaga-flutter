@@ -33,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingData = true;
   bool _isSaving = false;
   String? _errorMsg;
+  bool _isOfflineWarning = false;
 
   // Data dari API
   Map<String, dynamic> _profile = {};
@@ -88,6 +89,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? 'Perempuan'
               : 'Laki-laki';
         }
+        _isOfflineWarning = resp['is_offline_fallback'] == true;
         _isLoadingData = false;
       });
     } catch (e) {
@@ -348,33 +350,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: 'Pengaturan Profil',
         subtitle: 'Perbarui data dan akun',
       ),
-      body: _isLoadingData
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMsg != null
-          ? _buildError()
-          : SingleChildScrollView(
-              child: Form(
-                key: _formKey,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildAvatarCard(namaGuru, jabatan),
-                      const SizedBox(height: 16),
-                      _buildAkunCard(),
-                      const SizedBox(height: 16),
-                      if (_isGuru) _buildDetailCard(),
-                      if (_isGuru) const SizedBox(height: 16),
-                      _buildReadOnlyCard(),
-                      const SizedBox(height: 24),
-                      _buildSaveButton(),
-                      const SizedBox(height: 40),
-                    ],
+      body: Column(
+        children: [
+          if (_isOfflineWarning)
+            Container(
+              width: double.infinity,
+              color: Colors.orange.shade100,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Anda sedang offline. Menampilkan data lokal terakhir.',
+                      style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
+          Expanded(
+            child: _isLoadingData
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMsg != null
+                ? _buildError()
+                : SingleChildScrollView(
+                    child: Form(
+                      key: _formKey,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildAvatarCard(namaGuru, jabatan),
+                            const SizedBox(height: 16),
+                            _buildAkunCard(),
+                            const SizedBox(height: 16),
+                            if (_isGuru) _buildDetailCard(),
+                            if (_isGuru) const SizedBox(height: 16),
+                            _buildReadOnlyCard(),
+                            const SizedBox(height: 24),
+                            _buildSaveButton(),
+                            const SizedBox(height: 40),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 

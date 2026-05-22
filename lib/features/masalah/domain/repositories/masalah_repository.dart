@@ -28,7 +28,7 @@ class MasalahRepository {
   }
 
   // ─── READ: Cache-Then-Network ─────────────────────────────────────────────
-  Future<Map<String, List<Map<String, dynamic>>>> getMasalahList({bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> getMasalahList({bool forceRefresh = false}) async {
     const cacheKeyAktif   = 'masalah_aktif';
     const cacheKeySelesai = 'masalah_selesai';
 
@@ -54,7 +54,7 @@ class MasalahRepository {
     return _loadFromCache(cacheKeyAktif, cacheKeySelesai);
   }
 
-  Future<Map<String, List<Map<String, dynamic>>>> _loadFromCache(
+  Future<Map<String, dynamic>> _loadFromCache(
     String keyAktif, String keySelesai) async {
     final cAktif   = await localDataSource.getCachedData(keyAktif);
     final cSelesai = await localDataSource.getCachedData(keySelesai);
@@ -63,6 +63,7 @@ class MasalahRepository {
       return {
         'aktif':   _castList(cAktif?['items']),
         'selesai': _castList(cSelesai?['items']),
+        'is_offline_fallback': true, // Add flag
       };
     }
     throw Exception('Offline: Data masalah belum ada di cache.');

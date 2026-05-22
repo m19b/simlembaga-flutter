@@ -53,13 +53,23 @@ const RiwayatTahsinModelSchema = CollectionSchema(
       name: r'nis',
       type: IsarType.string,
     ),
-    r'statusHalaman': PropertySchema(
+    r'sesi': PropertySchema(
       id: 7,
+      name: r'sesi',
+      type: IsarType.long,
+    ),
+    r'statusHalaman': PropertySchema(
+      id: 8,
       name: r'statusHalaman',
       type: IsarType.string,
     ),
+    r'tanggal': PropertySchema(
+      id: 9,
+      name: r'tanggal',
+      type: IsarType.string,
+    ),
     r'tingkat': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'tingkat',
       type: IsarType.string,
     )
@@ -96,6 +106,32 @@ const RiwayatTahsinModelSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'jilidId',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'tanggal': IndexSchema(
+      id: 5193070597002198496,
+      name: r'tanggal',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'tanggal',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'sesi': IndexSchema(
+      id: 239240615698560900,
+      name: r'sesi',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'sesi',
           type: IndexType.value,
           caseSensitive: false,
         )
@@ -153,6 +189,12 @@ int _riwayatTahsinModelEstimateSize(
     }
   }
   {
+    final value = object.tanggal;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.tingkat;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -174,8 +216,10 @@ void _riwayatTahsinModelSerialize(
   writer.writeString(offsets[4], object.namaKelompok);
   writer.writeString(offsets[5], object.namaSantri);
   writer.writeString(offsets[6], object.nis);
-  writer.writeString(offsets[7], object.statusHalaman);
-  writer.writeString(offsets[8], object.tingkat);
+  writer.writeLong(offsets[7], object.sesi);
+  writer.writeString(offsets[8], object.statusHalaman);
+  writer.writeString(offsets[9], object.tanggal);
+  writer.writeString(offsets[10], object.tingkat);
 }
 
 RiwayatTahsinModel _riwayatTahsinModelDeserialize(
@@ -193,8 +237,10 @@ RiwayatTahsinModel _riwayatTahsinModelDeserialize(
   object.namaKelompok = reader.readStringOrNull(offsets[4]);
   object.namaSantri = reader.readStringOrNull(offsets[5]);
   object.nis = reader.readStringOrNull(offsets[6]);
-  object.statusHalaman = reader.readStringOrNull(offsets[7]);
-  object.tingkat = reader.readStringOrNull(offsets[8]);
+  object.sesi = reader.readLongOrNull(offsets[7]);
+  object.statusHalaman = reader.readStringOrNull(offsets[8]);
+  object.tanggal = reader.readStringOrNull(offsets[9]);
+  object.tingkat = reader.readStringOrNull(offsets[10]);
   return object;
 }
 
@@ -220,8 +266,12 @@ P _riwayatTahsinModelDeserializeProp<P>(
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readStringOrNull(offset)) as P;
+    case 10:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -255,6 +305,14 @@ extension RiwayatTahsinModelQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'jilidId'),
+      );
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhere> anySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'sesi'),
       );
     });
   }
@@ -627,6 +685,188 @@ extension RiwayatTahsinModelQueryWhere
         lower: [lowerJilidId],
         includeLower: includeLower,
         upper: [upperJilidId],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      tanggalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'tanggal',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      tanggalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'tanggal',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      tanggalEqualTo(String? tanggal) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'tanggal',
+        value: [tanggal],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      tanggalNotEqualTo(String? tanggal) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tanggal',
+              lower: [],
+              upper: [tanggal],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tanggal',
+              lower: [tanggal],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tanggal',
+              lower: [tanggal],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'tanggal',
+              lower: [],
+              upper: [tanggal],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'sesi',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiEqualTo(int? sesi) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'sesi',
+        value: [sesi],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiNotEqualTo(int? sesi) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [],
+              upper: [sesi],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [sesi],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [sesi],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [],
+              upper: [sesi],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiGreaterThan(
+    int? sesi, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [sesi],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiLessThan(
+    int? sesi, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [],
+        upper: [sesi],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterWhereClause>
+      sesiBetween(
+    int? lowerSesi,
+    int? upperSesi, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [lowerSesi],
+        includeLower: includeLower,
+        upper: [upperSesi],
         includeUpper: includeUpper,
       ));
     });
@@ -1610,6 +1850,80 @@ extension RiwayatTahsinModelQueryFilter
   }
 
   QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      sesiIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'sesi',
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      sesiIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'sesi',
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      sesiEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sesi',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      sesiGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'sesi',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      sesiLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sesi',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      sesiBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sesi',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
       statusHalamanIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1758,6 +2072,160 @@ extension RiwayatTahsinModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'statusHalaman',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'tanggal',
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'tanggal',
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tanggal',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'tanggal',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'tanggal',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'tanggal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'tanggal',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'tanggal',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'tanggal',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'tanggal',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tanggal',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterFilterCondition>
+      tanggalIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'tanggal',
         value: '',
       ));
     });
@@ -2025,6 +2493,20 @@ extension RiwayatTahsinModelQuerySortBy
   }
 
   QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      sortBySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      sortBySesiDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
       sortByStatusHalaman() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusHalaman', Sort.asc);
@@ -2035,6 +2517,20 @@ extension RiwayatTahsinModelQuerySortBy
       sortByStatusHalamanDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusHalaman', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      sortByTanggal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tanggal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      sortByTanggalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tanggal', Sort.desc);
     });
   }
 
@@ -2168,6 +2664,20 @@ extension RiwayatTahsinModelQuerySortThenBy
   }
 
   QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      thenBySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      thenBySesiDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
       thenByStatusHalaman() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusHalaman', Sort.asc);
@@ -2178,6 +2688,20 @@ extension RiwayatTahsinModelQuerySortThenBy
       thenByStatusHalamanDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusHalaman', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      thenByTanggal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tanggal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QAfterSortBy>
+      thenByTanggalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'tanggal', Sort.desc);
     });
   }
 
@@ -2248,10 +2772,24 @@ extension RiwayatTahsinModelQueryWhereDistinct
   }
 
   QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QDistinct>
+      distinctBySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sesi');
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QDistinct>
       distinctByStatusHalaman({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'statusHalaman',
           caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, RiwayatTahsinModel, QDistinct>
+      distinctByTanggal({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'tanggal', caseSensitive: caseSensitive);
     });
   }
 
@@ -2318,10 +2856,23 @@ extension RiwayatTahsinModelQueryProperty
     });
   }
 
+  QueryBuilder<RiwayatTahsinModel, int?, QQueryOperations> sesiProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sesi');
+    });
+  }
+
   QueryBuilder<RiwayatTahsinModel, String?, QQueryOperations>
       statusHalamanProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'statusHalaman');
+    });
+  }
+
+  QueryBuilder<RiwayatTahsinModel, String?, QQueryOperations>
+      tanggalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'tanggal');
     });
   }
 

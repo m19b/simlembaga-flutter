@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:manajemen_tahsin_app/core/api/dio_client.dart';
@@ -71,6 +72,11 @@ class OfflineSyncManager {
           }
           endpoint = endpoint.replaceAll('api/api/', 'api/');
 
+          // 🔍 DEBUG: Cetak endpoint dan summary payload sebelum kirim
+          final payloadKeys = payload.keys.toList();
+          final evaluasiCount = (payload['evaluasi'] as List?)?.length ?? -1;
+          debugPrint('🔄 SYNC ID ${item.id} → $endpoint | keys=$payloadKeys | evaluasi=$evaluasiCount items');
+
           final response = await dio.post(endpoint, data: payload);
           
           bool isSuccess = false;
@@ -96,9 +102,14 @@ class OfflineSyncManager {
             });
             successCount++;
           }
+        } on DioException catch (e) {
+          // 🔍 DEBUG: Cetak BODY respons CI4 yang sebenarnya (bukan hanya exception)
+          final responseBody = e.response?.data;
+          final statusCode = e.response?.statusCode;
+          debugPrint('❌ SYNC GAGAL ID ${item.id} | HTTP $statusCode');
+          debugPrint('   ↳ CI4 Response Body: $responseBody');
         } catch (e) {
-          // Gagal sync (4xx/5xx atau error lain), biarkan di antrean untuk di-retry
-          debugPrint('Gagal sinkronisasi antrean ID ${item.id}: $e');
+          debugPrint('❌ SYNC ERROR ID ${item.id} (non-Dio): $e');
         }
       }
 

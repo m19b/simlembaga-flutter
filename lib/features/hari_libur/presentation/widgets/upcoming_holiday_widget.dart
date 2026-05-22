@@ -131,17 +131,40 @@ class UpcomingHolidayWidget extends StatelessWidget {
                                 fontWeight: FontWeight.bold,
                                 color: cs.onSurface),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            diffText,
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: isToday
-                                    ? Colors.amber.shade700
-                                    : cs.onSurfaceVariant,
-                                fontWeight: isToday
-                                    ? FontWeight.bold
-                                    : FontWeight.normal),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (item.kategori == 'nasional' ? Colors.red : Colors.green).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  (item.kategori == 'nasional' ? 'Nasional' : (item.lembaga ?? 'Lembaga')).toUpperCase(),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    color: item.kategori == 'nasional' ? Colors.red.shade700 : Colors.green.shade700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  diffText,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: isToday
+                                          ? Colors.amber.shade700
+                                          : cs.onSurfaceVariant,
+                                      fontWeight: isToday
+                                          ? FontWeight.bold
+                                          : FontWeight.normal),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

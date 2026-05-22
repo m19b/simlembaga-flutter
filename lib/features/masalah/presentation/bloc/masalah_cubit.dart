@@ -13,7 +13,13 @@ class MasalahLoading extends MasalahState {}
 class MasalahLoaded extends MasalahState {
   final List<Map<String, dynamic>> aktif;
   final List<Map<String, dynamic>> selesai;
-  MasalahLoaded({required this.aktif, required this.selesai});
+  final bool isOfflineWarning;
+  
+  MasalahLoaded({
+    required this.aktif, 
+    required this.selesai, 
+    this.isOfflineWarning = false,
+  });
 }
 
 class MasalahError extends MasalahState {
@@ -43,9 +49,11 @@ class MasalahCubit extends Cubit<MasalahState> {
     emit(MasalahLoading());
     try {
       final data = await repository.getMasalahList(forceRefresh: forceRefresh);
+      final isOffline = data['is_offline_fallback'] == true;
       emit(MasalahLoaded(
-        aktif:   data['aktif']   ?? [],
-        selesai: data['selesai'] ?? [],
+        aktif:   (data['aktif'] as List?)?.cast<Map<String, dynamic>>()   ?? [],
+        selesai: (data['selesai'] as List?)?.cast<Map<String, dynamic>>() ?? [],
+        isOfflineWarning: isOffline,
       ));
     } catch (e) {
       emit(MasalahError(e.toString().replaceAll('Exception: ', '')));

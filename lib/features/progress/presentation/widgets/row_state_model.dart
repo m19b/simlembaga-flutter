@@ -62,7 +62,7 @@ class RowStateModel {
         (!isFinishedReg && cpTarget > 0 && capaiHal >= cpTarget);
     if (isAtCP && modeBelajar == 'reguler') isTerkunci = true;
 
-    final double defaultHal = double.tryParse(santri['defaul_hal']?.toString() ?? '1.0') ?? 1.0;
+    final double defaultHal = double.tryParse(santri['default_hal']?.toString() ?? santri['defaul_hal']?.toString() ?? '1.0') ?? 1.0;
     halTotal = isTerkunci ? 0.0 : defaultHal;
     halCtrl.text = halTotal == halTotal.toInt()
         ? halTotal.toInt().toString()
@@ -90,7 +90,7 @@ class RowStateModel {
     }
     
     // Setel default form
-    final double defaultHal = double.tryParse(santri['defaul_hal']?.toString() ?? '1.0') ?? 1.0;
+    final double defaultHal = double.tryParse(santri['default_hal']?.toString() ?? santri['defaul_hal']?.toString() ?? '1.0') ?? 1.0;
     halTotal = defaultHal;
     halCtrl.text = halTotal == halTotal.toInt() ? halTotal.toInt().toString() : halTotal.toString();
   }

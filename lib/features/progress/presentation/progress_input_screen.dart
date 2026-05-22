@@ -8,6 +8,8 @@ import 'package:manajemen_tahsin_app/features/progress/presentation/bloc/tahsin_
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'widgets/evaluasi_santri_card.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/core/data/models/kelas_model.dart';
 
 // --- Design Tokens (Islamic Emerald) ---------------------------------------------
 const Color _kHeader = Color(0xFF047857); // Emerald 700
@@ -51,6 +53,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
   bool _isDecimalMode = false;
   int _simpanCount = 0; // Counter: berapa kali sudah disimpan
   Map<String, dynamic>? _jadwalInfo; // hari & sesi dari t_jadwal_kelas
+  List<Map<String, dynamic>> _jadwalListAll = []; // Cache semua jadwal dari backend
   List<Map<String, dynamic>> _jadwalList = [];
   int? _selectedSesi;
   String _selectedTingkat = 'Semua';
@@ -129,6 +132,12 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
   Future<void> _loadSantri({bool forceRefresh = false}) async {
     final tgl = DateFormat('yyyy-MM-dd').format(_tanggal);
     if (_selectedKelompokId == null) return;
+    
+    // Pastikan reset counter saat memuat data (misal pindah filter / tanggal)
+    setState(() {
+      _simpanCount = 0;
+    });
+    
     await context.read<TahsinCubit>().fetchProgressList(
       idKelompok: _selectedKelompokId!,
       idKelas: null,
@@ -141,9 +150,20 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
 
   void setTanggal(DateTime date) {
     if (date != _tanggal) {
+      int newDay = date.weekday; // 1 = Senin, ..., 7 = Minggu
+      List<Map<String, dynamic>> filtered = _jadwalListAll.where((j) => j['hari'] == newDay).toList();
+      int? newSesi;
+      Map<String, dynamic>? newInfo;
+      if (filtered.isNotEmpty) {
+        newInfo = filtered.first;
+        newSesi = newInfo['sesi'];
+      }
       setState(() {
         _tanggal = date;
-        _selectedSesi = null;
+        _jadwalList = filtered;
+        _jadwalInfo = newInfo;
+        _selectedSesi = newSesi;
+        _simpanCount = 0; // Reset counter simpan
       });
       _loadSantri();
     }
@@ -219,6 +239,21 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
           if (defMetode > 0) _globalMetodeId = defMetode;
         }
 
+        final rawJadwalList = raw['jadwal_list'];
+        if (rawJadwalList is List) {
+          _jadwalListAll = rawJadwalList.map((e) {
+            final map = <String, dynamic>{};
+            if (e is Map) {
+              e.forEach((k, v) => map[k.toString()] = v);
+            }
+            return map;
+          }).toList();
+          
+          // Re-filter the loaded list based on the current _tanggal
+          int currentDay = _tanggal.weekday;
+          _jadwalList = _jadwalListAll.where((j) => j['hari'] == currentDay).toList();
+        }
+
         final rawJadwal = raw['jadwal_info'];
         if (rawJadwal is Map && rawJadwal.isNotEmpty) {
           _jadwalInfo = {};
@@ -228,15 +263,16 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
           _jadwalInfo = null;
         }
 
-        final rawJadwalList = raw['jadwal_list'];
-        if (rawJadwalList is List) {
-          _jadwalList = rawJadwalList.map((e) {
-            final map = <String, dynamic>{};
-            if (e is Map) {
-              e.forEach((k, v) => map[k.toString()] = v);
-            }
-            return map;
-          }).toList();
+        // Validasi _jadwalInfo terhadap _jadwalList yang sudah di filter
+        if (_jadwalList.isNotEmpty) {
+          bool isValid = _jadwalList.any((j) => j['sesi'] == _selectedSesi);
+          if (!isValid) {
+            _jadwalInfo = _jadwalList.first;
+            _selectedSesi = _jadwalInfo!['sesi'];
+          }
+        } else {
+          _jadwalInfo = null;
+          _selectedSesi = null;
         }
 
         final rawList = raw['santri_list'];
@@ -379,34 +415,109 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
       return;
     }
 
-    // Cek apakah ada santri yang sudah memiliki progres hari ini (status: lulus/mengulang)
-    // atau jika guru sudah menekan tombol simpan sebelumnya di layar ini.
-    bool hasProgressToday = _simpanCount > 0;
-    if (!hasProgressToday) {
-      for (var r in aktif) {
-        final status =
-            r.santri['last_status']?.toString().toLowerCase() ??
-            r.santri['status_halaman']?.toString().toLowerCase() ??
-            '';
-        if (status == 'lulus' ||
-            status == 'mengulang' ||
-            status == '1' ||
-            status == '0') {
-          hasProgressToday = true;
-          break;
+    // 1. VALIDASI CHECKPOINT DINAMIS VIA ISAR
+    for (var r in aktif) {
+      final halAkhir = r.halAwal + r.halTotal;
+      final totalHal = double.tryParse(r.santri['total_hal']?.toString() ?? '0') ?? 0;
+      final mode = r.modeBelajar;
+      
+      if (mode == 'akselerasi') {
+        if (totalHal > 0 && halAkhir > totalHal) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Halaman akhir Akselerasi melebihi batas akhir buku ($totalHal).')));
+          return;
+        }
+      } else {
+        // Ambil ID Kelas Santri
+        final idKelasSantri = int.tryParse(r.santri['id_kelas']?.toString() ?? '0') ?? 0;
+        
+        // Ambil Data KelasModel dari Isar
+        final kelasLokal = await IsarDb.instance.kelasModels.get(idKelasSantri);
+        final checkpoints = kelasLokal?.checkpoints ?? [];
+        
+        // Cari Checkpoint terdekat yang halaman_target >= r.halAwal
+        CheckpointLokal? activeCheckpoint;
+        for (var cp in checkpoints) {
+          if (cp.halamanTarget != null && cp.halamanTarget! >= r.halAwal) {
+            activeCheckpoint = cp;
+            break;
+          }
+        }
+
+        final cpTarget = activeCheckpoint?.halamanTarget ?? 0.0;
+        final harusTes = activeCheckpoint?.harusTes ?? 0;
+        
+        final isFinishedReg = (totalHal > 0 && r.halAwal >= totalHal);
+        final currentLimit = isFinishedReg ? totalHal : (cpTarget > 0 ? cpTarget : totalHal);
+        
+        if (currentLimit > 0 && halAkhir > currentLimit) {
+          if (isFinishedReg) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Halaman akhir ($halAkhir) melebihi batas akhir buku ($currentLimit).')));
+            return;
+          } else if (harusTes == 1) {
+            // Blokir proses penyimpanan
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Row(
+                  children: [
+                    Icon(Icons.block, color: Colors.red.shade700),
+                    const SizedBox(width: 8),
+                    const Text('Tertahan Checkpoint', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+                content: Text(
+                  'Santri (NIS: ${r.santri['nis']}) telah mencapai batas halaman ($currentLimit). Wajib menyelesaikan Tes Kenaikan / Ujian sebelum melanjutkan input evaluasi selanjutnya.'
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx), 
+                    child: const Text('Mengerti')
+                  ),
+                ],
+              ),
+            );
+            return;
+          } else {
+             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Halaman akhir ($halAkhir) melebihi target ($currentLimit).')));
+             return;
+          }
         }
       }
     }
 
-    // Jika sudah pernah simpan atau ada progres sebelumnya, tampilkan konfirmasi setoran ganda
-    if (hasProgressToday) {
-      final ke = _simpanCount + 1;
+    // 2. VALIDASI "SIMPAN KE-N" VIA ISAR
+    final tglStr = DateFormat('yyyy-MM-dd').format(_tanggal);
+    final repository = context.read<TahsinCubit>().repository;
+    final nisList = aktif.map((r) => r.santri['nis']?.toString() ?? '').toList();
+    final countIsar = await repository.checkExistingProgressCount(nisList, tglStr, _selectedSesi);
+
+    bool hasProgressToday = countIsar > 0;
+    
+    if (countIsar == 0) {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Konfirmasi Penyimpanan'),
+          content: const Text('Pastikan data halaman dan status yang Anda masukkan sudah benar. Lanjutkan menyimpan?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: _kHeader),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Lanjutkan', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    } else {
+      final ke = countIsar + 1;
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
@@ -414,26 +525,13 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
               Text('Simpan ke-$ke?'),
             ],
           ),
-          content: Text(
-            'Santri ini sudah memiliki progres hari ini (atau Anda sudah menyimpan data evaluasi pada sesi ini).\n\nYakin ingin menambah setoran baru?',
-          ),
+          content: const Text('Santri ini sudah memiliki input hari ini pada sesi yang sama. Apakah Anda yakin ingin menyimpan lagi? (Simpan ke-N)'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _kHeader,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: _kHeader),
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                'Ya, Simpan ke-$ke',
-                style: const TextStyle(color: Colors.white),
-              ),
+              child: Text('Ya, Simpan ke-$ke', style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),

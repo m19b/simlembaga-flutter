@@ -9,6 +9,7 @@ import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dar
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:manajemen_tahsin_app/features/pengaturan/presentation/pengaturan_indikator_screen.dart';
+import 'package:manajemen_tahsin_app/features/pengaturan/presentation/pengaturan_header_screen.dart';
 
 class PengaturanScreen extends StatelessWidget {
   const PengaturanScreen({super.key});
@@ -178,6 +179,27 @@ class PengaturanScreen extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const PengaturanIndikatorScreen()));
+              },
+            ),
+          ),
+          
+          Card(
+            margin: const EdgeInsets.only(bottom: 24),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isDark ? Colors.white12 : Colors.grey.shade200,
+              ),
+            ),
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: ListTile(
+              leading: const Icon(Icons.dashboard_customize, color: Colors.purple),
+              title: const Text('Kustomisasi Header Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Ubah urutan dan visibilitas gambar di header'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PengaturanHeaderScreen()));
               },
             ),
           ),

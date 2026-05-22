@@ -11,7 +11,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/api/api_service.dart';
-import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
@@ -23,6 +22,7 @@ import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dar
 import 'package:manajemen_tahsin_app/features/dashboard/domain/repositories/dashboard_repository.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/data/models/dashboard_model.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/presentation/bloc/dashboard_cubit.dart';
+import 'package:manajemen_tahsin_app/features/pengaturan/presentation/bloc/header_settings_cubit.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/masalah_screen.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/progress_screen.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_screen.dart';
@@ -31,7 +31,6 @@ import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart'
 import 'package:manajemen_tahsin_app/features/tes/presentation/daftar_tes_screen.dart';
 import 'package:manajemen_tahsin_app/features/tes/presentation/bloc/tes_cubit.dart';
 import 'package:manajemen_tahsin_app/features/profile/presentation/profile_screen.dart';
-import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/sync_badge_cubit.dart';
 import 'package:manajemen_tahsin_app/core/utils/sync_manager.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
@@ -136,6 +135,9 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 
   Future<void> _fetchStatusAbsen(int idKelompok) async {
+    final isOnline = LocalNetworkChecker().currentStatus == LocalNetworkStatus.online;
+    if (!isOnline) return;
+
     try {
       final res = await ApiService.getStatusAbsenMandiri(idKelompok);
       if (mounted) {
@@ -198,6 +200,9 @@ class _DashboardViewState extends State<_DashboardView> {
     }
 
     // Hard Sync Profile to get fresh foto_url directly from backend (mirrors profile_screen.dart)
+    final isOnline = LocalNetworkChecker().currentStatus == LocalNetworkStatus.online;
+    if (!isOnline) return;
+
     try {
       final resp = await ApiService.getProfile();
       final data = resp['data'] as Map<String, dynamic>? ?? {};
@@ -660,26 +665,35 @@ class _DashboardViewState extends State<_DashboardView> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          children: [
-                            _buildAbsImage(
-                              _currentUser?.fotoUser,
-                              Icons.person,
-                              size: 48,
-                            ),
-                            const SizedBox(width: 6),
-                            _buildAbsImage(
-                              _currentUser?.logoMetode,
-                              Icons.menu_book_outlined,
-                              size: 48,
-                            ),
-                            const SizedBox(width: 6),
-                            _buildAbsImage(
-                              _currentUser?.logoLembaga,
-                              Icons.account_balance_outlined,
-                              size: 48,
-                            ),
-                          ],
+                        BlocBuilder<HeaderSettingsCubit, List<HeaderImageConfig>>(
+                          builder: (context, headerConfigList) {
+                            final List<Widget> imageWidgets = [];
+                            
+                            for (final config in headerConfigList) {
+                              if (!config.isVisible) continue;
+                              
+                              Widget? imgWidget;
+                              if (config.id == 'profil') {
+                                imgWidget = _buildAbsImage(_currentUser?.fotoUser, Icons.person, size: 48);
+                              } else if (config.id == 'metode') {
+                                imgWidget = _buildAbsImage(_currentUser?.logoMetode, Icons.menu_book_outlined, size: 48);
+                              } else if (config.id == 'lembaga') {
+                                imgWidget = _buildAbsImage(_currentUser?.logoLembaga, Icons.account_balance_outlined, size: 48);
+                              }
+                              
+                              if (imgWidget != null) {
+                                imageWidgets.add(imgWidget);
+                                imageWidgets.add(const SizedBox(width: 6));
+                              }
+                            }
+                            
+                            // Hapus SizedBox terakhir jika ada
+                            if (imageWidgets.isNotEmpty) {
+                              imageWidgets.removeLast();
+                            }
+                            
+                            return Row(children: imageWidgets);
+                          },
                         ),
                         const SizedBox(height: 16),
                         Text(

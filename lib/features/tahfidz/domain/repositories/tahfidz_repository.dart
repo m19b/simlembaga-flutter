@@ -207,16 +207,48 @@ class TahfidzRepository {
   // 5. INPUT MASSAL (Optimistic — Offline Queue)
   // ===========================================================================
 
-  Future<bool> inputMassal(Map<String, dynamic> payload) async {
+  Future<bool> inputMassal(Map<String, dynamic> payload, {int? sesi}) async {
     if (await networkInfo.isConnected) {
       try {
         await ApiService.inputMassalTahfidz(payload);
         return true;
       } catch (e) {
-        return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload);
+        return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload, sesi: sesi);
       }
     }
-    return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload);
+    return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload, sesi: sesi);
+  }
+
+  // ===========================================================================
+  // 5b. CHECK EXISTING PROGRESS (Anti-Collision)
+  // ===========================================================================
+
+  Future<int> checkExistingProgressCount(
+    List<String> nisList,
+    String tanggalStr,
+    int sesi,
+  ) async {
+    if (nisList.isEmpty) return 0;
+    try {
+      final parsedDate = DateTime.tryParse(tanggalStr);
+      if (parsedDate == null) return 0;
+
+      // Reset waktu ke 00:00:00 untuk komparasi hari
+      final dateOnly = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+      final nextDay = dateOnly.add(const Duration(days: 1));
+
+      final existing = await _isar.tahfidzRiwayatModels
+          .filter()
+          .anyOf(nisList, (q, nis) => q.nisEqualTo(nis))
+          .and()
+          .tanggalBetween(dateOnly, nextDay, includeUpper: false)
+          .and()
+          .sesiEqualTo(sesi)
+          .count();
+      return existing;
+    } catch (e) {
+      return 0;
+    }
   }
 
   // ===========================================================================
@@ -273,8 +305,13 @@ class TahfidzRepository {
 
   Future<bool> _enqueuePayload(
     String endpoint,
-    Map<String, dynamic> payload,
-  ) async {
+    Map<String, dynamic> payload, {
+    int? sesi,
+  }) async {
+    if (sesi != null) {
+      payload['sesi'] = sesi;
+    }
+    
     final request = OfflineQueue()
       ..endpoint = endpoint
       ..payloadJson = await compute(_encodeJsonString, payload)

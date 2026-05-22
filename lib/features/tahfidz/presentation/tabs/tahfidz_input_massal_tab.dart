@@ -31,10 +31,16 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
   bool _loadingSantri = false;
 
   // ── State Form ───────────────────────────────────────────────────────────────
-  // Row data per santri: { nis, id_kelas, z_aw, z_tot, z_status, s_aw, s_tot, m_aw, m_tot }
+  // Row data per santri: { nis, id_kelas, z_aw, z_tot, z_status, s_aw, s_tot, m_aw, m_tot, sesi }
   final Map<String, Map<String, dynamic>> _rowData = {};
   DateTime _tanggal = DateTime.now();
   bool _isSaving = false;
+
+  // ── State Jadwal & Sesi ──────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _jadwalListAll = [];
+  List<Map<String, dynamic>> _jadwalList = [];
+  int? _selectedSesi;
+  int _simpanCount = 0;
 
   @override
   void initState() {
@@ -83,36 +89,47 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
       _loadingSantri = true;
       _santriList = [];
       _rowData.clear();
+      _simpanCount = 0;
     });
     try {
-      final activeId =
-          context.read<ActiveKelompokCubit>().state.activeId;
-      // Pakai endpoint filter kelas santri khusus Tahfidz
-      // Backend menyediakan z_terakhir, s_terakhir, m_terakhir
-      final res = await ApiService.getFilterKelas(
-        idKelompok: activeId > 0 ? activeId : null,
-      );
-      // Fallback: ambil santri dari list API biasa jika endpoint khusus tidak ada
-      // Untuk akurasi, kita gunakan endpoint getApiProgressList yang sudah ada
-      // Karena tidak ada endpoint getSantriForInputMassal khusus di Flutter API,
-      // kita ambil dari list santri biasa dan filter berdasarkan kelas.
-      final progressRes = await ApiService.getTahfidzList(
-        tanggal: DateTime.now().toIso8601String().split('T')[0],
-      );
-
-      final raw = progressRes['data'] ?? progressRes;
-      final rawList = raw is Map ? raw['santri_list'] : raw;
-
-      final List<Map<String, dynamic>> santri = [];
-      if (rawList is List) {
-        for (final e in rawList) {
-          if (e is Map) {
-            final Map<String, dynamic> m = {};
-            e.forEach((k, v) => m[k.toString()] = v);
-            santri.add(m);
-          }
+      final activeId = context.read<ActiveKelompokCubit>().state.activeId;
+      final isar = IsarDb.instance;
+      
+      // Ambil Jadwal dari GenericCache (filter_meta)
+      final metaCacheKey = 'tahfidz_meta_${activeId}_${_tanggal.toIso8601String().split('T')[0]}';
+      final metaCache = await isar.genericCaches.filter().keyEqualTo(metaCacheKey).findFirst();
+      if (metaCache != null) {
+        final metaMap = jsonDecode(metaCache.dataJson);
+        final rawJadwalList = metaMap['filter_meta']?['jadwal_list'];
+        if (rawJadwalList is List) {
+          _jadwalListAll = rawJadwalList.map((e) => Map<String, dynamic>.from(e)).toList();
         }
       }
+
+      // Filter Jadwal Reaktif (Lokal)
+      int currentDay = _tanggal.weekday;
+      _jadwalList = _jadwalListAll.where((j) => j['hari'] == currentDay).toList();
+      if (_jadwalList.isNotEmpty && !_jadwalList.any((j) => j['sesi'] == _selectedSesi)) {
+        _selectedSesi = _jadwalList.first['sesi'];
+      } else if (_jadwalList.isEmpty) {
+        _selectedSesi = null; // Tidak ada jadwal hari ini
+      }
+
+      // Load santri offline
+      final santriModels = await isar.tahfidzSantriModels
+          .filter()
+          .idKelompokEqualTo(activeId)
+          .findAll();
+          
+      final santriRaw = santriModels.map((m) => m.toJson()).toList();
+      final santri = santriRaw.where((s) => s['id_kelas'] == _selectedKelasId).toList();
+
+      // Check Checkpoint / Collision Lokal
+      _simpanCount = await context.read<TahfidzRepository>().checkExistingProgressCount(
+        santri.map((e) => e['nis']?.toString() ?? '').toList(),
+        _tanggal.toIso8601String(),
+        _selectedSesi ?? 1,
+      );
 
       setState(() {
         _santriList = santri;
@@ -125,25 +142,26 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
             'nis': nis,
             'id_kelas': _selectedKelasId,
             'z_aw': double.tryParse(s['z_terakhir']?.toString() ?? '0') ?? 0.0,
+            'z_ak': double.tryParse(s['z_terakhir']?.toString() ?? '0') ?? 0.0,
             'z_tot': 0.0,
             'z_status': 'Lulus',
             's_aw': double.tryParse(s['s_terakhir']?.toString() ?? '0') ?? 0.0,
+            's_ak': double.tryParse(s['s_terakhir']?.toString() ?? '0') ?? 0.0,
             's_tot': 0.0,
             'm_aw': double.tryParse(s['m_terakhir']?.toString() ?? '0') ?? 0.0,
+            'm_ak': double.tryParse(s['m_terakhir']?.toString() ?? '0') ?? 0.0,
             'm_tot': 0.0,
+            'sesi': _selectedSesi ?? 1,
           };
         }
       });
-      // Suppress unused warning
-      res.toString();
     } catch (e) {
       setState(() => _loadingSantri = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal memuat santri: $e'),
-            backgroundColor:
-                Theme.of(context).extension<AppCustomStyles>()!.error,
+            backgroundColor: Theme.of(context).extension<AppCustomStyles>()!.error,
           ),
         );
       }
@@ -181,15 +199,20 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
       final tanggalStr = _tanggal.toIso8601String().split('T')[0];
       final payload = {
         'tanggal': tanggalStr,
+        'sesi': _selectedSesi ?? 1,
         'rows': rows.map((r) => {
           'nis': r['nis'],
           'id_kelas': r['id_kelas'],
+          'sesi': r['sesi'],
           'z_aw': r['z_aw'],
+          'z_ak': r['z_ak'],
           'z_tot': r['z_tot'],
           'z_status': r['z_status'],
           's_aw': r['s_aw'],
+          's_ak': r['s_ak'],
           's_tot': r['s_tot'],
           'm_aw': r['m_aw'],
+          'm_ak': r['m_ak'],
           'm_tot': r['m_tot'],
         }).toList(),
       };
@@ -341,6 +364,77 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
             ],
           ),
         ),
+        
+        // ── Filter Sesi ──────────────────────────────────────
+        if (_jadwalList.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  'Sesi:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: custom.cardBorder),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: _selectedSesi,
+                        isExpanded: true,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        dropdownColor: Theme.of(context).cardColor,
+                        onChanged: (val) {
+                          setState(() => _selectedSesi = val);
+                          _loadSantri();
+                        },
+                        items: _jadwalList.map((j) {
+                          final label = 'Sesi ${j['sesi']} - ${j['jam_mulai']} s.d ${j['jam_selesai']}';
+                          return DropdownMenuItem<int>(
+                            value: j['sesi'] as int,
+                            child: Text(label),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // ── Notifikasi Checkpoint (Collision) ─────────────────────────────────────────
+        if (_simpanCount > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+            color: custom.warning.withValues(alpha: 0.2),
+            child: Row(
+              children: [
+                Icon(Icons.warning_rounded, color: custom.warning, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Setoran pada sesi ini sudah terisi. Melanjutkan akan menimpa (update) data.',
+                    style: TextStyle(color: custom.warning, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         // ── Santri List ─────────────────────────────────────────────────────────
         Expanded(
           child: _loadingSantri
@@ -409,7 +503,12 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _tanggal = picked);
+    if (picked != null && picked != _tanggal) {
+      setState(() {
+        _tanggal = picked;
+      });
+      _loadSantri(); // loadSantri juga memfilter sesi secara reaktif berdasarkan weekday
+    }
   }
 }
 
@@ -435,35 +534,74 @@ class _InputRow extends StatefulWidget {
 }
 
 class _InputRowState extends State<_InputRow> {
+  late TextEditingController _zAkhirCtrl;
   late TextEditingController _zTotCtrl;
+  late TextEditingController _sAkhirCtrl;
   late TextEditingController _sTotCtrl;
+  late TextEditingController _mAkhirCtrl;
   late TextEditingController _mTotCtrl;
 
   @override
   void initState() {
     super.initState();
     final r = widget.row;
-    _zTotCtrl = TextEditingController(
-      text: (r['z_tot'] as double) > 0
-          ? (r['z_tot'] as double).toString()
-          : '',
-    );
-    _sTotCtrl = TextEditingController(
-      text: (r['s_tot'] as double) > 0
-          ? (r['s_tot'] as double).toString()
-          : '',
-    );
-    _mTotCtrl = TextEditingController(
-      text: (r['m_tot'] as double) > 0
-          ? (r['m_tot'] as double).toString()
-          : '',
-    );
+    
+    // Inisialisasi controller Akhir & Total
+    _zAkhirCtrl = TextEditingController(text: _formatVal(r['z_ak']));
+    _zTotCtrl = TextEditingController(text: _formatVal(r['z_tot']));
+    
+    _sAkhirCtrl = TextEditingController(text: _formatVal(r['s_ak']));
+    _sTotCtrl = TextEditingController(text: _formatVal(r['s_tot']));
+    
+    _mAkhirCtrl = TextEditingController(text: _formatVal(r['m_ak']));
+    _mTotCtrl = TextEditingController(text: _formatVal(r['m_tot']));
+  }
+
+  String _formatVal(dynamic val) {
+    if (val == null) return '';
+    final d = val as double;
+    if (d <= 0) return '';
+    return d.toStringAsFixed(1).replaceAll('.0', '');
+  }
+
+  // === HANDLERS ===
+  void _onAkhirChanged(String prefix, String val, TextEditingController totCtrl) {
+    final ak = double.tryParse(val) ?? 0.0;
+    final aw = widget.row['${prefix}_aw'] as double;
+    final tot = ak - aw;
+    if (tot >= 0) {
+      if (ak == 0 && tot == 0) {
+        totCtrl.text = '';
+      } else {
+        totCtrl.text = _formatVal(tot);
+      }
+      widget.onChanged('${prefix}_tot', tot);
+      widget.onChanged('${prefix}_ak', ak);
+    }
+  }
+
+  void _onTotChanged(String prefix, String val, TextEditingController akCtrl) {
+    final tot = double.tryParse(val) ?? 0.0;
+    final aw = widget.row['${prefix}_aw'] as double;
+    final ak = aw + tot;
+    if (tot >= 0) {
+      if (tot == 0 && ak == 0) {
+         akCtrl.text = '';
+      } else {
+         akCtrl.text = _formatVal(ak);
+      }
+      widget.onChanged('${prefix}_tot', tot);
+      widget.onChanged('${prefix}_ak', ak);
+    }
   }
 
   @override
   void dispose() {
+    _zAkhirCtrl.dispose();
     _zTotCtrl.dispose();
+    _sAkhirCtrl.dispose();
     _sTotCtrl.dispose();
+    _mAkhirCtrl.dispose();
     _mTotCtrl.dispose();
     super.dispose();
   }
@@ -471,6 +609,8 @@ class _InputRowState extends State<_InputRow> {
   @override
   Widget build(BuildContext context) {
     final custom = Theme.of(context).extension<AppCustomStyles>()!;
+    final r = widget.row;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -509,12 +649,11 @@ class _InputRowState extends State<_InputRow> {
               label: 'Ziyadah',
               color: Theme.of(context).colorScheme.primary,
               icon: Icons.arrow_upward_rounded,
-              hint: 'Total hal. hafalan baru',
-              controller: _zTotCtrl,
-              onChanged: (v) => widget.onChanged(
-                'z_tot',
-                double.tryParse(v) ?? 0.0,
-              ),
+              awal: r['z_aw'] as double,
+              akhirCtrl: _zAkhirCtrl,
+              totalCtrl: _zTotCtrl,
+              onAkhirChanged: (v) => _onAkhirChanged('z', v, _zTotCtrl),
+              onTotalChanged: (v) => _onTotChanged('z', v, _zAkhirCtrl),
               trailing: DropdownButton<String>(
                 value: widget.row['z_status'] as String? ?? 'Lulus',
                 isDense: true,
@@ -537,12 +676,11 @@ class _InputRowState extends State<_InputRow> {
               label: 'Sabaq',
               color: custom.warning,
               icon: Icons.refresh_rounded,
-              hint: 'Total hal. ulangan baru',
-              controller: _sTotCtrl,
-              onChanged: (v) => widget.onChanged(
-                's_tot',
-                double.tryParse(v) ?? 0.0,
-              ),
+              awal: r['s_aw'] as double,
+              akhirCtrl: _sAkhirCtrl,
+              totalCtrl: _sTotCtrl,
+              onAkhirChanged: (v) => _onAkhirChanged('s', v, _sTotCtrl),
+              onTotalChanged: (v) => _onTotChanged('s', v, _sAkhirCtrl),
             ),
             const SizedBox(height: 6),
             // ── Input fields: Manzil ────────────────────────────────────
@@ -550,12 +688,11 @@ class _InputRowState extends State<_InputRow> {
               label: 'Manzil',
               color: custom.success,
               icon: Icons.history_edu,
-              hint: 'Total hal. ulangan lama',
-              controller: _mTotCtrl,
-              onChanged: (v) => widget.onChanged(
-                'm_tot',
-                double.tryParse(v) ?? 0.0,
-              ),
+              awal: r['m_aw'] as double,
+              akhirCtrl: _mAkhirCtrl,
+              totalCtrl: _mTotCtrl,
+              onAkhirChanged: (v) => _onAkhirChanged('m', v, _mTotCtrl),
+              onTotalChanged: (v) => _onTotChanged('m', v, _mAkhirCtrl),
             ),
           ],
         ),
@@ -568,28 +705,35 @@ class _SetoranSection extends StatelessWidget {
   final String label;
   final Color color;
   final IconData icon;
-  final String hint;
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
+  final double awal;
+  final TextEditingController akhirCtrl;
+  final TextEditingController totalCtrl;
+  final ValueChanged<String> onAkhirChanged;
+  final ValueChanged<String> onTotalChanged;
   final Widget? trailing;
 
   const _SetoranSection({
     required this.label,
     required this.color,
     required this.icon,
-    required this.hint,
-    required this.controller,
-    required this.onChanged,
+    required this.awal,
+    required this.akhirCtrl,
+    required this.totalCtrl,
+    required this.onAkhirChanged,
+    required this.onTotalChanged,
     this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
+    final strAwal = awal == 0 ? '0' : awal.toStringAsFixed(1).replaceAll('.0', '');
+    
     return Row(
       children: [
+        // Badge Label
         Container(
-          width: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          width: 58,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(6),
@@ -597,12 +741,12 @@ class _SetoranSection extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 10, color: color),
+              Icon(icon, size: 9, color: color),
               const SizedBox(width: 3),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 8,
                   color: color,
                   fontWeight: FontWeight.bold,
                 ),
@@ -610,45 +754,65 @@ class _SetoranSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
+        
+        // Awal (Auto)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: Border.all(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Awal',
+                style: TextStyle(
+                  fontSize: 8,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+              Text(
+                strAwal,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Icon(Icons.arrow_forward_rounded, size: 10, color: color.withValues(alpha: 0.5)),
+        const SizedBox(width: 4),
+
+        // Akhir (TextField)
         Expanded(
           child: SizedBox(
             height: 36,
             child: TextField(
-              controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-              ],
-              onChanged: onChanged,
+              controller: akhirCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              onChanged: onAkhirChanged,
+              textAlign: TextAlign.center,
               decoration: InputDecoration(
-                hintText: hint,
+                hintText: 'Akhir',
                 hintStyle: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.4),
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: Theme.of(context)
-                        .extension<AppCustomStyles>()!
-                        .cardBorder,
-                  ),
+                  borderSide: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(
-                    color: Theme.of(context)
-                        .extension<AppCustomStyles>()!
-                        .cardBorder,
-                  ),
+                  borderSide: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -656,12 +820,57 @@ class _SetoranSection extends StatelessWidget {
                 ),
               ),
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ),
+        
+        const SizedBox(width: 4),
+        Text('=', style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.5))),
+        const SizedBox(width: 4),
+
+        // Total (TextField)
+        Expanded(
+          child: SizedBox(
+            height: 36,
+            child: TextField(
+              controller: totalCtrl,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              onChanged: onTotalChanged,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                hintText: 'Total',
+                hintStyle: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: color),
+                ),
+              ),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+
         if (trailing != null) ...[
           const SizedBox(width: 6),
           trailing!,

@@ -37,38 +37,43 @@ const HariLiburModelSchema = CollectionSchema(
       name: r'keterangan',
       type: IsarType.string,
     ),
-    r'namaLibur': PropertySchema(
+    r'lembaga': PropertySchema(
       id: 4,
+      name: r'lembaga',
+      type: IsarType.string,
+    ),
+    r'namaLibur': PropertySchema(
+      id: 5,
       name: r'namaLibur',
       type: IsarType.string,
     ),
     r'tahun': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'tahun',
       type: IsarType.long,
     ),
     r'tanggalAkhir': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'tanggalAkhir',
       type: IsarType.string,
     ),
     r'tanggalAkhirDt': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'tanggalAkhirDt',
       type: IsarType.dateTime,
     ),
     r'tanggalDt': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'tanggalDt',
       type: IsarType.dateTime,
     ),
     r'tanggalMulai': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'tanggalMulai',
       type: IsarType.string,
     ),
     r'tanggalMulaiDt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'tanggalMulaiDt',
       type: IsarType.dateTime,
     )
@@ -127,6 +132,12 @@ int _hariLiburModelEstimateSize(
     }
   }
   bytesCount += 3 + object.keterangan.length * 3;
+  {
+    final value = object.lembaga;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.namaLibur.length * 3;
   bytesCount += 3 + object.tanggalAkhir.length * 3;
   bytesCount += 3 + object.tanggalMulai.length * 3;
@@ -143,13 +154,14 @@ void _hariLiburModelSerialize(
   writer.writeLong(offsets[1], object.idLibur);
   writer.writeString(offsets[2], object.kategori);
   writer.writeString(offsets[3], object.keterangan);
-  writer.writeString(offsets[4], object.namaLibur);
-  writer.writeLong(offsets[5], object.tahun);
-  writer.writeString(offsets[6], object.tanggalAkhir);
-  writer.writeDateTime(offsets[7], object.tanggalAkhirDt);
-  writer.writeDateTime(offsets[8], object.tanggalDt);
-  writer.writeString(offsets[9], object.tanggalMulai);
-  writer.writeDateTime(offsets[10], object.tanggalMulaiDt);
+  writer.writeString(offsets[4], object.lembaga);
+  writer.writeString(offsets[5], object.namaLibur);
+  writer.writeLong(offsets[6], object.tahun);
+  writer.writeString(offsets[7], object.tanggalAkhir);
+  writer.writeDateTime(offsets[8], object.tanggalAkhirDt);
+  writer.writeDateTime(offsets[9], object.tanggalDt);
+  writer.writeString(offsets[10], object.tanggalMulai);
+  writer.writeDateTime(offsets[11], object.tanggalMulaiDt);
 }
 
 HariLiburModel _hariLiburModelDeserialize(
@@ -164,9 +176,10 @@ HariLiburModel _hariLiburModelDeserialize(
   object.idLibur = reader.readLongOrNull(offsets[1]);
   object.kategori = reader.readStringOrNull(offsets[2]);
   object.keterangan = reader.readString(offsets[3]);
-  object.tahun = reader.readLongOrNull(offsets[5]);
-  object.tanggalAkhir = reader.readString(offsets[6]);
-  object.tanggalMulai = reader.readString(offsets[9]);
+  object.lembaga = reader.readStringOrNull(offsets[4]);
+  object.tahun = reader.readLongOrNull(offsets[6]);
+  object.tanggalAkhir = reader.readString(offsets[7]);
+  object.tanggalMulai = reader.readString(offsets[10]);
   return object;
 }
 
@@ -186,18 +199,20 @@ P _hariLiburModelDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
-      return (reader.readLongOrNull(offset)) as P;
-    case 6:
       return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readLongOrNull(offset)) as P;
     case 7:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 8:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1038,6 +1053,160 @@ extension HariLiburModelQueryFilter
   }
 
   QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lembaga',
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lembaga',
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lembaga',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lembaga',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lembaga',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lembaga',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lembaga',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lembaga',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lembaga',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lembaga',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lembaga',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
+      lembagaIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lembaga',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterFilterCondition>
       namaLiburEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1804,6 +1973,19 @@ extension HariLiburModelQuerySortBy
     });
   }
 
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterSortBy> sortByLembaga() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lembaga', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterSortBy>
+      sortByLembagaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lembaga', Sort.desc);
+    });
+  }
+
   QueryBuilder<HariLiburModel, HariLiburModel, QAfterSortBy> sortByNamaLibur() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'namaLibur', Sort.asc);
@@ -1967,6 +2149,19 @@ extension HariLiburModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterSortBy> thenByLembaga() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lembaga', Sort.asc);
+    });
+  }
+
+  QueryBuilder<HariLiburModel, HariLiburModel, QAfterSortBy>
+      thenByLembagaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lembaga', Sort.desc);
+    });
+  }
+
   QueryBuilder<HariLiburModel, HariLiburModel, QAfterSortBy> thenByNamaLibur() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'namaLibur', Sort.asc);
@@ -2091,6 +2286,13 @@ extension HariLiburModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<HariLiburModel, HariLiburModel, QDistinct> distinctByLembaga(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lembaga', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<HariLiburModel, HariLiburModel, QDistinct> distinctByNamaLibur(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2169,6 +2371,12 @@ extension HariLiburModelQueryProperty
   QueryBuilder<HariLiburModel, String, QQueryOperations> keteranganProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'keterangan');
+    });
+  }
+
+  QueryBuilder<HariLiburModel, String?, QQueryOperations> lembagaProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lembaga');
     });
   }
 

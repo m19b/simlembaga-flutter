@@ -162,10 +162,18 @@ class TahsinCubit extends Cubit<TahsinState> with WidgetsBindingObserver {
   }
 
   Future<bool> submitInputMassal(Map<String, dynamic> payload) async {
-    // Optimistic UI: tidak reload penuh setelah submit,
-    // karena progress_input_screen sudah menggeser halAwal dan mereset form secara lokal.
-    // Reload penuh hanya terjadi saat user keluar & kembali, atau pull-to-refresh manual.
     final result = await repository.inputMassalProgress(payload);
+    // Reload penuh pasca simpan untuk trigger reactive Isar (merujuk ke instruksi Bug Bash)
+    if (result) {
+      fetchProgressList(
+        idKelompok: _lastIdKelompok,
+        idKelas: _lastIdKelas,
+        tanggal: _lastTanggal,
+        filterKehadiran: _lastFilterKehadiran,
+        sesi: _lastSesi,
+        forceRefresh: false, // false agar membaca in-memory merge OfflineQueue
+      );
+    }
     return result;
   }
 

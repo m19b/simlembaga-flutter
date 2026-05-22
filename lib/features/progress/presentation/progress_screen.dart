@@ -16,6 +16,8 @@ import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/c
 import 'package:manajemen_tahsin_app/features/catatan_master/data/catatan_master_model.dart';
 import 'package:manajemen_tahsin_app/features/catatan_master/presentation/widgets/catatan_form_sheet.dart';
 import 'package:flutter/services.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/domain/repositories/catatan_master_repository.dart';
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/bloc/tahsin_cubit.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
@@ -40,7 +42,14 @@ class ProgressScreen extends StatelessWidget {
             activeKelompokCubit: context.read<ActiveKelompokCubit>(),
           ),
         ),
-        BlocProvider(create: (_) => CatatanMasterCubit()),
+        BlocProvider(
+          create: (_) => CatatanMasterCubit(
+            repository: CatatanMasterRepository(
+              networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+              localDataSource: LocalDataSourceImpl(),
+            ),
+          ),
+        ),
       ],
       child: const _ProgressView(),
     );
@@ -1641,6 +1650,24 @@ class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with Automatic
 
           return Column(
             children: [
+              if (state is CatatanMasterLoaded && state.isOfflineWarning)
+                Container(
+                  width: double.infinity,
+                  color: Colors.orange.shade100,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Anda sedang offline. Menampilkan data lokal terakhir.',
+                          style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // -- Filter Bar --
               Container(
                 color: Theme.of(context).scaffoldBackgroundColor,

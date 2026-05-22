@@ -29,7 +29,6 @@ class TahsinRepository {
     bool forceRefresh = false,
   }) async {
     final metaCacheKey = 'meta_progress_${idKelompok ?? 0}_${idKelas ?? 0}';
-    final nisIndexMap = <String, int>{};
 
     // Helper untuk merge offline queues ke data list
     Future<List<Map<String, dynamic>>> applyOfflineMerge(
@@ -585,6 +584,27 @@ class TahsinRepository {
       await _isar.offlineQueues.put(request);
     });
     return true;
+  }
+
+  /// Mengecek jumlah input hari ini berdasarkan tanggal dan sesi pada database Isar lokal (RiwayatTahsinModels).
+  Future<int> checkExistingProgressCount(List<String> nisList, String tanggal, int? sesi) async {
+    int total = 0;
+    try {
+      for (var nis in nisList) {
+        final count = await _isar.riwayatTahsinModels
+            .filter()
+            .nisEqualTo(nis)
+            .tanggalEqualTo(tanggal)
+            .sesiEqualTo(sesi)
+            .count();
+        if (count > 0) {
+          total++;
+        }
+      }
+    } catch (e) {
+      debugPrint("Error checking existing progress count: $e");
+    }
+    return total;
   }
 }
 

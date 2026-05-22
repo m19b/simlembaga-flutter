@@ -11,6 +11,7 @@ import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/sync_badge_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/indicator_settings_cubit.dart';
+import 'package:manajemen_tahsin_app/features/pengaturan/presentation/bloc/header_settings_cubit.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:manajemen_tahsin_app/core/widgets/global_network_indicator.dart';
 import 'package:manajemen_tahsin_app/features/hari_libur/data/repositories/hari_libur_repository.dart';
@@ -57,6 +58,7 @@ class MyApp extends StatelessWidget {
           BlocProvider(create: (_) => ActiveKelompokCubit()),
           BlocProvider(create: (_) => SyncBadgeCubit()),
           BlocProvider(create: (_) => IndicatorSettingsCubit()),
+          BlocProvider(create: (_) => HeaderSettingsCubit()),
           BlocProvider(
             create: (context) => InitialSyncCubit(
               santriRepository: context.read<SantriRepository>(),

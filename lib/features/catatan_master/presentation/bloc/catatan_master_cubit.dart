@@ -1,10 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/domain/repositories/catatan_master_repository.dart';
 import 'package:manajemen_tahsin_app/features/catatan_master/data/catatan_master_model.dart';
 import 'catatan_master_state.dart';
 
 class CatatanMasterCubit extends Cubit<CatatanMasterState> {
-  CatatanMasterCubit() : super(CatatanMasterInitial());
+  final CatatanMasterRepository repository;
+
+  CatatanMasterCubit({required this.repository}) : super(CatatanMasterInitial());
 
   Map<String, dynamic> _cachedFilterMeta = {};
 
@@ -14,24 +16,27 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
         emit(CatatanMasterLoading());
       }
 
-      final resp = await ApiService.getCatatanMaster(
+      final resp = await repository.getCatatanMaster(
         idKelompok: idKelompok,
         idKelas: idKelas,
       );
 
-      final List<dynamic> rawList = resp['data']['catatan'] ?? [];
+      final List<dynamic> rawList = resp['data']?['catatan'] ?? [];
       final List<CatatanMaster> list =
           rawList.map((e) => CatatanMaster.fromJson(e)).toList();
 
       // Caching filter meta jika ada di response
-      if (resp['data']['filter_meta'] != null) {
+      if (resp['data']?['filter_meta'] != null) {
         _cachedFilterMeta = resp['data']['filter_meta'];
       }
+
+      final isOffline = resp['is_offline_fallback'] == true;
 
       if (!isClosed) {
         emit(CatatanMasterLoaded(
           catatan: list,
           filterMeta: _cachedFilterMeta,
+          isOfflineWarning: isOffline,
         ));
       }
     } catch (e) {
@@ -42,15 +47,15 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
   }
 
   Future<void> addCatatan(Map<String, dynamic> data) async {
-    await _performAction(() => ApiService.storeCatatanMaster(data), 'Catatan berhasil ditambahkan');
+    await _performAction(() => repository.storeCatatanMaster(data), 'Catatan berhasil ditambahkan (Offline Queue)');
   }
 
   Future<void> updateCatatan(Map<String, dynamic> data) async {
-    await _performAction(() => ApiService.updateCatatanMaster(data), 'Catatan berhasil diperbarui');
+    await _performAction(() => repository.updateCatatanMaster(data), 'Catatan berhasil diperbarui (Offline Queue)');
   }
 
   Future<void> deleteCatatan(int idCatatan) async {
-    await _performAction(() => ApiService.deleteCatatanMaster(idCatatan), 'Catatan berhasil dihapus');
+    await _performAction(() => repository.deleteCatatanMaster(idCatatan), 'Catatan berhasil dihapus (Offline Queue)');
   }
 
   Future<void> _performAction(Future<dynamic> Function() action, String successMsg) async {
@@ -70,6 +75,7 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
             catatan: currentState.catatan,
             filterMeta: currentState.filterMeta,
             message: 'Error: ${e.toString().replaceAll('Exception: ', '')}',
+            isOfflineWarning: currentState.isOfflineWarning,
           ));
         }
       }

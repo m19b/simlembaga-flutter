@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/general_settings_model.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'dio_client.dart';
 import 'global_interceptor.dart';
-
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/core/data/models/kelas_model.dart';
 /// Centralized API service. Menggunakan Dio dan Stateless Token Authentication.
 class ApiService {
   static const String _userKey = 'LOGGED_IN_USER';
@@ -85,6 +88,28 @@ class ApiService {
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
   static Future<UserModel> login(String identity, String password) async {
+    // 🌟 FAST-FAIL OFFLINE CHECK
+    final isOnline = LocalNetworkChecker().currentStatus == LocalNetworkStatus.online;
+    if (!isOnline) {
+      final prefs = await SharedPreferences.getInstance();
+      final userStr = prefs.getString(_userKey);
+      final cachedPassword = await _storage.read(key: 'cached_password');
+      
+      if (userStr != null && userStr.isNotEmpty && cachedPassword != null) {
+        final user = UserModel.fromJson(json.decode(userStr));
+        if ((user.username == identity || user.email == identity) && password == cachedPassword) {
+          final dummyToken = 'OFFLINE_CACHE_TOKEN';
+          GlobalInterceptor.setToken(dummyToken);
+          DioClient.reset();
+          return user; 
+        } else {
+          throw Exception('Username atau password yang Anda masukkan salah.');
+        }
+      } else {
+        throw Exception('Anda sedang offline dan belum pernah login sebelumnya. Silakan sambungkan ke server.');
+      }
+    }
+
     try {
       // 🌟 Menggunakan instance Dio khusus tanpa RetryInterceptor dan dengan timeout 3 detik
       // Agar saat offline, tidak perlu menunggu 30 detik (karena retry 3x) untuk masuk ke mode bypass.
@@ -121,6 +146,45 @@ class ApiService {
         }
         await prefs.setString('cached_nama_guru', user.username);
 
+        // Parsing dan Simpan KelasModel ke Isar
+        final rawGuru = data['data']['guru'];
+        if (rawGuru != null && rawGuru['kelas_diampu'] != null) {
+          final listDiampu = rawGuru['kelas_diampu'] as List;
+          final List<KelasModel> kelasListToSave = [];
+
+          for (var k in listDiampu) {
+            if (k is Map) {
+              final idKelas = int.tryParse(k['id_kelas']?.toString() ?? '0') ?? 0;
+              final km = KelasModel()
+                ..idKelas = idKelas
+                ..tingkat = k['tingkat']?.toString()
+                ..idKelompok = int.tryParse(k['id_kelompok']?.toString() ?? '0')
+                ..namaKelompok = k['nama_kelompok']?.toString();
+
+              if (k['checkpoints'] != null && k['checkpoints'] is List) {
+                final List<CheckpointLokal> cpList = [];
+                for (var c in k['checkpoints']) {
+                  if (c is Map) {
+                    final cp = CheckpointLokal()
+                      ..halamanTarget = double.tryParse(c['halaman_target']?.toString() ?? '0')
+                      ..harusTes = int.tryParse(c['harus_tes']?.toString() ?? '0')
+                      ..keterangan = c['keterangan']?.toString();
+                    cpList.add(cp);
+                  }
+                }
+                km.checkpoints = cpList;
+              }
+              kelasListToSave.add(km);
+            }
+          }
+
+          if (kelasListToSave.isNotEmpty) {
+            IsarDb.instance.writeTxnSync(() {
+              IsarDb.instance.kelasModels.putAllSync(kelasListToSave);
+            });
+          }
+        }
+
         // 🌟 PERBAIKAN STUCK DI DASHBOARD LINUX:
         // Force reset instance Dio/TCP Pool setelah POST login. Caddy di Linux terkadang nge-hang
         // kalau kita reuse connection yang sama persis sedetik setelah request yang intens.
@@ -133,36 +197,6 @@ class ApiService {
         );
       }
     } on DioException catch (e) {
-      // 🌟 OFFLINE LOGIN BYPASS
-      if (e.type == DioExceptionType.connectionTimeout || 
-          e.type == DioExceptionType.connectionError || 
-          e.type == DioExceptionType.unknown) {
-        
-        final prefs = await SharedPreferences.getInstance();
-        final userStr = prefs.getString(_userKey);
-        final cachedPassword = await _storage.read(key: 'cached_password');
-        
-        if (userStr != null && userStr.isNotEmpty && cachedPassword != null) {
-           final user = UserModel.fromJson(json.decode(userStr));
-           
-           // Izinkan masuk HANYA jika identity cocok DENGAN password yang cocok dari cache
-           if ((user.username == identity || user.email == identity) && password == cachedPassword) {
-              // Berikan dummy token agar tidak langsung dianggap unauthenticated
-              final dummyToken = 'OFFLINE_CACHE_TOKEN';
-              GlobalInterceptor.setToken(dummyToken);
-              await _storage.write(key: 'jwt_token', value: dummyToken);
-              
-              DioClient.reset();
-              return user; 
-           } else {
-              // Jika salah kombinasi user/pass saat offline
-              throw Exception('Username atau password yang Anda masukkan salah.');
-           }
-        }
-        
-        throw Exception('Tidak bisa menghubungi server dan belum ada data login yang tersimpan di perangkat ini. Anda harus Online untuk login pertama kali.');
-      }
-
       _handleDioError(e);
       rethrow;
     } catch (e) {
@@ -688,47 +722,20 @@ class ApiService {
   }
 
   // pencarian santri (untuk form Catat Masalah)
-  static Future<UserModel> login(String identity, String password) async {
+  static Future<List<Map<String, dynamic>>> cariSantri(String query) async {
     try {
-      // 🌟 OFFLINE FAST-FAIL: Jika aplikasi sudah tahu sedang offline, jangan tunggu timeout 41 detik!
-      if (LocalNetworkChecker().currentStatus == LocalNetworkStatus.offline) {
-        final prefs = await SharedPreferences.getInstance();
-        final userStr = prefs.getString(_userKey);
-        final cachedPassword = await _storage.read(key: 'cached_password');
-
-        if (userStr != null && userStr.isNotEmpty && cachedPassword != null) {
-          final user = UserModel.fromJson(json.decode(userStr));
-          if ((user.username == identity || user.email == identity) && password == cachedPassword) {
-            final dummyToken = 'OFFLINE_CACHE_TOKEN';
-            GlobalInterceptor.setToken(dummyToken);
-            await _storage.write(key: 'jwt_token', value: dummyToken);
-            DioClient.reset();
-            return user;
-          } else {
-            throw Exception('Username atau password yang Anda masukkan salah.');
-          }
-        } else {
-          throw Exception('Anda sedang offline dan belum ada data login yang tersimpan di perangkat ini.');
-        }
-      }
-
-      // Jika online atau belum yakin offline, coba hit API (tapi dengan timeout singkat khusus login)
-      final client = await DioClient.getNewInstanceWithShortTimeout(5);
-      final response = await client.post(
-        'api/login',
-        data: {
-          'identity': identity,
-          'password': password,
-        },
-      );
-      
-      final data = response.data;
-      final bool isSuccess = data['status'] == 200 || data['status'] == 'success';
-      return data.whereType<Map>().map((e) {
+      final response = await _get('guru/santri', queryParameters: {'cari': query, 'limit': 100});
+      final data = response['data'] ?? response;
+      if (data is Map && data['santri_list'] != null) {
+        return (data['santri_list'] as List).whereType<Map>().map((e) {
           final Map<String, dynamic> safeMap = {};
-          e.forEach((key, value) {
-            safeMap[key.toString()] = value;
-          });
+          e.forEach((key, value) => safeMap[key.toString()] = value);
+          return safeMap;
+        }).toList();
+      } else if (data is List) {
+        return data.whereType<Map>().map((e) {
+          final Map<String, dynamic> safeMap = {};
+          e.forEach((key, value) => safeMap[key.toString()] = value);
           return safeMap;
         }).toList();
       }
@@ -802,7 +809,31 @@ class ApiService {
 
   /// GET /api/guru/profile — Ambil data profil pengguna yang sedang login
   static Future<Map<String, dynamic>> getProfile() async {
-    return _get('guru/profile');
+    final cacheKey = 'profile_data';
+    final isOnline = LocalNetworkChecker().currentStatus == LocalNetworkStatus.online;
+
+    if (isOnline) {
+      try {
+        final resp = await _get('guru/profile');
+        await LocalDataSourceImpl().cacheData(cacheKey, resp);
+        return resp;
+      } catch (e) {
+        final cached = await LocalDataSourceImpl().getCachedData(cacheKey);
+        if (cached != null) {
+          cached['is_offline_fallback'] = true;
+          return cached;
+        }
+        rethrow;
+      }
+    } else {
+      final cached = await LocalDataSourceImpl().getCachedData(cacheKey);
+      if (cached != null) {
+        cached['is_offline_fallback'] = true;
+        return cached;
+      } else {
+        throw Exception('Tidak ada koneksi internet dan profil belum tersimpan secara offline.');
+      }
+    }
   }
 
   /// POST /api/guru/profile/update — Perbarui profil via FormData (multipart)

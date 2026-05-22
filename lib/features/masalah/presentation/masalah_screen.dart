@@ -177,11 +177,35 @@ class _MasalahViewState extends State<_MasalahView> {
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: _buildAppBar(),
-          body: _loading
-              ? _buildSkeleton()
-              : _error.isNotEmpty
-                  ? _buildError()
-                  : _buildBody(),
+          body: Column(
+            children: [
+              if (state is MasalahLoaded && state.isOfflineWarning)
+                Container(
+                  width: double.infinity,
+                  color: Colors.orange.shade100,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Anda sedang offline. Menampilkan data lokal terakhir.',
+                          style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: _loading
+                    ? _buildSkeleton()
+                    : _error.isNotEmpty
+                        ? _buildError()
+                        : _buildBody(),
+              ),
+            ],
+          ),
           bottomNavigationBar: _buildCustomBottomNav(),
         );
       },

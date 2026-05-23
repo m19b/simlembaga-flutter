@@ -47,6 +47,8 @@ class TahfidzCubit extends Cubit<TahfidzState> {
 
   int? _lastIdKelompok;
   String? _lastTanggal;
+  int? _lastSesi;
+  String? _lastFilterKehadiran;
 
   TahfidzCubit({
     required this.repository,
@@ -58,6 +60,8 @@ class TahfidzCubit extends Cubit<TahfidzState> {
         fetchProgressList(
           idKelompok: kelompokState.activeId,
           tanggal: _lastTanggal,
+          sesi: _lastSesi,
+          filterKehadiran: _lastFilterKehadiran,
           forceRefresh: true,
         );
       }
@@ -69,10 +73,14 @@ class TahfidzCubit extends Cubit<TahfidzState> {
   Future<void> fetchProgressList({
     int? idKelompok,
     String? tanggal,
+    int? sesi,
+    String? filterKehadiran,
     bool forceRefresh = false,
   }) async {
     _lastIdKelompok = idKelompok;
     _lastTanggal = tanggal;
+    _lastSesi = sesi;
+    _lastFilterKehadiran = filterKehadiran;
 
     final isFirstLoad = state is TahfidzInitial;
     if (forceRefresh || isFirstLoad) {
@@ -83,6 +91,8 @@ class TahfidzCubit extends Cubit<TahfidzState> {
       final data = await repository.getProgressList(
         idKelompok: idKelompok,
         tanggal: tanggal,
+        sesi: sesi,
+        filterKehadiran: filterKehadiran,
         forceRefresh: forceRefresh,
       );
       emit(TahfidzLoaded(data));

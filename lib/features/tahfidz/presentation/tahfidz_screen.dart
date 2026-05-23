@@ -19,14 +19,18 @@ class TahfidzScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => TahfidzCubit(
-        repository: TahfidzRepository(
-          networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+    final repository = TahfidzRepository(
+      networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+    );
+    return RepositoryProvider<TahfidzRepository>.value(
+      value: repository,
+      child: BlocProvider(
+        create: (_) => TahfidzCubit(
+          repository: repository,
+          activeKelompokCubit: context.read<ActiveKelompokCubit>(),
         ),
-        activeKelompokCubit: context.read<ActiveKelompokCubit>(),
+        child: const _TahfidzView(),
       ),
-      child: const _TahfidzView(),
     );
   }
 }

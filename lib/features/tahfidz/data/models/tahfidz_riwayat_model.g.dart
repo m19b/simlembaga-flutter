@@ -68,28 +68,33 @@ const TahfidzRiwayatModelSchema = CollectionSchema(
       name: r'sabaqTotal',
       type: IsarType.double,
     ),
-    r'statusLulus': PropertySchema(
+    r'sesi': PropertySchema(
       id: 10,
+      name: r'sesi',
+      type: IsarType.long,
+    ),
+    r'statusLulus': PropertySchema(
+      id: 11,
       name: r'statusLulus',
       type: IsarType.string,
     ),
     r'tanggal': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'tanggal',
       type: IsarType.dateTime,
     ),
     r'ziyadahAkhir': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'ziyadahAkhir',
       type: IsarType.double,
     ),
     r'ziyadahAwal': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'ziyadahAwal',
       type: IsarType.double,
     ),
     r'ziyadahTotal': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'ziyadahTotal',
       type: IsarType.double,
     )
@@ -151,6 +156,19 @@ const TahfidzRiwayatModelSchema = CollectionSchema(
           caseSensitive: false,
         )
       ],
+    ),
+    r'sesi': IndexSchema(
+      id: 239240615698560900,
+      name: r'sesi',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'sesi',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
     )
   },
   links: {},
@@ -204,11 +222,12 @@ void _tahfidzRiwayatModelSerialize(
   writer.writeDouble(offsets[7], object.sabaqAkhir);
   writer.writeDouble(offsets[8], object.sabaqAwal);
   writer.writeDouble(offsets[9], object.sabaqTotal);
-  writer.writeString(offsets[10], object.statusLulus);
-  writer.writeDateTime(offsets[11], object.tanggal);
-  writer.writeDouble(offsets[12], object.ziyadahAkhir);
-  writer.writeDouble(offsets[13], object.ziyadahAwal);
-  writer.writeDouble(offsets[14], object.ziyadahTotal);
+  writer.writeLong(offsets[10], object.sesi);
+  writer.writeString(offsets[11], object.statusLulus);
+  writer.writeDateTime(offsets[12], object.tanggal);
+  writer.writeDouble(offsets[13], object.ziyadahAkhir);
+  writer.writeDouble(offsets[14], object.ziyadahAwal);
+  writer.writeDouble(offsets[15], object.ziyadahTotal);
 }
 
 TahfidzRiwayatModel _tahfidzRiwayatModelDeserialize(
@@ -229,11 +248,12 @@ TahfidzRiwayatModel _tahfidzRiwayatModelDeserialize(
   object.sabaqAkhir = reader.readDoubleOrNull(offsets[7]);
   object.sabaqAwal = reader.readDoubleOrNull(offsets[8]);
   object.sabaqTotal = reader.readDoubleOrNull(offsets[9]);
-  object.statusLulus = reader.readStringOrNull(offsets[10]);
-  object.tanggal = reader.readDateTimeOrNull(offsets[11]);
-  object.ziyadahAkhir = reader.readDoubleOrNull(offsets[12]);
-  object.ziyadahAwal = reader.readDoubleOrNull(offsets[13]);
-  object.ziyadahTotal = reader.readDoubleOrNull(offsets[14]);
+  object.sesi = reader.readLongOrNull(offsets[10]);
+  object.statusLulus = reader.readStringOrNull(offsets[11]);
+  object.tanggal = reader.readDateTimeOrNull(offsets[12]);
+  object.ziyadahAkhir = reader.readDoubleOrNull(offsets[13]);
+  object.ziyadahAwal = reader.readDoubleOrNull(offsets[14]);
+  object.ziyadahTotal = reader.readDoubleOrNull(offsets[15]);
   return object;
 }
 
@@ -265,14 +285,16 @@ P _tahfidzRiwayatModelDeserializeProp<P>(
     case 9:
       return (reader.readDoubleOrNull(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 11:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
       return (reader.readDoubleOrNull(offset)) as P;
     case 14:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 15:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -324,6 +346,15 @@ extension TahfidzRiwayatModelQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'idKelompok'),
+      );
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhere>
+      anySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'sesi'),
       );
     });
   }
@@ -806,6 +837,121 @@ extension TahfidzRiwayatModelQueryWhere
         lower: [lowerIdKelompok],
         includeLower: includeLower,
         upper: [upperIdKelompok],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'sesi',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiEqualTo(int? sesi) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'sesi',
+        value: [sesi],
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiNotEqualTo(int? sesi) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [],
+              upper: [sesi],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [sesi],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [sesi],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'sesi',
+              lower: [],
+              upper: [sesi],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiGreaterThan(
+    int? sesi, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [sesi],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiLessThan(
+    int? sesi, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [],
+        upper: [sesi],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterWhereClause>
+      sesiBetween(
+    int? lowerSesi,
+    int? upperSesi, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'sesi',
+        lower: [lowerSesi],
+        includeLower: includeLower,
+        upper: [upperSesi],
         includeUpper: includeUpper,
       ));
     });
@@ -1831,6 +1977,80 @@ extension TahfidzRiwayatModelQueryFilter on QueryBuilder<TahfidzRiwayatModel,
   }
 
   QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
+      sesiIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'sesi',
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
+      sesiIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'sesi',
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
+      sesiEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sesi',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
+      sesiGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'sesi',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
+      sesiLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sesi',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
+      sesiBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sesi',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterFilterCondition>
       statusLulusIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2460,6 +2680,20 @@ extension TahfidzRiwayatModelQuerySortBy
   }
 
   QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterSortBy>
+      sortBySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterSortBy>
+      sortBySesiDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterSortBy>
       sortByStatusLulus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusLulus', Sort.asc);
@@ -2687,6 +2921,20 @@ extension TahfidzRiwayatModelQuerySortThenBy
   }
 
   QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterSortBy>
+      thenBySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterSortBy>
+      thenBySesiDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sesi', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QAfterSortBy>
       thenByStatusLulus() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'statusLulus', Sort.asc);
@@ -2830,6 +3078,13 @@ extension TahfidzRiwayatModelQueryWhereDistinct
   }
 
   QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QDistinct>
+      distinctBySesi() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sesi');
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, TahfidzRiwayatModel, QDistinct>
       distinctByStatusLulus({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'statusLulus', caseSensitive: caseSensitive);
@@ -2938,6 +3193,12 @@ extension TahfidzRiwayatModelQueryProperty
       sabaqTotalProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sabaqTotal');
+    });
+  }
+
+  QueryBuilder<TahfidzRiwayatModel, int?, QQueryOperations> sesiProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sesi');
     });
   }
 

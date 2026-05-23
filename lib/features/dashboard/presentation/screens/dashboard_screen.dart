@@ -44,6 +44,7 @@ import 'package:manajemen_tahsin_app/features/hari_libur/presentation/bloc/hari_
 import 'package:manajemen_tahsin_app/features/hari_libur/data/models/hari_libur_model.dart';
 import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/features/pengaturan/presentation/pengaturan_screen.dart';
+import 'package:manajemen_tahsin_app/features/catatan_master/presentation/screens/catatan_master_screen.dart';
 
 // --- Colors ---
 const Color kBgColor = Color(0xFFF3F4F6);
@@ -527,6 +528,9 @@ class _DashboardViewState extends State<_DashboardView> {
                         data.role,
                         data.namaKelompok,
                         data.namaKelas,
+                        state.availableKategori,
+                        state.availableKelas,
+                        state.selectedKelas,
                       ),
                       SliverToBoxAdapter(
                         child: Column(
@@ -586,6 +590,9 @@ class _DashboardViewState extends State<_DashboardView> {
     String role,
     String kelompok,
     String kelas,
+    List<Map<String, dynamic>> availableKategori,
+    List<Map<String, dynamic>> availableKelas,
+    Map<String, dynamic>? selectedKelas,
   ) {
     return SliverAppBar(
       expandedHeight: 280,
@@ -732,9 +739,9 @@ class _DashboardViewState extends State<_DashboardView> {
                             children: [
                               _buildKelompokSelector(kelompok),
                               const SizedBox(width: 8),
-                              _buildCategorySelector(),
+                              _buildCategorySelector(availableKategori),
                               const SizedBox(width: 8),
-                              _buildContextChip(Icons.school_outlined, kelas),
+                              _buildKelasSelector(availableKelas, selectedKelas),
                             ],
                           ),
                         ),
@@ -964,7 +971,7 @@ class _DashboardViewState extends State<_DashboardView> {
     );
   }
 
-  Widget _buildCategorySelector() {
+  Widget _buildCategorySelector(List<Map<String, dynamic>> availableKategori) {
     final cubit = context.read<DashboardCubit>();
     final activeId = cubit.activeKategori;
 
@@ -993,11 +1000,113 @@ class _DashboardViewState extends State<_DashboardView> {
             fontWeight: FontWeight.w600,
           ),
           onChanged: (val) => cubit.setKategori(val),
-          items: const [
-            DropdownMenuItem(value: null, child: Text('Semua Modul')),
-            DropdownMenuItem(value: 1, child: Text('📚 Tahsin')),
-            DropdownMenuItem(value: 2, child: Text('📖 Tahfidz')),
-            DropdownMenuItem(value: 3, child: Text('🌱 Pra Tahfidz')),
+          items: availableKategori.map((kat) {
+            return DropdownMenuItem<int?>(
+              value: kat['id'],
+              child: Text(kat['nama']),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  /// Dropdown Kelas — Cascading Level-2 (mengikuti kategori aktif)
+  Widget _buildKelasSelector(
+    List<Map<String, dynamic>> availableKelas,
+    Map<String, dynamic>? selectedKelas,
+  ) {
+    final cubit = context.read<DashboardCubit>();
+    final isEmpty = availableKelas.isEmpty;
+
+    // Gunakan String? (id_kelas) sebagai value agar Flutter equality bekerja.
+    // Map<String,dynamic> tidak comparable by value — jika referensi berbeda,
+    // Flutter akan melempar "There should be exactly one item with value null" error.
+    final String? currentId = selectedKelas?['id_kelas']?.toString();
+    final bool isValid = currentId == null ||
+        availableKelas.any((k) => k['id_kelas']?.toString() == currentId);
+    final String? safeId = isValid ? currentId : null;
+
+    return Container(
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: isEmpty
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: safeId,
+          icon: Icon(
+            Icons.arrow_drop_down,
+            color: isEmpty ? Colors.white38 : Colors.white,
+            size: 16,
+          ),
+          dropdownColor: Theme.of(context).brightness == Brightness.dark
+              ? Colors.grey[900]
+              : kHeaderColor,
+          isDense: true,
+          onChanged: isEmpty
+              ? null
+              : (val) {
+                  if (val == null) {
+                    cubit.setKelas(null);
+                  } else {
+                    // Cari objek kelas yang sesuai berdasarkan id_kelas string
+                    final found = availableKelas.where(
+                      (k) => k['id_kelas']?.toString() == val,
+                    ).toList();
+                    cubit.setKelas(found.isNotEmpty ? found.first : null);
+                  }
+                },
+          style: GoogleFonts.dmSans(
+            color: isEmpty ? Colors.white38 : Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+          items: [
+            // "Semua Kelas" selalu ada di urutan pertama
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.school_outlined, color: Colors.white, size: 14),
+                  const SizedBox(width: 6),
+                  Text(
+                    isEmpty ? 'Pilih Kategori' : 'Semua Kelas',
+                    style: GoogleFonts.dmSans(
+                      color: isEmpty ? Colors.white38 : Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Daftar kelas dinamis dari state (value = id_kelas sebagai String)
+            ...availableKelas.map((kelas) {
+              return DropdownMenuItem<String?>(
+                value: kelas['id_kelas']?.toString(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.class_outlined, color: Colors.white, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      kelas['tingkat']?.toString() ?? '-',
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -2030,22 +2139,19 @@ class _DashboardViewState extends State<_DashboardView> {
         ),
       ),
       _MenuItemData(
-        icon: Icons.class_,
-        label: 'Jadwal Kelas',
-        color: Colors.orange.shade400,
+        icon: Icons.list_alt_outlined,
+        label: 'Catatan',
+        color: Colors.teal.shade400,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => JadwalKelasScreen(jadwalList: data.jadwalKelas)),
+          MaterialPageRoute(builder: (_) => const CatatanMasterScreen()),
         ),
       ),
       _MenuItemData(
-        icon: Icons.event_note,
-        label: 'Jadwal Guru',
-        color: Colors.brown.shade400,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => JadwalGuruScreen(jadwalList: data.jadwalGuru)),
-        ),
+        icon: Icons.logout_outlined,
+        label: 'Logout',
+        color: Colors.redAccent.shade400,
+        onTap: _handleLogout,
       ),
     ];
 

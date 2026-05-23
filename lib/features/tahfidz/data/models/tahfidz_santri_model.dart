@@ -42,7 +42,7 @@ class TahfidzSantriModel {
   }) {
     return TahfidzSantriModel()
       ..nis = json['nis']?.toString() ?? ''
-      ..idKelas = idKelas
+      ..idKelas = idKelas ?? int.tryParse(json['id_kelas']?.toString() ?? '')
       ..idKelompok = idKelompok
       ..namaSantri = json['nama_santri']?.toString() ?? '-'
       ..foto = json['foto']?.toString()
@@ -62,15 +62,19 @@ class TahfidzSantriModel {
       ..rawJson = jsonEncode(json);
   }
 
-  /// Kembalikan full JSON (termasuk riwayat_hari_ini) saat rebuild dari cache
   Map<String, dynamic> toJson() {
     if (rawJson != null && rawJson!.isNotEmpty) {
       try {
-        return jsonDecode(rawJson!) as Map<String, dynamic>;
+        final map = jsonDecode(rawJson!) as Map<String, dynamic>;
+        map['id_kelas'] = idKelas;
+        map['id_kelompok'] = idKelompok;
+        return map;
       } catch (_) {}
     }
     return {
       'nis': nis,
+      'id_kelas': idKelas,
+      'id_kelompok': idKelompok,
       'nama_santri': namaSantri,
       'foto': foto,
       'tingkat': tingkat,

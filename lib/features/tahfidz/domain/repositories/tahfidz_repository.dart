@@ -23,9 +23,11 @@ class TahfidzRepository {
   Future<Map<String, dynamic>> getProgressList({
     int? idKelompok,
     String? tanggal,
+    int? sesi,
+    String? filterKehadiran,
     bool forceRefresh = false,
   }) async {
-    final metaCacheKey = 'tahfidz_meta_${idKelompok}_$tanggal';
+    final metaCacheKey = 'tahfidz_meta_${idKelompok}_${tanggal}_${sesi}_${filterKehadiran}';
 
     Future<Map<String, dynamic>?> loadLocal() async {
       final metaCache = await _isar.genericCaches
@@ -49,6 +51,8 @@ class TahfidzRepository {
       final metaMap = await compute(_parseJsonString, metaCache.dataJson);
       return {
         'filter_meta': metaMap['filter_meta'],
+        'jadwal_info': metaMap['jadwal_info'],
+        'jadwal_list': metaMap['jadwal_list'] ?? [],
         'santri_list': mapList,
       };
     }
@@ -60,7 +64,11 @@ class TahfidzRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getTahfidzList(tanggal: tanggal);
+        final data = await ApiService.getTahfidzList(
+          tanggal: tanggal,
+          sesi: sesi,
+          filterKehadiran: filterKehadiran,
+        );
 
         // Heavy parsing di isolate
         final parseResult = await compute(_parseSantriList, {

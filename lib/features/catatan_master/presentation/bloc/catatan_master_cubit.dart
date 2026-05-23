@@ -10,7 +10,7 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
 
   Map<String, dynamic> _cachedFilterMeta = {};
 
-  Future<void> loadCatatan({int? idKelompok, int? idKelas}) async {
+  Future<void> loadCatatan({int? idKelompok, int? idKelas, int? idKategori}) async {
     try {
       if (!isClosed && state is! CatatanMasterLoaded) {
         emit(CatatanMasterLoading());
@@ -19,6 +19,7 @@ class CatatanMasterCubit extends Cubit<CatatanMasterState> {
       final resp = await repository.getCatatanMaster(
         idKelompok: idKelompok,
         idKelas: idKelas,
+        idKategori: idKategori,
       );
 
       final List<dynamic> rawList = resp['data']?['catatan'] ?? [];

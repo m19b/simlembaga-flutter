@@ -15,15 +15,17 @@ class CatatanMasterRepository {
   Future<Map<String, dynamic>> getCatatanMaster({
     int? idKelompok,
     int? idKelas,
+    int? idKategori,
     bool forceRefresh = false,
   }) async {
-    final String cacheKey = 'catatan_master_${idKelompok ?? 'all'}_${idKelas ?? 'all'}';
+    final String cacheKey = 'catatan_master_${idKelompok ?? 'all'}_${idKelas ?? 'all'}_${idKategori ?? 'all'}';
 
     if (await networkInfo.isConnected) {
       try {
         final resp = await ApiService.getCatatanMaster(
           idKelompok: idKelompok,
           idKelas: idKelas,
+          idKategori: idKategori,
         );
 
         // Cache response

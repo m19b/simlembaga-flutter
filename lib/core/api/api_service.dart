@@ -405,7 +405,6 @@ class ApiService {
     int? sesi,
   }) async {
     final Map<String, dynamic> q = {
-      'id_kategori': 1,
       'page': page,
       'limit': limit,
     };
@@ -479,7 +478,6 @@ class ApiService {
     int limit = 20,
   }) async {
     final Map<String, dynamic> q = {
-      'id_kategori': 1,
       'page': page,
       'limit': limit,
     };
@@ -506,7 +504,6 @@ class ApiService {
     int limit = 20,
   }) async {
     final Map<String, dynamic> q = {
-      'id_kategori': 1,
       'page': page,
       'limit': limit,
     };
@@ -768,10 +765,12 @@ class ApiService {
   static Future<Map<String, dynamic>> getCatatanMaster({
     int? idKelompok,
     int? idKelas,
+    int? idKategori,
   }) async {
     final Map<String, dynamic> q = {};
     if (idKelompok != null && idKelompok > 0) q['id_kelompok'] = idKelompok;
     if (idKelas != null && idKelas > 0) q['id_kelas'] = idKelas;
+    if (idKategori != null && idKategori > 0) q['id_kategori'] = idKategori;
     return _get('guru/catatan-master', queryParameters: q.isEmpty ? null : q);
   }
 
@@ -946,9 +945,13 @@ class ApiService {
   // ─── Tahfidz Al-Qur'an ──────────────────────────────────────────────────────
 
   /// GET /api/tahfidz-quran — List santri + evaluasi hari ini (Ziyadah/Sabaq/Manzil)
-  static Future<Map<String, dynamic>> getTahfidzList({String? tanggal}) async {
+  static Future<Map<String, dynamic>> getTahfidzList({String? tanggal, int? sesi, String? filterKehadiran}) async {
     final Map<String, dynamic> q = {};
     if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
+    if (sesi != null) q['sesi'] = sesi;
+    if (filterKehadiran != null && filterKehadiran.isNotEmpty) {
+      q['filter_kehadiran'] = filterKehadiran;
+    }
     return _get('guru/tahfidz-quran', queryParameters: q.isEmpty ? null : q);
   }
 

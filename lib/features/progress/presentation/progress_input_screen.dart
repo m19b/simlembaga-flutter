@@ -51,7 +51,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
   DateTime _tanggal = DateTime.now();
   _SortMode _sortMode = _SortMode.urut;
   bool _isDecimalMode = false;
-  int _simpanCount = 0; // Counter: berapa kali sudah disimpan
+
   Map<String, dynamic>? _jadwalInfo; // hari & sesi dari t_jadwal_kelas
   List<Map<String, dynamic>> _jadwalListAll = []; // Cache semua jadwal dari backend
   List<Map<String, dynamic>> _jadwalList = [];
@@ -133,10 +133,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
     final tgl = DateFormat('yyyy-MM-dd').format(_tanggal);
     if (_selectedKelompokId == null) return;
     
-    // Pastikan reset counter saat memuat data (misal pindah filter / tanggal)
-    setState(() {
-      _simpanCount = 0;
-    });
+
     
     await context.read<TahsinCubit>().fetchProgressList(
       idKelompok: _selectedKelompokId!,
@@ -163,7 +160,6 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
         _jadwalList = filtered;
         _jadwalInfo = newInfo;
         _selectedSesi = newSesi;
-        _simpanCount = 0; // Reset counter simpan
       });
       _loadSantri();
     }
@@ -416,6 +412,9 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
     }
 
     // 1. VALIDASI CHECKPOINT DINAMIS VIA ISAR
+    final messenger = ScaffoldMessenger.of(context);
+    final repository = context.read<TahsinCubit>().repository;
+
     for (var r in aktif) {
       final halAkhir = r.halAwal + r.halTotal;
       final totalHal = double.tryParse(r.santri['total_hal']?.toString() ?? '0') ?? 0;
@@ -423,7 +422,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
       
       if (mode == 'akselerasi') {
         if (totalHal > 0 && halAkhir > totalHal) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Halaman akhir Akselerasi melebihi batas akhir buku ($totalHal).')));
+          messenger.showSnackBar(SnackBar(content: Text('Halaman akhir Akselerasi melebihi batas akhir buku ($totalHal).')));
           return;
         }
       } else {
@@ -432,6 +431,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
         
         // Ambil Data KelasModel dari Isar
         final kelasLokal = await IsarDb.instance.kelasModels.get(idKelasSantri);
+        if (!mounted) return;
         final checkpoints = kelasLokal?.checkpoints ?? [];
         
         // Cari Checkpoint terdekat yang halaman_target >= r.halAwal
@@ -451,7 +451,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
         
         if (currentLimit > 0 && halAkhir > currentLimit) {
           if (isFinishedReg) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Halaman akhir ($halAkhir) melebihi batas akhir buku ($currentLimit).')));
+            messenger.showSnackBar(SnackBar(content: Text('Halaman akhir ($halAkhir) melebihi batas akhir buku ($currentLimit).')));
             return;
           } else if (harusTes == 1) {
             // Blokir proses penyimpanan
@@ -479,7 +479,7 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
             );
             return;
           } else {
-             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Halaman akhir ($halAkhir) melebihi target ($currentLimit).')));
+             messenger.showSnackBar(SnackBar(content: Text('Halaman akhir ($halAkhir) melebihi target ($currentLimit).')));
              return;
           }
         }
@@ -488,9 +488,10 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
 
     // 2. VALIDASI "SIMPAN KE-N" VIA ISAR
     final tglStr = DateFormat('yyyy-MM-dd').format(_tanggal);
-    final repository = context.read<TahsinCubit>().repository;
     final nisList = aktif.map((r) => r.santri['nis']?.toString() ?? '').toList();
     final countIsar = await repository.checkExistingProgressCount(nisList, tglStr, _selectedSesi);
+
+    if (!mounted) return;
 
     bool hasProgressToday = countIsar > 0;
     
@@ -550,8 +551,9 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
         payload['force_multiple'] = true;
       }
       // Global pengaturan metode & peraga
-      if (_showMetode && _globalMetodeId != null)
+      if (_showMetode && _globalMetodeId != null) {
         payload['id_metode'] = _globalMetodeId;
+      }
       if (_showPeraga) {
         payload['menggunakan_peraga'] = _globalGunakanPeraga ? 1 : 0;
         if (_globalGunakanPeraga) {
@@ -561,7 +563,8 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
         }
       }
 
-      final success = await context.read<TahsinCubit>().submitInputMassal(
+      final cubit = context.read<TahsinCubit>();
+      final success = await cubit.submitInputMassal(
         payload,
       );
       String pesan = success
@@ -570,7 +573,8 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
 
       if (!mounted) return;
 
-      _simpanCount++;
+
+
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

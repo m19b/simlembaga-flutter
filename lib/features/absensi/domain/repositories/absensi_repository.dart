@@ -166,7 +166,7 @@ class AbsensiRepository {
         );
       } catch (_) {
         // Server error → masuk ke offline queue
-        await _enqueuePayload('api/guru/absensi/mandiri', payload);
+        await _enqueuePayload('api/guru/absen-guru/store', payload);
         return AbsenMandiriResult(
           success: true,
           savedOffline: true,
@@ -177,7 +177,7 @@ class AbsensiRepository {
     }
 
     // LAN mati → langsung masuk offline queue
-    await _enqueuePayload('api/guru/absensi/mandiri', payload);
+    await _enqueuePayload('api/guru/absen-guru/store', payload);
     return AbsenMandiriResult(
       success: true,
       savedOffline: true,
@@ -193,10 +193,10 @@ class AbsensiRepository {
             await AbsensiApiService.simpanAbsenMassal(payload);
         return res['status'] == 200 || res['success'] == true;
       } catch (_) {
-        return _enqueuePayload('api/guru/absensi/simpan-massal', payload);
+        return _enqueuePayload('api/guru/absen-santri/simpan', payload);
       }
     }
-    return _enqueuePayload('api/guru/absensi/simpan-massal', payload);
+    return _enqueuePayload('api/guru/absen-santri/simpan', payload);
   }
 
   Future<bool> scanAbsen(String cleanCode, String type) async {
@@ -209,10 +209,10 @@ class AbsensiRepository {
         await AbsensiApiService.scanAbsen(cleanCode, type);
         return true;
       } catch (_) {
-        return _enqueuePayload('api/guru/absensi/scan', payload);
+        return _enqueuePayload('api/guru/absen-santri/scan', payload);
       }
     }
-    return _enqueuePayload('api/guru/absensi/scan', payload);
+    return _enqueuePayload('api/guru/absen-santri/scan', payload);
   }
 
   Future<bool> _enqueuePayload(

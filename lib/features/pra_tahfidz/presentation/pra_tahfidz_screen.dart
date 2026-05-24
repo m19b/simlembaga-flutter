@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
-import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/domain/repositories/pra_tahfidz_repository.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/bloc/pra_tahfidz_cubit.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/tabs/pra_tahfidz_progress_tab.dart';
@@ -121,113 +121,89 @@ class _PraTahfidzViewState extends State<_PraTahfidzView>
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: colorScheme.surface,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
-        child: Stack(
-          children: [
-            const Positioned.fill(child: GlobalHeaderBackground()),
-            AppBar(
-              toolbarHeight: 48,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              foregroundColor: colorScheme.onPrimary,
-              iconTheme: IconThemeData(color: colorScheme.onPrimary),
-              actionsIconTheme: IconThemeData(color: colorScheme.onPrimary),
-              centerTitle: false,
-              title: _isSearchOpen && _tabController.index == 0
-                  ? _buildSearchField(colorScheme)
-                  : Text(
-                      _appBarTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-              actions: [
-                // Tab 0: Filter tanggal + kelas + search
-                if (_tabController.index == 0) ...[
-                  // Dropdown kelas filter
-                  ValueListenableBuilder<List<Map<String, dynamic>>>(
-                    valueListenable: _kelasListNotifier,
-                    builder: (context, kelasList, _) {
-                      if (kelasList.length <= 1) return const SizedBox.shrink();
-                      return ValueListenableBuilder<int?>(
-                        valueListenable: _selectedKelasNotifier,
-                        builder: (context, selectedId, _) {
-                          return _buildKelasDropdown(
-                            context, kelasList, selectedId,
-                            isDark: isDark, styles: styles,
-                            colorScheme: colorScheme,
-                          );
-                        },
+      appBar: AppHeaderBar(
+        customTitle: _isSearchOpen && _tabController.index == 0
+            ? _buildSearchField(colorScheme)
+            : Text(
+                _appBarTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+        actions: [
+          // Tab 0: Filter tanggal + kelas + search
+          if (_tabController.index == 0) ...[
+            // Dropdown kelas filter
+            ValueListenableBuilder<List<Map<String, dynamic>>>(
+              valueListenable: _kelasListNotifier,
+              builder: (context, kelasList, _) {
+                if (kelasList.length <= 1) return const SizedBox.shrink();
+                return ValueListenableBuilder<int?>(
+                  valueListenable: _selectedKelasNotifier,
+                  builder: (context, selectedId, _) {
+                    return _buildKelasDropdown(
+                      context, kelasList, selectedId,
+                      isDark: isDark, styles: styles,
+                      colorScheme: colorScheme,
+                    );
+                  },
+                );
+              },
+            ),
+            // Date picker button
+            IconButton(
+              icon: const Icon(Icons.calendar_today_rounded, size: 18),
+              tooltip: DateFormat('dd MMM yyyy').format(_selectedDate),
+              onPressed: _pickDate,
+            ),
+            // Search toggle
+              if (!_isSearchOpen)
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: () => setState(() => _isSearchOpen = true),
+                ),
+            ],
+            if (_tabController.index == 1) ...[
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Center(
+                  child: BlocBuilder<PraTahfidzCubit, PraTahfidzState>(
+                    builder: (context, state) {
+                      final isSubmitting = state is PraTahfidzSubmitting;
+                      return ElevatedButton.icon(
+                        onPressed: isSubmitting
+                            ? null
+                            : () {
+                                if (_inputMassalKey.currentState != null) {
+                                  _inputMassalKey.currentState!.simpanMassal();
+                                }
+                              },
+                        icon: isSubmitting
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.save_rounded, size: 16),
+                        label: const Text('Simpan'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                       );
                     },
                   ),
-                  // Date picker button
-                  IconButton(
-                    icon: const Icon(Icons.calendar_today_rounded, size: 18),
-                    tooltip: DateFormat('dd MMM yyyy').format(_selectedDate),
-                    onPressed: _pickDate,
-                  ),
-                  // Search toggle
-                    if (!_isSearchOpen)
-                      IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: () => setState(() => _isSearchOpen = true),
-                      ),
-                  ],
-                  if (_tabController.index == 1) ...[
-                    Padding(
-                      padding: const EdgeInsets.only(right: 16),
-                      child: Center(
-                        child: BlocBuilder<PraTahfidzCubit, PraTahfidzState>(
-                          builder: (context, state) {
-                            final isSubmitting = state is PraTahfidzSubmitting;
-                            return ElevatedButton.icon(
-                              onPressed: isSubmitting
-                                  ? null
-                                  : () {
-                                      if (_inputMassalKey.currentState != null) {
-                                        _inputMassalKey.currentState!.simpanMassal();
-                                      }
-                                    },
-                              icon: isSubmitting
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(Icons.save_rounded, size: 16),
-                              label: const Text('Simpan'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                minimumSize: const Size(0, 32),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 1,
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-            ),
-          ],
-        ),
+            ],
+        ],
       ),
       body: TabBarView(
         controller: _tabController,
@@ -433,3 +409,4 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
+

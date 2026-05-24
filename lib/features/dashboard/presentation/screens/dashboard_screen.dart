@@ -1943,7 +1943,7 @@ class _DashboardViewState extends State<_DashboardView> {
 
     HariLiburModel? nearest;
     for (var h in allHolidays) {
-      if (h.tanggalMulai.compareTo(todayStr) >= 0) {
+      if (h.tanggalMulai.compareTo(todayStr) >= 0 || (h.tanggalAkhir.isNotEmpty && h.tanggalAkhir.compareTo(todayStr) >= 0)) {
         nearest = h;
         break;
       }
@@ -1959,10 +1959,21 @@ class _DashboardViewState extends State<_DashboardView> {
       title = 'Libur $kategoriText';
       
       try {
-        final parsed = DateTime.parse(nearest.tanggalMulai);
-        timeInfo = '${parsed.day}/${parsed.month}/${parsed.year}\n${nearest.namaLibur}';
+        final parsedMulai = DateTime.parse(nearest.tanggalMulai);
+        String dateText = '${parsedMulai.day}/${parsedMulai.month}/${parsedMulai.year}';
+        
+        if (nearest.tanggalAkhir.isNotEmpty && nearest.tanggalAkhir != nearest.tanggalMulai) {
+          final parsedAkhir = DateTime.parse(nearest.tanggalAkhir);
+          dateText += ' - ${parsedAkhir.day}/${parsedAkhir.month}/${parsedAkhir.year}';
+        }
+        
+        timeInfo = '$dateText\n${nearest.namaLibur}';
       } catch (_) {
-        timeInfo = '${nearest.tanggalMulai}\n${nearest.namaLibur}';
+        String dateText = nearest.tanggalMulai;
+        if (nearest.tanggalAkhir.isNotEmpty && nearest.tanggalAkhir != nearest.tanggalMulai) {
+          dateText += ' s.d. ${nearest.tanggalAkhir}';
+        }
+        timeInfo = '$dateText\n${nearest.namaLibur}';
       }
     }
 

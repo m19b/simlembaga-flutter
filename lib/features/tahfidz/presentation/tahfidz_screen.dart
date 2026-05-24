@@ -5,7 +5,7 @@ import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
-import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/domain/repositories/tahfidz_repository.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/bloc/tahfidz_cubit.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tabs/tahfidz_progress_tab.dart';
@@ -87,129 +87,103 @@ class _TahfidzViewState extends State<_TahfidzView>
     super.build(context);
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
-        child: Stack(
-          children: [
-            const Positioned.fill(child: GlobalHeaderBackground()),
-            AppBar(
-              toolbarHeight: 48,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              iconTheme:
-                  IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-              actionsIconTheme:
-                  IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-              centerTitle: false,
-              title: ValueListenableBuilder<bool>(
-                valueListenable: _isSearchOpenNotifier,
-                builder: (context, isSearchOpen, _) {
-                  return ValueListenableBuilder<int>(
-                    valueListenable: _tabIndexNotifier,
-                    builder: (context, tabIdx, _) {
-                      return isSearchOpen && tabIdx == 0
-                          ? TextField(
-                              controller: _searchCtrl,
-                              autofocus: true,
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onPrimary,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: 'Cari Santri...',
-                                hintStyle: TextStyle(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onPrimary
-                                      .withValues(alpha: 0.7),
-                                ),
-                                border: InputBorder.none,
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    Icons.close,
-                                    color: Theme.of(context).colorScheme.onPrimary,
-                                  ),
-                                  onPressed: () {
-                                    _searchCtrl.clear();
-                                    _isSearchOpenNotifier.value = false;
-                                  },
-                                ),
-                              ),
-                            )
-                          : Text(
-                              tabIdx == 0
-                                  ? 'Tahfidz Al-Qur\'an'
-                                  : tabIdx == 1
-                                      ? 'Input Setoran'
-                                      : 'Riwayat',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            );
-                    },
-                  );
-                },
-              ),
-              actions: [
-                ValueListenableBuilder<bool>(
-                  valueListenable: _isSearchOpenNotifier,
-                  builder: (context, isSearchOpen, _) {
-                    return ValueListenableBuilder<int>(
-                      valueListenable: _tabIndexNotifier,
-                      builder: (context, tabIdx, _) => Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (tabIdx == 0 && !isSearchOpen)
-                            IconButton(
-                              icon: const Icon(Icons.search),
-                              onPressed: () =>
-                                  _isSearchOpenNotifier.value = true,
+      appBar: AppHeaderBar(
+        customTitle: ValueListenableBuilder<bool>(
+          valueListenable: _isSearchOpenNotifier,
+          builder: (context, isSearchOpen, _) {
+            return ValueListenableBuilder<int>(
+              valueListenable: _tabIndexNotifier,
+              builder: (context, tabIdx, _) {
+                return isSearchOpen && tabIdx == 0
+                    ? TextField(
+                        controller: _searchCtrl,
+                        autofocus: true,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Cari Santri...',
+                          hintStyle: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimary
+                                .withValues(alpha: 0.7),
+                          ),
+                          border: InputBorder.none,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              Icons.close,
+                              color: Theme.of(context).colorScheme.onPrimary,
                             ),
-                          if (tabIdx == 1)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ElevatedButton.icon(
-                                onPressed: () =>
-                                    _inputKey.currentState?.simpan(),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF047857), // Green
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 0,
-                                  ),
-                                  minimumSize: const Size(0, 32),
-                                ),
-                                icon: const Icon(Icons.save, size: 16),
-                                label: const Text(
-                                  'Simpan',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 1,
-                color: Colors.white.withValues(alpha: 0.18),
-              ),
-            ),
-          ],
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              _isSearchOpenNotifier.value = false;
+                            },
+                          ),
+                        ),
+                      )
+                    : Text(
+                        tabIdx == 0
+                            ? 'Tahfidz Al-Qur\'an'
+                            : tabIdx == 1
+                                ? 'Input Setoran'
+                                : 'Riwayat',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      );
+              },
+            );
+          },
         ),
+        actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: _isSearchOpenNotifier,
+            builder: (context, isSearchOpen, _) {
+              return ValueListenableBuilder<int>(
+                valueListenable: _tabIndexNotifier,
+                builder: (context, tabIdx, _) => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (tabIdx == 0 && !isSearchOpen)
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () =>
+                            _isSearchOpenNotifier.value = true,
+                      ),
+                    if (tabIdx == 1)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              _inputKey.currentState?.simpan(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF047857), // Green
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 0,
+                            ),
+                            minimumSize: const Size(0, 32),
+                          ),
+                          icon: const Icon(Icons.save, size: 16),
+                          label: const Text(
+                            'Simpan',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: TabBarView(
         controller: _tabController,

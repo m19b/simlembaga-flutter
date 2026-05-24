@@ -10,12 +10,12 @@ class EvaluasiSantriCard extends StatefulWidget {
   final void Function(RowStateModel, StateSetter) onShowCatatan;
 
   const EvaluasiSantriCard({
-    Key? key,
+    super.key,
     required this.row,
     required this.index,
     required this.isDecimalMode,
     required this.onShowCatatan,
-  }) : super(key: key);
+  });
 
   @override
   State<EvaluasiSantriCard> createState() => _EvaluasiSantriCardState();
@@ -144,47 +144,51 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                           ),
                           Builder(
                             builder: (context) {
-                              final int cntReg = int.tryParse(s['cntUlang']?.toString() ?? '0') ?? 0;
-                              final int cntLat = int.tryParse(s['cntUlangLat']?.toString() ?? '0') ?? 0;
-                              int streakGagal = cntReg + cntLat;
-                              if (streakGagal <= 0) {
-                                streakGagal = int.tryParse(s['streak_tidak_lulus']?.toString() ?? s['jml_gagal_berturut']?.toString() ?? '0') ?? 0;
-                              }
-                              final int streakSimak = int.tryParse(s['streak_tidak_disimak']?.toString() ?? s['jml_tidak_disimak_berturut']?.toString() ?? '0') ?? 0;
-                              
-                              if (streakGagal <= 0 && streakSimak <= 0) return const SizedBox.shrink();
-
-                              Color bgUlang = isDark ? Colors.orange.withValues(alpha: 0.2) : Colors.orange.shade100;
-                              Color textUlang = isDark ? Colors.orangeAccent.shade100 : Colors.orange.shade900;
-                              Color bgSimak = isDark ? Colors.amber.withValues(alpha: 0.2) : Colors.amber.shade100;
-                              Color textSimak = isDark ? Colors.amberAccent.shade100 : Colors.amber.shade900;
-
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 4.0),
-                                child: Wrap(
-                                  spacing: 4,
-                                  runSpacing: 4,
-                                  children: [
-                                    if (streakGagal > 0)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(color: bgUlang, borderRadius: BorderRadius.circular(4)),
-                                        child: Text('⚠️ Mengulang ${streakGagal}x', style: TextStyle(fontSize: 9, color: textUlang, fontWeight: FontWeight.bold)),
-                                      ),
-                                    if (streakSimak > 0)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(color: bgSimak, borderRadius: BorderRadius.circular(4)),
-                                        child: Text('⚠️ Tidak Disimak ${streakSimak}x', style: TextStyle(fontSize: 9, color: textSimak, fontWeight: FontWeight.bold)),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            }
-                          ),
-                        ],
-                      ),
-                    ),
+                               final int cntReg = int.tryParse(s['cntUlang']?.toString() ?? '0') ?? 0;
+                               final int cntLat = int.tryParse(s['cntUlangLat']?.toString() ?? '0') ?? 0;
+                               int streakGagal = cntReg + cntLat;
+                               if (streakGagal <= 0) {
+                                 streakGagal = int.tryParse(s['streak_tidak_lulus']?.toString() ?? s['jml_gagal_berturut']?.toString() ?? '0') ?? 0;
+                               }
+                               
+                               final int streakSimak = int.tryParse(s['streak_tidak_disimak']?.toString() ?? s['jml_tidak_disimak_berturut']?.toString() ?? '0') ?? 0;
+                               final int batasSimak = int.tryParse(s['batas_tidak_disimak']?.toString() ?? '0') ?? 0;
+                               
+                               final bool isWarningSimak = streakSimak >= batasSimak && streakSimak > 0 && batasSimak > 0;
+                               
+                               if (streakGagal <= 0 && streakSimak <= 0 && !isWarningSimak) return const SizedBox.shrink();
+ 
+                               Color bgUlang = isDark ? Colors.orange.withValues(alpha: 0.2) : Colors.orange.shade100;
+                               Color textUlang = isDark ? Colors.orangeAccent.shade100 : Colors.orange.shade900;
+                               Color bgSimak = isDark ? Colors.amber.withValues(alpha: 0.2) : Colors.amber.shade100;
+                               Color textSimak = isDark ? Colors.amberAccent.shade100 : Colors.amber.shade900;
+ 
+                               return Padding(
+                                 padding: const EdgeInsets.only(top: 4.0),
+                                 child: Wrap(
+                                   spacing: 4,
+                                   runSpacing: 4,
+                                   children: [
+                                     if (streakGagal > 0)
+                                       Container(
+                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                         decoration: BoxDecoration(color: bgUlang, borderRadius: BorderRadius.circular(4)),
+                                         child: Text('⚠️ Mengulang ${streakGagal}x', style: TextStyle(fontSize: 9, color: textUlang, fontWeight: FontWeight.bold)),
+                                       ),
+                                     if (streakSimak > 0 && !isWarningSimak)
+                                       Container(
+                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                         decoration: BoxDecoration(color: bgSimak, borderRadius: BorderRadius.circular(4)),
+                                         child: Text('⚠️ Tdk Disimak ${streakSimak}x', style: TextStyle(fontSize: 9, color: textSimak, fontWeight: FontWeight.bold)),
+                                       ),
+                                   ],
+                                 ),
+                               );
+                             }
+                           ),
+                         ],
+                       ),
+                     ),
                     PopupMenuButton<String>(
                       enabled: !isTerkunci,
                       initialValue: modeBelajar,
@@ -206,6 +210,41 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                       ],
                     ),
                   ],
+                ),
+                Builder(
+                  builder: (context) {
+                    final int streakSimak = int.tryParse(s['streak_tidak_disimak']?.toString() ?? s['jml_tidak_disimak_berturut']?.toString() ?? '0') ?? 0;
+                    final int batasSimak = int.tryParse(s['batas_tidak_disimak']?.toString() ?? '0') ?? 0;
+                    final bool isWarningSimak = streakSimak >= batasSimak && streakSimak > 0 && batasSimak > 0;
+                    
+                    if (!isWarningSimak) return const SizedBox.shrink();
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.red.withValues(alpha: 0.15) : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isDark ? Colors.red.shade800 : Colors.red.shade200, width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, size: 16, color: isDark ? Colors.red.shade300 : Colors.red.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Peringatan: Santri ini belum disimak dalam $streakSimak pertemuan berturut-turut!',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.red.shade300 : Colors.red.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
                 ),
                 const SizedBox(height: 12),
                 EvaluasiInputRow(

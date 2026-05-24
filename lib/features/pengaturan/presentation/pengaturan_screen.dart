@@ -3,7 +3,6 @@ import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
-import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/features/sync/presentation/screens/initial_sync_screen.dart';
 import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dart';

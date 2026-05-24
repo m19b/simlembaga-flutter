@@ -5,7 +5,7 @@ import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'package:manajemen_tahsin_app/features/absensi/domain/repositories/absensi_repository.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/bloc/absensi_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 /// Halaman Absen Mandiri (OFFLINE-FIRST).
 /// Mesin data sudah dipindah ke [AbsensiCubit] + [AbsensiRepository].
 /// Widget ini murni UI — tidak ada ApiService inline atau setState manual.
@@ -204,19 +204,13 @@ class _AbsenMandiriView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Absensi Mandiri',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        iconTheme: IconThemeData(color: cs.onPrimary),
-        elevation: 0,
+      appBar: AppHeaderBar(
+        title: 'Absensi Mandiri',
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: cs.onPrimary),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             onPressed: () =>
                 context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),
           ),

@@ -45,7 +45,6 @@ class TahsinValidator {
       case TahsinValidationStatus.invalidHalaman:
         return 'Halaman total tidak boleh 0 atau negatif.';
       case TahsinValidationStatus.valid:
-      default:
         return '';
     }
   }

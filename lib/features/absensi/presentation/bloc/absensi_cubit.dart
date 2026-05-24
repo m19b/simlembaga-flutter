@@ -154,16 +154,19 @@ class AbsensiCubit extends Cubit<AbsensiState> {
         return;
       }
 
-      if (!result.savedOffline) {
-        // Online sukses → refresh dari server
-        await fetchAbsenMandiri(idKelompok);
-      }
-
       emit(AbsenMandiriSubmitSuccess(
         message: result.message,
         isWarning: result.isWarning,
         savedOffline: result.savedOffline,
       ));
+
+      if (!result.savedOffline) {
+        // Online sukses → refresh dari server agar UI kembali ke AbsenMandiriLoaded
+        await fetchAbsenMandiri(idKelompok);
+      } else {
+        // Offline sukses → kembalikan UI ke state Loaded menggunakan data yang ada
+        emit(AbsenMandiriLoaded(status: currentStatus, riwayat: currentRiwayat));
+      }
     } catch (e) {
       emit(AbsensiError(_cleanMessage(e)));
     }

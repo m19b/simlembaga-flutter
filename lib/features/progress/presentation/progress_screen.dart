@@ -19,7 +19,7 @@ import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
 
 
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
-import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
@@ -97,171 +97,142 @@ class _ProgressViewState extends State<_ProgressView>
     super.build(context); // Required by AutomaticKeepAliveClientMixin
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
-        child: Stack(
-                children: [
-                  const Positioned.fill(
-                    child: GlobalHeaderBackground(),
+      appBar: AppHeaderBar(
+        customTitle: ValueListenableBuilder<int>(
+          valueListenable: _tabIndexNotifier,
+          builder: (context, tabIdx, _) {
+            return _isSearchOpen && tabIdx == 0
+              ? TextField(
+                  controller: _searchCtrl,
+                  autofocus: true,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Cari Santri...',
+                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)),
+                    border: InputBorder.none,
+                    suffixIcon: IconButton(
+                      icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onPrimary),
+                      onPressed: () {
+                        _searchCtrl.clear();
+                        setState(() => _isSearchOpen = false);
+                      },
+                    ),
                   ),
-                  // ── AppBar content ────────────────────────────────────
-                  AppBar(
-                    toolbarHeight: 48,
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    titleSpacing: 0, // Geser judul ke kiri
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-                    actionsIconTheme: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
-                    centerTitle: false,
-              title: ValueListenableBuilder<int>(
-                valueListenable: _tabIndexNotifier,
-                builder: (context, tabIdx, _) {
-                  return _isSearchOpen && tabIdx == 0
-                    ? TextField(
-                        controller: _searchCtrl,
-                        autofocus: true,
-                        style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-                        decoration: InputDecoration(
-                          hintText: 'Cari Santri...',
-                          hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)),
-                          border: InputBorder.none,
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onPrimary),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _isSearchOpen = false);
-                            },
-                          ),
-                        ),
-                      )
-                    : Text(
-                        tabIdx == 0 ? 'Progres'
-                          : tabIdx == 1 ? 'Input Evaluasi'
-                          : 'Riwayat Kelas',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      );
-                },
-              ),
-              actions: [
-                ValueListenableBuilder<int>(
-                  valueListenable: _tabIndexNotifier,
-                  builder: (context, tabIdx, _) => Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (tabIdx == 0) ...[
-                        ValueListenableBuilder<List<Map<String, dynamic>>>(
-                          valueListenable: _kelasListNotifier,
-                          builder: (context, kelasList, child) {
-                            if (kelasList.isEmpty) return const SizedBox.shrink();
-                            return ValueListenableBuilder<int?>(
-                              valueListenable: _selectedKelasNotifier,
-                              builder: (context, selectedKelasId, child) {
-                                return Container(
-                                  height: 26,
-                                  margin: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Theme.of(context).extension<AppCustomStyles>()!.headerBorder),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: Theme(
-                                      data: Theme.of(context).copyWith(
-                                        popupMenuTheme: PopupMenuThemeData(
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                            side: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.headerBorder),
-                                          ),
-                                        ),
-                                      ),
-                                      child: DropdownButton<int?>(
-                                        value: selectedKelasId,
-                                        isDense: true,
-                                        dropdownColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : Theme.of(context).colorScheme.primary,
-                                        icon: Icon(Icons.arrow_drop_down, size: 16, color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)),
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                                        onChanged: (val) => _selectedKelasNotifier.value = val,
-                                        items: [
-                                          const DropdownMenuItem<int?>(value: null, child: Text('Semua')),
-                                          ...kelasList.map((k) {
-                                            final id = int.tryParse(k['id_kelas']?.toString() ?? '0') ?? 0;
-                                            final t = k['tingkat']?.toString() ?? '-';
-                                            return DropdownMenuItem<int?>(value: id, child: Text(t));
-                                          }),
-                                        ],
-                                      ),
+                )
+              : Text(
+                  tabIdx == 0 ? 'Progres'
+                    : tabIdx == 1 ? 'Input Evaluasi'
+                    : 'Riwayat Kelas',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                );
+          },
+        ),
+        actions: [
+          ValueListenableBuilder<int>(
+            valueListenable: _tabIndexNotifier,
+            builder: (context, tabIdx, _) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (tabIdx == 0) ...[
+                  ValueListenableBuilder<List<Map<String, dynamic>>>(
+                    valueListenable: _kelasListNotifier,
+                    builder: (context, kelasList, child) {
+                      if (kelasList.isEmpty) return const SizedBox.shrink();
+                      return ValueListenableBuilder<int?>(
+                        valueListenable: _selectedKelasNotifier,
+                        builder: (context, selectedKelasId, child) {
+                          return Container(
+                            height: 26,
+                            margin: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Theme.of(context).extension<AppCustomStyles>()!.headerBorder),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: Theme(
+                                data: Theme.of(context).copyWith(
+                                  popupMenuTheme: PopupMenuThemeData(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      side: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.headerBorder),
                                     ),
                                   ),
-                                );
-                              },
-                            );
-                          },
-                        ),
-                        if (!_isSearchOpen)
-                          IconButton(
-                            icon: const Icon(Icons.search),
-                            onPressed: () => setState(() => _isSearchOpen = true),
-                          ),
-                      ],
-                      if (tabIdx == 1) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ElevatedButton.icon(
-                            onPressed: () => _inputKey.currentState?.simpan(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                              minimumSize: const Size(0, 32),
+                                ),
+                                child: DropdownButton<int?>(
+                                  value: selectedKelasId,
+                                  isDense: true,
+                                  dropdownColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : Theme.of(context).colorScheme.primary,
+                                  icon: Icon(Icons.arrow_drop_down, size: 16, color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)),
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                  onChanged: (val) => _selectedKelasNotifier.value = val,
+                                  items: [
+                                    const DropdownMenuItem<int?>(value: null, child: Text('Semua')),
+                                    ...kelasList.map((k) {
+                                      final id = int.tryParse(k['id_kelas']?.toString() ?? '0') ?? 0;
+                                      final t = k['tingkat']?.toString() ?? '-';
+                                      return DropdownMenuItem<int?>(value: id, child: Text(t));
+                                    }),
+                                  ],
+                                ),
+                              ),
                             ),
-                            icon: const Icon(Icons.save, size: 16),
-                            label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                        ),
-                      ],
-                      if (tabIdx == 2) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: CustomDateField(
-                            selectedDate: _riwayatTanggal,
-                            isCompact: true,
-                            isWhite: true,
-                            onDateSelected: (date) {
-                              if (date != null && date != _riwayatTanggal) {
-                                setState(() => _riwayatTanggal = date);
-                                _riwayatKey.currentState?.setTanggal(date);
-                              }
-                            },
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.picture_as_pdf),
-                          tooltip: 'Kirim Laporan Perbandingan ke WA Saya',
-                          onPressed: () => _showSendReportSheet(context),
-                        ),
-                      ],
-                    ],
+                          );
+                        },
+                      );
+                    },
                   ),
-                ),
-              ],
-                  ),
-                  // ── Garis putih pembatas bawah ────────────────────────
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      height: 1,
-                      color: Colors.white.withValues(alpha: 0.18),
+                  if (!_isSearchOpen)
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () => setState(() => _isSearchOpen = true),
+                    ),
+                ],
+                if (tabIdx == 1) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _inputKey.currentState?.simpan(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        minimumSize: const Size(0, 32),
+                      ),
+                      icon: const Icon(Icons.save, size: 16),
+                      label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                     ),
                   ),
                 ],
-              ),
+                if (tabIdx == 2) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: CustomDateField(
+                      selectedDate: _riwayatTanggal,
+                      isCompact: true,
+                      isWhite: true,
+                      onDateSelected: (date) {
+                        if (date != null && date != _riwayatTanggal) {
+                          setState(() => _riwayatTanggal = date);
+                          _riwayatKey.currentState?.setTanggal(date);
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.picture_as_pdf),
+                    tooltip: 'Kirim Laporan Perbandingan ke WA Saya',
+                    onPressed: () => _showSendReportSheet(context),
+                  ),
+                ],
+              ],
             ),
+          ),
+        ],
+      ),
       body: TabBarView(
         controller: _tabController,
         physics:

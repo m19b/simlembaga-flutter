@@ -5,6 +5,7 @@ class CatatanMaster {
   final String teksCatatan;
   final String namaKelas;
   final String namaKelompok;
+  final String namaKategori;
   final bool aktif;
   final int urutan;
 
@@ -15,6 +16,7 @@ class CatatanMaster {
     required this.teksCatatan,
     required this.namaKelas,
     required this.namaKelompok,
+    this.namaKategori = '',
     required this.aktif,
     required this.urutan,
   });
@@ -27,6 +29,7 @@ class CatatanMaster {
       teksCatatan: json['teks_catatan']?.toString() ?? '',
       namaKelas: json['nama_kelas']?.toString() ?? '',
       namaKelompok: json['nama_kelompok']?.toString() ?? '',
+      namaKategori: json['nama_kategori']?.toString() ?? '',
       aktif: (int.tryParse(json['aktif']?.toString() ?? '0') ?? 0) == 1,
       urutan: int.tryParse(json['urutan']?.toString() ?? '0') ?? 0,
     );

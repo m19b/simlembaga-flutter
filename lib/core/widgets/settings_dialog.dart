@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/auth_api_service.dart';
 import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/core/api/dio_client.dart';
 
@@ -70,7 +70,7 @@ class SettingsDialog {
                             // 2. Reset Dio agar instance baru gunakan IP yang baru disimpan
                             DioClient.reset();
                             // 3. Ping server — gunakan endpoint publik (tidak butuh auth)
-                            await ApiService.checkConnection();
+                            await AuthApiService.checkConnection();
 
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();

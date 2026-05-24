@@ -5,21 +5,25 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:manajemen_tahsin_app/features/absensi/domain/repositories/absensi_repository.dart';
+import 'package:manajemen_tahsin_app/core/enums/jalur_enum.dart';
 
 class AbsenMassalTab extends StatefulWidget {
   const AbsenMassalTab({super.key});
 
   @override
-  State<AbsenMassalTab> createState() => _AbsenMassalTabState();
+  State<AbsenMassalTab> createState() => AbsenMassalTabState();
 }
 
-class _AbsenMassalTabState extends State<AbsenMassalTab> {
+class AbsenMassalTabState extends State<AbsenMassalTab> {
   bool _isLoading = true;
   bool _isSaving = false;
   String _errorMsg = '';
   List<dynamic> _santriList = [];
   String _tanggal = DateTime.now().toString().substring(0, 10);
+  JalurEnum _selectedJalur = JalurEnum.tahsin;
 
   // Format Map absenState -> NIS : { 'id_kehadiran': 1, 'catatan': '' }
   final Map<String, Map<String, dynamic>> _absenState = {};
@@ -37,7 +41,8 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
     });
 
     try {
-      final res = await ApiService.getAbsenHarian(tanggal: _tanggal);
+      final repo = context.read<AbsensiRepository>();
+      final res = await repo.getAbsenHarian(_tanggal, '', kodeJalur: _selectedJalur.kode); // idKelas default kosong di Absen Massal jika tidak dipilih
       final Map<String, dynamic> resData = res['data'] ?? res;
       final rawList = resData['santri'] ?? [];
 
@@ -54,9 +59,13 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
       _absenState.clear();
       for (var s in _santriList) {
         final nis = s['nis'].toString();
+        final rawId = s['id_kehadiran'];
+        final isTersimpan = rawId != null && rawId.toString().isNotEmpty && rawId.toString() != 'null';
         _absenState[nis] = {
-          'id_kehadiran': int.tryParse(s['id_kehadiran']?.toString() ?? '') ?? 1,
-          'catatan': s['catatan_absen'] ?? '',
+          'id_kehadiran': int.tryParse(rawId?.toString() ?? '') ?? 1,
+          'catatan': s['keterangan'] ?? '',
+          'is_tersimpan': isTersimpan,
+          'id_kelas': s['id_kelas'],
         };
       }
     } catch (e) {
@@ -66,7 +75,7 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
     }
   }
 
-  Future<void> _simpan() async {
+  Future<void> simpan() async {
     if (_santriList.isEmpty || _isSaving) return;
 
     setState(() => _isSaving = true);
@@ -75,22 +84,33 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
       'nis': e.key,
       'id_kehadiran': e.value['id_kehadiran'],
       'catatan': e.value['catatan'],
+      'id_kelas': e.value['id_kelas'],
     }).toList();
 
     final payload = {'tanggal': _tanggal, 'absen': absenPayload};
 
     try {
-      final res = await ApiService.simpanAbsenMassal(payload);
+      final repo = context.read<AbsensiRepository>();
+      final isSuccess = await repo.simpanAbsenMassal(payload);
+      
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Row(children: [
-          const Icon(Icons.check_circle, color: Colors.white),
-          const SizedBox(width: 8),
-          Expanded(child: Text(res['message'] ?? 'Absen massal di-upsert sukses!')),
-        ]),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        behavior: SnackBarBehavior.floating,
-      ));
+      if (isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Row(children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Absen massal di-upsert sukses (atau tersimpan di antrean offline)!')),
+          ]),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('Gagal menyimpan absen massal.'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
       _fetchData();
     } catch (e) {
       if (!mounted) return;
@@ -124,37 +144,109 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
       );
     }
 
+    int tersimpan = 0;
+    int belum = 0;
+    for (var state in _absenState.values) {
+      if (state['is_tersimpan'] == true) {
+        tersimpan++;
+      } else {
+        belum++;
+      }
+    }
+
     return Stack(children: [
       Column(children: [
-        // ── Bar Tanggal ──────────────────────────────────────────────────────
-        Container(
-          color: Theme.of(context).cardColor,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(children: [
-                Icon(Icons.date_range, color: cs.primary, size: 20),
-                const SizedBox(width: 8),
-                Text(_tanggal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ]),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.edit_calendar, size: 16),
-                label: const Text('Ubah'),
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.parse(_tanggal),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now().add(const Duration(days: 30)),
-                  );
-                  if (picked != null) {
-                    _tanggal = picked.toString().substring(0, 10);
-                    _fetchData();
-                  }
-                },
-              ),
-            ],
+        // CARD WRAPPER FILTER
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Info Tersimpan / Belum
+                Row(
+                  children: [
+                    Icon(Icons.check_circle, size: 14, color: Colors.green.shade600),
+                    const SizedBox(width: 4),
+                    Text('$tersimpan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                    const SizedBox(width: 12),
+                    Icon(Icons.pending, size: 14, color: Colors.orange.shade600),
+                    const SizedBox(width: 4),
+                    Text('$belum', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange.shade700)),
+                  ],
+                ),
+                
+                // Dropdown Jalur
+                Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(color: cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(8)),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<JalurEnum>(
+                      isDense: true,
+                      value: _selectedJalur,
+                      icon: Icon(Icons.arrow_drop_down, size: 16, color: cs.primary),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: cs.primary),
+                      onChanged: (JalurEnum? newVal) {
+                        if (newVal != null) {
+                          setState(() => _selectedJalur = newVal);
+                          _fetchData();
+                        }
+                      },
+                      items: JalurEnum.values.map((jalur) {
+                        return DropdownMenuItem<JalurEnum>(value: jalur, child: Text(jalur.nama));
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                
+                // Tanggal
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.parse(_tanggal),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 30)),
+                    );
+                    if (picked != null) {
+                      _tanggal = picked.toString().substring(0, 10);
+                      _fetchData();
+                    }
+                  },
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                      borderRadius: BorderRadius.circular(8),
+                      color: cs.primary.withValues(alpha: 0.05),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today, size: 12, color: cs.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('d/M/yyyy').format(DateTime.parse(_tanggal)),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: cs.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -185,33 +277,6 @@ class _AbsenMassalTabState extends State<AbsenMassalTab> {
                 ),
         ),
       ]),
-
-      // ── Tombol Simpan Melayang ────────────────────────────────────────────
-      Positioned(
-        left: 0, right: 0, bottom: 0,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            boxShadow: [BoxShadow(color: cs.shadow.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, -4))],
-          ),
-          child: SizedBox(
-            height: 50,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: cs.primary,
-                foregroundColor: cs.onPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: _isSaving ? const SizedBox() : const Icon(Icons.save),
-              label: _isSaving
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                  : const Text('Simpan Absen Massal', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              onPressed: _isSaving ? null : _simpan,
-            ),
-          ),
-        ),
-      ),
     ]);
   }
 }
@@ -250,6 +315,18 @@ class _AbsenMassalRowState extends State<_AbsenMassalRow> {
     super.initState();
     _localState = Map.from(widget.absenState);
     _catatanCtrl = TextEditingController(text: _localState['catatan']?.toString() ?? '');
+  }
+
+  @override
+  void didUpdateWidget(_AbsenMassalRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Jika data dari luar berubah (sehabis disave & difetch ulang), update state lokal
+    if (widget.absenState != oldWidget.absenState) {
+      _localState = Map.from(widget.absenState);
+      if (_catatanCtrl.text != (_localState['catatan']?.toString() ?? '')) {
+        _catatanCtrl.text = _localState['catatan']?.toString() ?? '';
+      }
+    }
   }
 
   @override
@@ -295,6 +372,21 @@ class _AbsenMassalRowState extends State<_AbsenMassalRow> {
                 ),
                 Text('NIS: ${widget.nis}', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 12)),
               ]),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _localState['is_tersimpan'] == true ? Colors.green.shade100 : Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _localState['is_tersimpan'] == true ? 'Tersimpan' : 'Belum',
+                style: TextStyle(
+                  color: _localState['is_tersimpan'] == true ? Colors.green.shade800 : Colors.orange.shade800,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ]),
           const SizedBox(height: 14),

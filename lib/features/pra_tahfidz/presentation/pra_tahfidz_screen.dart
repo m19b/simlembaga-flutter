@@ -46,6 +46,7 @@ class _PraTahfidzViewState extends State<_PraTahfidzView>
   late TabController _tabController;
   DateTime _selectedDate = DateTime.now();
   bool _isSearchOpen = false;
+  final GlobalKey<PraTahfidzInputMassalTabState> _inputMassalKey = GlobalKey<PraTahfidzInputMassalTabState>();
   final TextEditingController _searchCtrl = TextEditingController();
 
   // ValueNotifier untuk filter kelas dropdown di AppBar
@@ -118,6 +119,7 @@ class _PraTahfidzViewState extends State<_PraTahfidzView>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: colorScheme.surface,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(48),
@@ -165,14 +167,56 @@ class _PraTahfidzViewState extends State<_PraTahfidzView>
                     onPressed: _pickDate,
                   ),
                   // Search toggle
-                  if (!_isSearchOpen)
-                    IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: () => setState(() => _isSearchOpen = true),
+                    if (!_isSearchOpen)
+                      IconButton(
+                        icon: const Icon(Icons.search),
+                        onPressed: () => setState(() => _isSearchOpen = true),
+                      ),
+                  ],
+                  if (_tabController.index == 1) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: Center(
+                        child: BlocBuilder<PraTahfidzCubit, PraTahfidzState>(
+                          builder: (context, state) {
+                            final isSubmitting = state is PraTahfidzSubmitting;
+                            return ElevatedButton.icon(
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () {
+                                      if (_inputMassalKey.currentState != null) {
+                                        _inputMassalKey.currentState!.simpanMassal();
+                                      }
+                                    },
+                              icon: isSubmitting
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.save_rounded, size: 16),
+                              label: const Text('Simpan'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: const Size(0, 32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
+                  ],
                 ],
-              ],
-            ),
+              ),
             Positioned(
               bottom: 0,
               left: 0,
@@ -195,7 +239,7 @@ class _PraTahfidzViewState extends State<_PraTahfidzView>
             selectedKelasNotifier: _selectedKelasNotifier,
             selectedDate: _selectedDate,
           ),
-          const PraTahfidzInputMassalTab(),
+          PraTahfidzInputMassalTab(key: _inputMassalKey),
           const PraTahfidzRiwayatTab(),
         ],
       ),

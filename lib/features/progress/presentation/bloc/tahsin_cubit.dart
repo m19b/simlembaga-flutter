@@ -161,10 +161,10 @@ class TahsinCubit extends Cubit<TahsinState> with WidgetsBindingObserver {
     emit(TahsinInitial());
   }
 
-  Future<bool> submitInputMassal(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> submitInputMassal(Map<String, dynamic> payload) async {
     final result = await repository.inputMassalProgress(payload);
     // Reload penuh pasca simpan untuk trigger reactive Isar (merujuk ke instruksi Bug Bash)
-    if (result) {
+    if (result['success'] == true) {
       fetchProgressList(
         idKelompok: _lastIdKelompok,
         idKelas: _lastIdKelas,

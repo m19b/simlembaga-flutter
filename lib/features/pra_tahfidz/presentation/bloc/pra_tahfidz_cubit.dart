@@ -42,6 +42,12 @@ class PraTahfidzSubmitSuccess extends PraTahfidzState {
   PraTahfidzSubmitSuccess(this.data, {this.message = 'Berhasil disimpan.'});
 }
 
+class PraTahfidzConfirmationRequired extends PraTahfidzState {
+  final String message;
+  final Map<String, dynamic> payload;
+  PraTahfidzConfirmationRequired(this.message, this.payload);
+}
+
 class PraTahfidzSubmitError extends PraTahfidzState {
   final Map<String, dynamic> currentData;
   final String message;
@@ -80,19 +86,38 @@ class PraTahfidzCubit extends Cubit<PraTahfidzState> {
   Future<void> fetchSantriList({
     String? tanggal,
     int? idKelompok,
+    List<int>? kelasIds,
+    int? sesi,
+    String? filterKehadiran,
     bool forceRefresh = false,
   }) async {
-    _lastIdKelompok = idKelompok;
+    if (state is PraTahfidzLoading) return;
+
+    final activeId = idKelompok ?? activeKelompokCubit.state.activeId;
+    if (activeId <= 0) {
+      print('xxxxxxxxxxxxxxxxxxxxxxx BLOKIR: idKelompok tidak valid ($activeId). Dibatalkan.');
+      emit(PraTahfidzError("Silakan pilih Kelompok/Cabang terlebih dahulu di menu utama."));
+      return;
+    }
+
+    _lastIdKelompok = activeId;
     _lastTanggal = tanggal;
     emit(PraTahfidzLoading());
     try {
       final data = await repository.getSantriList(
         tanggal: tanggal,
-        idKelompok: idKelompok,
+        idKelompok: activeId,
+        kelasIds: kelasIds,
+        sesi: sesi,
+        filterKehadiran: filterKehadiran,
         forceRefresh: forceRefresh,
       );
+      if (isClosed) return;
       emit(PraTahfidzLoaded(data));
-    } catch (e) {
+    } catch (e, stacktrace) {
+      print('xxxxxxxxxxxxxxxxxxxxxxx ERROR PRA-TAHFIDZ CUBIT: $e');
+      print('xxxxxxxxxxxxxxxxxxxxxxx STACKTRACE: $stacktrace');
+      if (isClosed) return;
       emit(PraTahfidzError(e.toString().replaceAll('Exception: ', '')));
     }
   }
@@ -103,8 +128,10 @@ class PraTahfidzCubit extends Cubit<PraTahfidzState> {
     emit(PraTahfidzDetailLoading());
     try {
       final data = await repository.getDetail(nis, forceRefresh: forceRefresh);
+      if (isClosed) return;
       emit(PraTahfidzDetailLoaded(data));
     } catch (e) {
+      if (isClosed) return;
       emit(PraTahfidzError(e.toString().replaceAll('Exception: ', '')));
     }
   }
@@ -139,16 +166,26 @@ class PraTahfidzCubit extends Cubit<PraTahfidzState> {
 
   // ── WRITE: Input Massal ──────────────────────────────────────────────────
 
-  Future<bool> submitInputMassal(Map<String, dynamic> payload) async {
+  Future<bool> submitInputMassal(Map<String, dynamic> payload, {bool forceSave = false}) async {
     final currentState = state;
     final currentData = currentState is PraTahfidzLoaded
         ? currentState.data
         : <String, dynamic>{};
 
-    emit(PraTahfidzSubmitting(currentData));
     try {
-      final ok = await repository.inputMassal(payload);
-      if (ok) {
+      payload['force_save'] = forceSave;
+      print('xxxxxxxxxxxxxxxxxxxxxxx PAYLOAD RAW DARI UI: $payload');
+      emit(PraTahfidzSubmitting(currentData));
+      
+      final result = await repository.inputMassal(payload);
+      
+      if (result['require_confirmation'] == true) {
+        emit(PraTahfidzConfirmationRequired(result['message'], payload));
+        return false;
+      }
+      
+      if (result['success'] == true) {
+        emit(PraTahfidzSubmitSuccess(currentData, message: result['message'] ?? 'Berhasil disimpan.'));
         fetchSantriList(
           idKelompok: _lastIdKelompok,
           tanggal: _lastTanggal,
@@ -156,10 +193,12 @@ class PraTahfidzCubit extends Cubit<PraTahfidzState> {
         );
         return true;
       }
-      emit(PraTahfidzLoaded(currentData));
+      emit(PraTahfidzSubmitError(currentData, result['message'] ?? 'Gagal menyimpan data.'));
       return false;
-    } catch (e) {
-      emit(PraTahfidzSubmitError(currentData, e.toString()));
+    } catch (e, stacktrace) {
+      print('xxxxxxxxxxxxxxxxxxxxxxx CRASH SAAT SIMPAN: $e');
+      print('xxxxxxxxxxxxxxxxxxxxxxx STACKTRACE SIMPAN: $stacktrace');
+      emit(PraTahfidzError(e.toString()));
       return false;
     }
   }

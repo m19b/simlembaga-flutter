@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
+import '../../utils/tahsin_validator.dart';
 
 const Color _kHeader = Color(0xFF0F4C2A);
 const Color _kAccent = Color(0xFF16A34A);
@@ -139,6 +140,32 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
       return;
     }
 
+    final double halAwal = double.tryParse(_halAwalCtrl.text.trim()) ?? 0;
+    final double totalHalKelas = double.tryParse(widget.kelasSettings['total_hal']?.toString() ?? '0') ?? 0;
+    final bool isSelesaiBuku = totalHalKelas > 0 && halAwal >= totalHalKelas;
+    
+    // Asumsikan checkpoint diambil dari props jika ada, tapi karena widget ini belum melempar checkpoint_target, kita bypass atau ambil null
+    // Untuk lebih akurat harus di-pass dari widget parent. Untuk sementara null.
+    final status = TahsinValidator.validateHalaman(
+      halAwal: halAwal,
+      halTotalInput: inputTotal,
+      totalHalKelas: totalHalKelas,
+      isSelesaiBuku: isSelesaiBuku,
+      checkpointTarget: null, // detail widget tidak punya nextCheckpoint props saat ini
+      modeBelajar: widget.isAkselerasi ? 'akselerasi' : (widget.isLatihan ? 'latihan' : 'reguler'),
+    );
+
+    if (status != TahsinValidationStatus.valid) {
+      final String msg = TahsinValidator.getErrorMessage(status);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg, style: const TextStyle(color: Colors.white)),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _saving = true;
       _msg = '';
@@ -169,7 +196,7 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
         }
       }
 
-      await ApiService.inputCepatProgress(payload);
+      await TahsinApiService.inputCepatProgress(payload);
 
       setState(() {
         _saving = false;

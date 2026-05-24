@@ -170,8 +170,7 @@ class _TahfidzViewState extends State<_TahfidzView>
                                 onPressed: () =>
                                     _inputKey.currentState?.simpan(),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.white.withValues(alpha: 0.2),
+                                  backgroundColor: const Color(0xFF047857), // Green
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(

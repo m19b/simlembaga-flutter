@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 // import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/santri_catatan_api_service.dart';
 
 // --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
@@ -119,8 +119,8 @@ class _MasalahScreenState extends State<MasalahScreen>
     setState(() { _loading = true; _error = ''; });
     try {
       final results = await Future.wait([
-        ApiService.getMasalahAktif(idKelompok: _selectedKelompokId, idKelas: _selectedKelasId),
-        ApiService.getMasalahSelesai(idKelompok: _selectedKelompokId, idKelas: _selectedKelasId),
+        SantriCatatanApiService.getMasalahAktif(idKelompok: _selectedKelompokId, idKelas: _selectedKelasId),
+        SantriCatatanApiService.getMasalahSelesai(idKelompok: _selectedKelompokId, idKelas: _selectedKelasId),
       ]);
 
       List<Map<String, dynamic>> _parse(dynamic resp, bool isFirstLoad) {
@@ -183,7 +183,7 @@ class _MasalahScreenState extends State<MasalahScreen>
     if (!mounted) return;
     setState(() { _approvalLoading = true; _approvalError = ''; });
     try {
-      final resp = await ApiService.getMasalahPendingApproval();
+      final resp = await SantriCatatanApiService.getMasalahPendingApproval();
       final raw = resp['data'];
       List<Map<String, dynamic>> list = [];
       if (raw is Map) {
@@ -215,10 +215,10 @@ class _MasalahScreenState extends State<MasalahScreen>
   Future<void> _handleApprovalAction(String action, String id, String? catatan) async {
     try {
       if (action == 'setujui') {
-        await ApiService.setujuiMasalah(id: id);
+        await SantriCatatanApiService.setujuiMasalah(id: id);
         _showSnack('Masalah berhasil disetujui', _kAccent);
       } else {
-        await ApiService.tolakMasalah(id: id, catatan: catatan ?? '');
+        await SantriCatatanApiService.tolakMasalah(id: id, catatan: catatan ?? '');
         _showSnack('Masalah ditolak', Colors.orange.shade600);
       }
       _loadApproval();
@@ -1642,7 +1642,7 @@ class _DetailSheetState extends State<_DetailSheet> {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      await ApiService.updateMasalah(
+      await SantriCatatanApiService.updateMasalah(
         id: (widget.item['id_masalah'] ?? widget.item['id']).toString(),
         status: 'selesai',
         tglSelesai: DateFormat('yyyy-MM-dd').format(DateTime.now()),
@@ -2081,7 +2081,7 @@ class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
 
     setState(() => _saving = true);
     try {
-      await ApiService.storeTahapMasalah(
+      await SantriCatatanApiService.storeTahapMasalah(
         idMasalah: widget.idMasalah,
         jenisPenyelesaian: _jenisPenyelesaian!,
         tglPenyelesaian: DateFormat('yyyy-MM-dd').format(_tglPenyelesaian),
@@ -2293,7 +2293,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
       if (!mounted) return;
       setState(() => _loadingSugg = true);
       try {
-        final res = await ApiService.cariSantri(val.trim());
+        final res = await SantriCatatanApiService.cariSantri(val.trim());
         if (!mounted) return;
         setState(() {
           _santriSuggest = res;
@@ -2338,7 +2338,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
     }
     setState(() => _saving = true);
     try {
-      await ApiService.storeMasalah(
+      await SantriCatatanApiService.storeMasalah(
         nis: _selectedNis!,
         jenisMasalah: _jenisMasalah!,
         keterangan: _keteranganCtrl.text.trim(),

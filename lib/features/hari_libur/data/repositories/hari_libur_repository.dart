@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/dashboard_api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
@@ -24,7 +24,7 @@ class HariLiburRepository {
 
     if (isOnline) {
       try {
-        final resp = await ApiService.getHariLibur(
+        final resp = await DashboardApiService.getHariLibur(
           tahun: tahun,
           idKelompok: idKelompok,
         );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:manajemen_tahsin_app/features/pengaturan/presentation/pengaturan_indikator_screen.dart';
 import 'package:manajemen_tahsin_app/features/pengaturan/presentation/pengaturan_header_screen.dart';
+import 'package:manajemen_tahsin_app/core/api/services/absensi_api_service.dart';
 
 class PengaturanScreen extends StatelessWidget {
   const PengaturanScreen({super.key});
@@ -99,37 +101,58 @@ class PengaturanScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _syncUniversal(BuildContext context, bool isSantri) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Expanded(child: Text(isSantri ? 'Mengunduh semua data santri...' : 'Mengunduh semua data guru...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      int count = 0;
+      if (isSantri) {
+        count = await AbsensiApiService.syncSemuaSantri();
+      } else {
+        count = await AbsensiApiService.syncSemuaGuru();
+      }
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // Tutup dialog loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Berhasil mengunduh $count data ${isSantri ? 'santri' : 'guru'} untuk Mode Luring.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Tutup dialog loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengunduh: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(48),
-        child: Stack(
-          children: [
-            const Positioned.fill(
-              child: GlobalHeaderBackground(),
-            ),
-            AppBar(
-              toolbarHeight: 48,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              foregroundColor: Colors.white,
-              iconTheme: const IconThemeData(color: Colors.white),
-              centerTitle: true,
-              title: Text(
-                'Pengaturan',
-                style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      appBar: const AppHeaderBar(title: 'Pengaturan'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -236,6 +259,38 @@ class PengaturanScreen extends StatelessWidget {
             ),
           ),
           
+          // SEGMEN CACHE OFFLINE
+          _buildSectionHeader(context, 'Cache Mode Luring (Offline)', Icons.offline_bolt),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isDark ? Colors.white12 : Colors.grey.shade200,
+              ),
+            ),
+            color: Theme.of(context).colorScheme.surfaceContainer,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.group, color: Colors.teal),
+                  title: const Text('Unduh Semua Santri', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Simpan seluruh santri untuk absen offline'),
+                  trailing: const Icon(Icons.download),
+                  onTap: () => _syncUniversal(context, true),
+                ),
+                Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+                ListTile(
+                  leading: const Icon(Icons.co_present, color: Colors.deepOrange),
+                  title: const Text('Unduh Semua Guru', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Simpan seluruh guru/staf untuk absen offline'),
+                  trailing: const Icon(Icons.download),
+                  onTap: () => _syncUniversal(context, false),
+                ),
+              ],
+            ),
+          ),
+          
           const SizedBox(height: 32),
           Center(
             child: Text(
@@ -272,3 +327,4 @@ class PengaturanScreen extends StatelessWidget {
     );
   }
 }
+

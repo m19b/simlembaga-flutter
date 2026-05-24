@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/auth_api_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
@@ -70,7 +70,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _errorMsg = null;
     });
     try {
-      final resp = await ApiService.getProfile();
+      final resp = await AuthApiService.getProfile();
       final data = resp['data'] as Map<String, dynamic>? ?? {};
       setState(() {
         _profile = data;
@@ -282,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       };
 
-      await ApiService.updateProfile(
+      await AuthApiService.updateProfile(
         fields: fields,
         fotoFile: _pickedImageFile,
       );

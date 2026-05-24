@@ -14,6 +14,9 @@ class KelasModel {
   @Index()
   int? idKelompok;
 
+  @Index()
+  int? idKategori;
+
   String? namaKelompok;
 
   List<CheckpointLokal>? checkpoints;

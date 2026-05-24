@@ -6,21 +6,40 @@ import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'package:manajemen_tahsin_app/features/absensi/domain/repositories/absensi_repository.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/bloc/absensi_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-import 'package:manajemen_tahsin_app/shared/widgets/custom_date_range_field.dart';
+import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 
 // ─── Off-Main-Thread Parser ────────────────────────────────────────────────────
 // Fungsi top-level wajib agar compute() bisa menjalankannya di Isolate terpisah.
 Map<String, dynamic> _parseRekapData(Map<String, dynamic> rawData) {
   final hariKerja = int.tryParse(rawData['hari_kerja']?.toString() ?? '0') ?? 0;
   final rawRekap = rawData['rekap'];
+  int totalHadir = 0;
+  int totalSakit = 0;
+  int totalIzin = 0;
+  int totalAlpha = 0;
+
   final List<Map<String, dynamic>> rekapList = rawRekap is List
       ? rawRekap.whereType<Map>().map((e) {
           final Map<String, dynamic> m = {};
           e.forEach((k, v) => m[k.toString()] = v);
+          
+          totalHadir += int.tryParse(m['hadir']?.toString() ?? '0') ?? 0;
+          totalSakit += int.tryParse(m['sakit']?.toString() ?? '0') ?? 0;
+          totalIzin += int.tryParse(m['izin']?.toString() ?? '0') ?? 0;
+          totalAlpha += int.tryParse(m['alpha']?.toString() ?? '0') ?? 0;
+          
           return m;
         }).toList()
       : [];
-  return {'hari_kerja': hariKerja, 'rekap': rekapList};
+      
+  return {
+    'hari_kerja': hariKerja,
+    'rekap': rekapList,
+    'total_hadir': totalHadir,
+    'total_sakit': totalSakit,
+    'total_izin': totalIzin,
+    'total_alpha': totalAlpha,
+  };
 }
 
 /// Halaman Rekap Absensi (NETWORK-ONLY — Dilarang Cache).
@@ -58,13 +77,40 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
   bool _isParsing = false;
   int _hariKerja = 0;
   List<Map<String, dynamic>> _rekapList = [];
+  
+  int _totalHadir = 0;
+  int _totalSakit = 0;
+  int _totalIzin = 0;
+  int _totalAlpha = 0;
+
+  bool _isBulanIni = true;
+  String _searchQuery = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
-    _tglAkhir = DateTime.now();
-    _tglMulai = _tglAkhir!.subtract(const Duration(days: 6));
+    _setBulanIni();
     _initFilter();
+  }
+
+  void _setBulanIni() {
+    final now = DateTime.now();
+    _tglMulai = DateTime(now.year, now.month, 1);
+    _tglAkhir = DateTime(now.year, now.month + 1, 0);
+  }
+
+  void _setBulanLalu() {
+    final now = DateTime.now();
+    _tglMulai = DateTime(now.year, now.month - 1, 1);
+    _tglAkhir = DateTime(now.year, now.month, 0);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _initFilter() async {
@@ -87,8 +133,10 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
     } catch (_) {
       // Abaikan error filter, lanjut muat data utama
     } finally {
-      setState(() => _filterLoaded = true);
-      _triggerLoad();
+      if (mounted) {
+        setState(() => _filterLoaded = true);
+        _triggerLoad();
+      }
     }
   }
 
@@ -113,6 +161,10 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
       setState(() {
         _hariKerja = result['hari_kerja'] as int;
         _rekapList = result['rekap'] as List<Map<String, dynamic>>;
+        _totalHadir = result['total_hadir'] as int;
+        _totalSakit = result['total_sakit'] as int;
+        _totalIzin = result['total_izin'] as int;
+        _totalAlpha = result['total_alpha'] as int;
         _isParsing = false;
       });
     } catch (_) {
@@ -133,11 +185,37 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Rekap Absensi'),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
-        iconTheme: IconThemeData(color: cs.onPrimary),
+      appBar: AppHeaderBar(
+        title: _isSearching ? '' : 'Rekap Absensi',
+        customTitle: _isSearching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                style: TextStyle(color: cs.onPrimary, fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'Cari nama atau NIS...',
+                  hintStyle: TextStyle(color: cs.onPrimary.withValues(alpha: 0.6), fontSize: 16),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
+              )
+            : null,
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                if (_isSearching) {
+                  _isSearching = false;
+                  _searchCtrl.clear();
+                  _searchQuery = '';
+                } else {
+                  _isSearching = true;
+                }
+              });
+            },
+          )
+        ],
       ),
       body: BlocConsumer<AbsensiCubit, AbsensiState>(
         listenWhen: (_, current) => current is AbsensiLoaded || current is AbsensiError,
@@ -150,6 +228,10 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
               setState(() {
                 _hariKerja = 0;
                 _rekapList = [];
+                _totalHadir = 0;
+                _totalSakit = 0;
+                _totalIzin = 0;
+                _totalAlpha = 0;
               });
             }
           }
@@ -172,6 +254,7 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
 
           return Column(children: [
             _buildFilterSection(_hariKerja, cs),
+            _buildGlobalSummary(cs),
             Expanded(
               child: _rekapList.isEmpty
                   ? _buildEmptyState(cs)
@@ -195,31 +278,38 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
   Widget _buildFilterSection(int hariKerja, ColorScheme cs) {
     return Container(
       color: Theme.of(context).cardColor,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        Row(children: [
           Expanded(
-            flex: 6,
-            child: CustomDateRangeField(
-              selectedRange: _tglMulai != null && _tglAkhir != null
-                  ? DateTimeRange(start: _tglMulai!, end: _tglAkhir!)
-                  : null,
-              onDateRangeSelected: (range) {
-                if (range != null) {
-                  setState(() {
-                    _tglMulai = range.start;
-                    _tglAkhir = range.end;
-                  });
-                  _triggerLoad();
-                }
+            flex: 5,
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: true, label: Text('Bulan Ini', style: TextStyle(fontSize: 12))),
+                ButtonSegment(value: false, label: Text('Bulan Lalu', style: TextStyle(fontSize: 12))),
+              ],
+              selected: {_isBulanIni},
+              onSelectionChanged: (val) {
+                setState(() {
+                  _isBulanIni = val.first;
+                  if (_isBulanIni) {
+                    _setBulanIni();
+                  } else {
+                    _setBulanLalu();
+                  }
+                });
+                _triggerLoad();
               },
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
           if (_kelasList.length > 1) ...[
             const SizedBox(width: 8),
             Expanded(
-              flex: 4,
+              flex: 5,
               child: Container(
                 height: 36,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -259,36 +349,75 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
             ),
           ],
         ]),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          decoration: BoxDecoration(
-            color: cs.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: cs.secondary.withValues(alpha: 0.2)),
-          ),
-          child: Row(children: [
-            Icon(Icons.event_available, color: cs.secondary, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'Total Hari Kerja: $hariKerja Hari',
-              style: TextStyle(fontWeight: FontWeight.bold, color: cs.onSecondaryContainer),
-            ),
-          ]),
-        ),
       ]),
     );
   }
 
+  Widget _buildGlobalSummary(ColorScheme cs) {
+    return Container(
+      color: Theme.of(context).cardColor,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.primaryContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics_rounded, color: cs.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Total Global Kelas', style: TextStyle(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('$_hariKerja Hari Kerja', style: TextStyle(color: cs.onPrimary, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _StatItem(label: 'Hadir', value: _totalHadir.toString(), color: Colors.green.shade700),
+                _StatItem(label: 'Sakit', value: _totalSakit.toString(), color: Colors.blue.shade700),
+                _StatItem(label: 'Izin', value: _totalIzin.toString(), color: Colors.orange.shade700),
+                _StatItem(label: 'Alpha', value: _totalAlpha.toString(), color: Colors.red.shade700),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildList(List<Map<String, dynamic>> rekapList, int hariKerja) {
+    final filtered = rekapList.where((e) {
+      if (_searchQuery.isEmpty) return true;
+      final name = (e['nama_santri']?.toString() ?? '').toLowerCase();
+      final nis = (e['nis']?.toString() ?? '').toLowerCase();
+      return name.contains(_searchQuery) || nis.contains(_searchQuery);
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Text('Santri tidak ditemukan', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: rekapList.length,
-      // Ekstrak item ke StatelessWidget terpisah → TIDAK rebuild seluruh list
+      itemCount: filtered.length,
       itemBuilder: (context, index) => _RekapItem(
-        key: ValueKey(rekapList[index]['nis']),
-        item: rekapList[index],
+        key: ValueKey(filtered[index]['nis']),
+        item: filtered[index],
         index: index,
         hariKerja: hariKerja,
       ),

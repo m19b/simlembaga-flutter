@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/tahsin_validator.dart';
 import 'row_state_model.dart';
 import 'evaluasi_input_row.dart';
 
@@ -224,7 +225,30 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                   }),
                   onIncrementProgress: () => _setRow(() {
                     final step = widget.isDecimalMode ? 0.5 : 1.0;
-                    row.halTotal += step;
+                    final nextTotal = row.halTotal + step;
+                    
+                    final status = TahsinValidator.validateHalaman(
+                      halAwal: row.halAwal,
+                      halTotalInput: nextTotal,
+                      totalHalKelas: totalHal,
+                      isSelesaiBuku: isFinishedReg,
+                      checkpointTarget: cpTarget,
+                      modeBelajar: modeBelajar,
+                    );
+
+                    if (status != TahsinValidationStatus.valid) {
+                      final double? maxAllowed = status == TahsinValidationStatus.melebihiCheckpoint ? cpTarget - row.halAwal : totalHal - row.halAwal;
+                      final msg = TahsinValidator.getErrorMessage(status, maxAllowed: maxAllowed);
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(msg),
+                        backgroundColor: Colors.red.shade600,
+                        duration: const Duration(seconds: 2),
+                      ));
+                      return;
+                    }
+
+                    row.halTotal = nextTotal;
                     row.halCtrl.text = row.halTotal == row.halTotal.toInt() ? row.halTotal.toInt().toString() : row.halTotal.toString();
                   }),
                   onDecrementTm: () => _setRow(() {
@@ -239,7 +263,33 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
                   }),
                   onProgressChanged: (val) {
                     final p = double.tryParse(val);
-                    if (p != null) _setRow(() => row.halTotal = p);
+                    if (p != null) {
+                      final status = TahsinValidator.validateHalaman(
+                        halAwal: row.halAwal,
+                        halTotalInput: p,
+                        totalHalKelas: totalHal,
+                        isSelesaiBuku: isFinishedReg,
+                        checkpointTarget: cpTarget,
+                        modeBelajar: modeBelajar,
+                      );
+
+                      if (status != TahsinValidationStatus.valid) {
+                        final double? maxAllowed = status == TahsinValidationStatus.melebihiCheckpoint ? cpTarget - row.halAwal : totalHal - row.halAwal;
+                        final msg = TahsinValidator.getErrorMessage(status, maxAllowed: maxAllowed);
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(msg),
+                          backgroundColor: Colors.red.shade600,
+                          duration: const Duration(seconds: 2),
+                        ));
+                        
+                        // Revert value
+                        row.halCtrl.text = row.halTotal == row.halTotal.toInt() ? row.halTotal.toInt().toString() : row.halTotal.toString();
+                        return;
+                      }
+
+                      _setRow(() => row.halTotal = p);
+                    }
                   },
                   onTmChanged: (val) {
                     final p = int.tryParse(val);

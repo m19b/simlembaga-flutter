@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 // import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/bloc/masalah_cubit.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/widgets/masalah_widgets.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
@@ -14,6 +13,12 @@ import 'package:manajemen_tahsin_app/features/masalah/domain/repositories/masala
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
+import 'package:isar/isar.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/features/masalah/presentation/widgets/santri_selection_sheet.dart';
+import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfidz_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/progress/data/models/progress_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/tahfidz/data/models/tahfidz_santri_model.dart';
 
 // --- Design Tokens -------------------------------------------------------------
 const Color _kHeader = Color(0xFF0F4C2A);
@@ -47,8 +52,6 @@ IconData _jenisIcon(String? jenis) {
       return Icons.info_outline_rounded;
   }
 }
-
-
 
 // --- Screen --------------------------------------------------------------------
 // --- Screen --------------------------------------------------------------------
@@ -114,8 +117,9 @@ class _MasalahViewState extends State<_MasalahView> {
   }
 
   // --- Load (via Cubit) ------------------------------------------------------
-  Future<void> _load() async { context.read<MasalahCubit>().fetchMasalah(forceRefresh: true); }
-
+  Future<void> _load() async {
+    context.read<MasalahCubit>().fetchMasalah(forceRefresh: true);
+  }
 
   void _switchTab(bool aktif) {
     if (_showAktif == aktif) return;
@@ -160,17 +164,23 @@ class _MasalahViewState extends State<_MasalahView> {
       listener: (context, state) {
         if (state is MasalahLoaded) {
           setState(() {
-            _allAktif   = state.aktif;
+            _allAktif = state.aktif;
             _allSelesai = state.selesai;
-            _filtered   = _showAktif ? _allAktif : _allSelesai;
-            _loading    = false;
-            _error      = '';
+            _filtered = _showAktif ? _allAktif : _allSelesai;
+            _loading = false;
+            _error = '';
           });
           if (_searchCtrl.text.isNotEmpty) _applySearch(_searchCtrl.text);
         } else if (state is MasalahError) {
-          setState(() { _error = state.message; _loading = false; });
+          setState(() {
+            _error = state.message;
+            _loading = false;
+          });
         } else if (state is MasalahLoading) {
-          setState(() { _loading = true; _error = ''; });
+          setState(() {
+            _loading = true;
+            _error = '';
+          });
         }
       },
       builder: (context, state) {
@@ -183,15 +193,25 @@ class _MasalahViewState extends State<_MasalahView> {
                 Container(
                   width: double.infinity,
                   color: Colors.orange.shade100,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
-                      Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800, size: 16),
+                      Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.orange.shade800,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Anda sedang offline. Menampilkan data lokal terakhir.',
-                          style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ],
@@ -201,8 +221,8 @@ class _MasalahViewState extends State<_MasalahView> {
                 child: _loading
                     ? _buildSkeleton()
                     : _error.isNotEmpty
-                        ? _buildError()
-                        : _buildBody(),
+                    ? _buildError()
+                    : _buildBody(),
               ),
             ],
           ),
@@ -236,7 +256,10 @@ class _MasalahViewState extends State<_MasalahView> {
       actions: [
         if (!_searchOpen && _showAktif)
           IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: Colors.white,
+            ),
             tooltip: 'Tambah Masalah',
             onPressed: _showTambahMasalahSheet,
           ),
@@ -265,12 +288,18 @@ class _MasalahViewState extends State<_MasalahView> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: Theme.of(context).extension<AppCustomStyles>()?.error ?? Colors.red.shade600,
+              color:
+                  Theme.of(context).extension<AppCustomStyles>()?.error ??
+                  Colors.red.shade600,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 12),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.white,
+                  size: 12,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '$aktifCount aktif',
@@ -296,8 +325,8 @@ class _MasalahViewState extends State<_MasalahView> {
         color: Theme.of(context).cardColor,
         border: Border(
           top: BorderSide(
-            color: Theme.of(context).brightness == Brightness.dark 
-                ? Colors.white.withValues(alpha: 0.18) 
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.18)
                 : Colors.black.withValues(alpha: 0.08),
             width: 1,
           ),
@@ -313,18 +342,33 @@ class _MasalahViewState extends State<_MasalahView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildNavItem(true, Icons.warning_amber_rounded, 'Aktif', _allAktif.length),
-          _buildNavItem(false, Icons.check_circle_outline_rounded, 'Selesai', _allSelesai.length),
+          _buildNavItem(
+            true,
+            Icons.warning_amber_rounded,
+            'Aktif',
+            _allAktif.length,
+          ),
+          _buildNavItem(
+            false,
+            Icons.check_circle_outline_rounded,
+            'Selesai',
+            _allSelesai.length,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(bool isAktifType, IconData icon, String label, int count) {
+  Widget _buildNavItem(
+    bool isAktifType,
+    IconData icon,
+    String label,
+    int count,
+  ) {
     final isSelected = _showAktif == isAktifType;
     final clr = isAktifType ? Colors.red.shade400 : _kAccent;
     final primaryThemeColor = Theme.of(context).colorScheme.primary;
-    
+
     return Expanded(
       child: InkWell(
         onTap: () {
@@ -346,24 +390,27 @@ class _MasalahViewState extends State<_MasalahView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isSelected ? clr : Colors.grey,
-                size: 20,
-              ),
+              Icon(icon, color: isSelected ? clr : Colors.grey, size: 20),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : primaryThemeColor) : Colors.grey,
+                  color: isSelected
+                      ? (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : primaryThemeColor)
+                      : Colors.grey,
                 ),
               ),
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected ? clr : Colors.grey.shade400,
                     borderRadius: BorderRadius.circular(10),
@@ -525,7 +572,12 @@ class _MasalahViewState extends State<_MasalahView> {
       // Do NOT override backgroundColor here – let bottomSheetTheme handle AMOLED color
       builder: (_) => BlocProvider.value(
         value: cubit,
-        child: _DetailSheet(item: item, isAktif: _showAktif, isAdmin: widget.isAdmin, onRefresh: _load),
+        child: _DetailSheet(
+          item: item,
+          isAktif: _showAktif,
+          isAdmin: widget.isAdmin,
+          onRefresh: _load,
+        ),
       ),
     );
   }
@@ -709,7 +761,10 @@ class _DetailSheetState extends State<_DetailSheet> {
                               Wrap(
                                 spacing: 6,
                                 children: [
-                                  MasalahChip(icon: Icons.badge_outlined, text: nis),
+                                  MasalahChip(
+                                    icon: Icons.badge_outlined,
+                                    text: nis,
+                                  ),
                                   if (kelas.isNotEmpty)
                                     MasalahChip(
                                       icon: Icons.school_outlined,
@@ -737,10 +792,7 @@ class _DetailSheetState extends State<_DetailSheet> {
                         const SizedBox(width: 4),
                         Text(
                           tgl,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _kText2,
-                          ),
+                          style: TextStyle(fontSize: 12, color: _kText2),
                         ),
                       ],
                     ),
@@ -785,59 +837,77 @@ class _DetailSheetState extends State<_DetailSheet> {
                       ),
                       const SizedBox(height: 8),
                       // Expandable List
-                      ...((widget.item['tahap_penyelesaian'] as List).whereType<Map>().map((tahap) {
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          child: ExpansionTile(
-                            shape: const Border(),
-                            title: Text(
-                              tahap['jenis_penyelesaian']?.toString() ?? 'Tindakan',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                      ...((widget.item['tahap_penyelesaian'] as List)
+                          .whereType<Map>()
+                          .map((tahap) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: Colors.grey.shade300),
                               ),
-                            ),
-                            subtitle: Text(
-                              tahap['tgl_penyelesaian']?.toString() ?? '',
-                              style: TextStyle(fontSize: 11, color: _kText2),
-                            ),
-                            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  tahap['keterangan']?.toString() ?? '-',
-                                  style: TextStyle(fontSize: 13, color: _kText1),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(6),
+                              child: ExpansionTile(
+                                shape: const Border(),
+                                title: Text(
+                                  tahap['jenis_penyelesaian']?.toString() ??
+                                      'Tindakan',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
                                   ),
-                                  child: Text(
-                                    'Hasil: ${tahap['hasil_tahap']?.toString() ?? '-'}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade700,
+                                ),
+                                subtitle: Text(
+                                  tahap['tgl_penyelesaian']?.toString() ?? '',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _kText2,
+                                  ),
+                                ),
+                                childrenPadding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  16,
+                                ),
+                                children: [
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      tahap['keterangan']?.toString() ?? '-',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: _kText1,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'Hasil: ${tahap['hasil_tahap']?.toString() ?? '-'}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blue.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      }).toList()),
+                            );
+                          })
+                          .toList()),
                     ],
                   ),
                 ),
@@ -859,10 +929,20 @@ class _DetailSheetState extends State<_DetailSheet> {
                       onPressed: () {
                         // BUG FIX: Capture cubit BEFORE pop — context is dead after Navigator.pop
                         final cubit = context.read<MasalahCubit>();
-                        _showTambahTindakanSheet(context, cubit, (widget.item['id_masalah'] ?? widget.item['id']).toString(), widget.onRefresh);
+                        _showTambahTindakanSheet(
+                          context,
+                          cubit,
+                          (widget.item['id_masalah'] ?? widget.item['id'])
+                              .toString(),
+                          widget.onRefresh,
+                        );
                         Navigator.pop(context);
                       },
-                      icon: const Icon(Icons.add_task_rounded, color: _kAccent, size: 18),
+                      icon: const Icon(
+                        Icons.add_task_rounded,
+                        color: _kAccent,
+                        size: 18,
+                      ),
                       label: Text(
                         'Tambah Tindakan',
                         style: TextStyle(
@@ -874,79 +954,76 @@ class _DetailSheetState extends State<_DetailSheet> {
                   ),
                 ),
                 if (widget.isAdmin) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: TextField(
-                    controller: _catatanCtrl,
-                    maxLines: 3,
-                    style: TextStyle(fontSize: 14, color: _kText1),
-                    decoration: InputDecoration(
-                      labelText: 'Catatan penyelesaian (opsional)',
-                      labelStyle: TextStyle(
-                        color: _kText2,
-                        fontSize: 13,
-                      ),
-                      hintText: 'Tulis catatan atau tindakan yang dilakukanï¿½',
-                      hintStyle: TextStyle(
-                        color: _kText2,
-                        fontSize: 12,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: _kAccent,
-                          width: 1.5,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: TextField(
+                      controller: _catatanCtrl,
+                      maxLines: 3,
+                      style: TextStyle(fontSize: 14, color: _kText1),
+                      decoration: InputDecoration(
+                        labelText: 'Catatan penyelesaian (opsional)',
+                        labelStyle: TextStyle(color: _kText2, fontSize: 13),
+                        hintText:
+                            'Tulis catatan atau tindakan yang dilakukanï¿½',
+                        hintStyle: TextStyle(color: _kText2, fontSize: 12),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
                         ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: _kAccent,
+                            width: 1.5,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.all(14),
                       ),
-                      contentPadding: const EdgeInsets.all(14),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _kAccent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _kAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
                         ),
-                        elevation: 0,
-                      ),
-                      onPressed: _saving ? null : _tandaiSelesai,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
+                        onPressed: _saving ? null : _tandaiSelesai,
+                        icon: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.check_circle_rounded,
                                 color: Colors.white,
-                                strokeWidth: 2,
+                                size: 20,
                               ),
-                            )
-                          : const Icon(
-                              Icons.check_circle_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                      label: Text(
-                        _saving ? 'Menyimpanï¿½' : 'Tandai Selesai',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                        label: Text(
+                          _saving ? 'Menyimpanï¿½' : 'Tandai Selesai',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
                 ],
               ] else
                 const SizedBox(height: 24),
@@ -958,7 +1035,12 @@ class _DetailSheetState extends State<_DetailSheet> {
   }
 }
 
-void _showTambahTindakanSheet(BuildContext context, MasalahCubit cubit, String idMasalah, VoidCallback onRefresh) {
+void _showTambahTindakanSheet(
+  BuildContext context,
+  MasalahCubit cubit,
+  String idMasalah,
+  VoidCallback onRefresh,
+) {
   // NOTE: context is already valid here (called BEFORE Navigator.pop in caller).
   // cubit is passed explicitly to avoid reading from a potentially-dead context.
   showModalBottomSheet(
@@ -993,13 +1075,13 @@ class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
     'Kunjungan ke Rumah',
     'Pemanggilan Orang Tua',
     'Konseling Langsung',
-    'Lainnya'
+    'Lainnya',
   ];
 
   static const _hasilOptions = [
     'Belum Ada Perubahan',
     'Ada Perbaikan',
-    'Masalah Terselesaikan'
+    'Masalah Terselesaikan',
   ];
 
   @override
@@ -1009,7 +1091,9 @@ class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
   }
 
   Future<void> _submit() async {
-    if (_jenisPenyelesaian == null || _hasilTahap == null || _keteranganCtrl.text.isEmpty) {
+    if (_jenisPenyelesaian == null ||
+        _hasilTahap == null ||
+        _keteranganCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1051,18 +1135,17 @@ class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
       if (!mounted) return;
       setState(() => _saving = false);
       String errMsg = e.toString().replaceAll('Exception: ', '');
-      
+
       // Khusus untuk error 403 atau Akses Ditolak
-      if (errMsg.toLowerCase().contains('akses ditolak') || errMsg.contains('403')) {
-        errMsg = 'Akses Ditolak: Anda tidak memiliki izin untuk menambahkan tindakan pada masalah ini.';
+      if (errMsg.toLowerCase().contains('akses ditolak') ||
+          errMsg.contains('403')) {
+        errMsg =
+            'Akses Ditolak: Anda tidak memiliki izin untuk menambahkan tindakan pada masalah ini.';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            errMsg,
-            style: TextStyle(color: Colors.white),
-          ),
+          content: Text(errMsg, style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.red.shade600,
         ),
       );
@@ -1074,9 +1157,15 @@ class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final sheetBg = isDark ? theme.colorScheme.surfaceContainer : Colors.white;
-    final textMain = isDark ? theme.colorScheme.onSurface : const Color(0xFF1F2937);
-    final inputFill = isDark ? theme.colorScheme.surfaceContainerHigh : Colors.white;
-    final borderCol = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300;
+    final textMain = isDark
+        ? theme.colorScheme.onSurface
+        : const Color(0xFF1F2937);
+    final inputFill = isDark
+        ? theme.colorScheme.surfaceContainerHigh
+        : Colors.white;
+    final borderCol = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : Colors.grey.shade300;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1224,8 +1313,12 @@ class _TambahTindakanSheetState extends State<_TambahTindakanSheet> {
                   onPressed: _saving ? null : _submit,
                   child: _saving
                       ? const SizedBox(
-                          width: 24, height: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text(
                           'Simpan Tindakan',
@@ -1257,13 +1350,10 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
   final _formKey = GlobalKey<FormState>();
 
   // Autocomplete santri
-  final _nisCtrl = TextEditingController();
   final _namaCtrl = TextEditingController();
   final _keteranganCtrl = TextEditingController();
   String? _selectedNis;
-  List<Map<String, dynamic>> _santriSuggest = [];
-  Timer? _suggTimer;
-  bool _loadingSugg = false;
+  String? _selectedKelas;
 
   String? _jenisMasalah;
   DateTime _tglMasalah = DateTime.now();
@@ -1276,50 +1366,113 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
     'Lainnya',
   ];
 
+  List<Map<String, dynamic>> _localSantriList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalSantri();
+  }
+
+  Future<void> _loadLocalSantri() async {
+    try {
+      final isar = IsarDb.instance;
+      final List<Map<String, dynamic>> result = [];
+      int activeId = 0;
+
+      try {
+        activeId = context.read<ActiveKelompokCubit>().state.activeId;
+      } catch (e) {
+        // Fallback
+        activeId = 0;
+      }
+
+      if (activeId > 0) {
+        final t1 = await isar.tahfidzSantriModels
+            .filter()
+            .idKelompokEqualTo(activeId)
+            .findAll();
+        final t2 = await isar.praTahfidzSantriModels
+            .filter()
+            .idKelompokEqualTo(activeId)
+            .findAll();
+        final t3 = await isar.progressSantriModels
+            .filter()
+            .idKelompokEqualTo(activeId)
+            .findAll();
+        for (var s in t1) {
+          result.add({
+            'nis': s.nis,
+            'nama_santri': s.namaSantri,
+            'tingkat': s.tingkat ?? s.idKelas?.toString(),
+          });
+        }
+        for (var s in t2) {
+          result.add({
+            'nis': s.nis,
+            'nama_santri': s.namaSantri,
+            'tingkat': s.tingkat ?? s.idKelas?.toString(),
+          });
+        }
+        for (var s in t3) {
+          result.add({
+            'nis': s.nis,
+            'nama_santri': s.namaSantri,
+            'tingkat': s.tingkat ?? s.namaKelompok,
+          });
+        }
+      } else {
+        final t1 = await isar.tahfidzSantriModels.where().findAll();
+        final t2 = await isar.praTahfidzSantriModels.where().findAll();
+        final t3 = await isar.progressSantriModels.where().findAll();
+        for (var s in t1) {
+          result.add({
+            'nis': s.nis,
+            'nama_santri': s.namaSantri,
+            'tingkat': s.tingkat ?? s.idKelas?.toString(),
+          });
+        }
+        for (var s in t2) {
+          result.add({
+            'nis': s.nis,
+            'nama_santri': s.namaSantri,
+            'tingkat': s.tingkat ?? s.idKelas?.toString(),
+          });
+        }
+        for (var s in t3) {
+          result.add({
+            'nis': s.nis,
+            'nama_santri': s.namaSantri,
+            'tingkat': s.tingkat ?? s.namaKelompok,
+          });
+        }
+      }
+
+      final Map<String, Map<String, dynamic>> uniqueMap = {};
+      for (var s in result) {
+        if (s['nis'] != null && s['nis'].toString().isNotEmpty) {
+          uniqueMap[s['nis'].toString()] = s;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _localSantriList = uniqueMap.values.toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error load local santri: $e');
+    }
+  }
+
   @override
   void dispose() {
-    _nisCtrl.dispose();
     _namaCtrl.dispose();
     _keteranganCtrl.dispose();
-    _suggTimer?.cancel();
     super.dispose();
   }
 
-  void _onNisChanged(String val) {
-    if (_selectedNis != null) setState(() => _selectedNis = null);
-    _suggTimer?.cancel();
-    if (val.trim().length < 3) {
-      setState(() => _santriSuggest = []);
-      return;
-    }
-    _suggTimer = Timer(const Duration(milliseconds: 350), () async {
-      if (!mounted) return;
-      setState(() => _loadingSugg = true);
-      try {
-        final res = await ApiService.cariSantri(val.trim()); // intentional: generic santri search
-        if (!mounted) return;
-        setState(() {
-          _santriSuggest = res;
-          _loadingSugg = false;
-        });
-      } catch (_) {
-        if (!mounted) return;
-        setState(() {
-          _santriSuggest = [];
-          _loadingSugg = false;
-        });
-      }
-    });
-  }
 
-  void _pilihSantri(Map<String, dynamic> s) {
-    setState(() {
-      _selectedNis = s['nis']?.toString();
-      _nisCtrl.text = s['nis']?.toString() ?? '';
-      _namaCtrl.text = s['nama_santri']?.toString() ?? '';
-      _santriSuggest = [];
-    });
-  }
 
   Future<void> _simpan() async {
     if (!_formKey.currentState!.validate()) return;
@@ -1343,6 +1496,8 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
     try {
       await context.read<MasalahCubit>().repository.storeMasalah({
         'nis': _selectedNis!,
+        'nama_santri': _namaCtrl.text,
+        'kelas': _selectedKelas ?? '',
         'jenis_masalah': _jenisMasalah!,
         'keterangan': _keteranganCtrl.text.trim(),
         'tgl_masalah': DateFormat('yyyy-MM-dd').format(_tglMasalah),
@@ -1355,11 +1510,15 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
       onSaved();
       messenger.showSnackBar(
         SnackBar(
-          content: const Text('Masalah berhasil dicatat',
-              style: TextStyle(color: Colors.white)),
+          content: const Text(
+            'Masalah berhasil dicatat',
+            style: TextStyle(color: Colors.white),
+          ),
           backgroundColor: _kAccent,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     } catch (e) {
@@ -1382,7 +1541,9 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
               ? Colors.orange.shade600
               : Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
       if (isApproval) {
@@ -1398,12 +1559,18 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    final backgroundColor = isDark ? theme.colorScheme.surface : const Color(0xFFF8FAFC);
-    final inputColor = isDark ? theme.colorScheme.surfaceContainerHigh : Colors.white;
+
+    final backgroundColor = isDark
+        ? theme.colorScheme.surface
+        : const Color(0xFFF8FAFC);
+    final inputColor = isDark
+        ? theme.colorScheme.surfaceContainerHigh
+        : Colors.white;
     final textColor = isDark ? theme.colorScheme.onSurface : _kText1;
     final labelColor = isDark ? theme.colorScheme.onSurfaceVariant : _kText2;
-    final borderColor = isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE5E7EB);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : const Color(0xFFE5E7EB);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1413,6 +1580,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1) : null,
         ),
         child: Form(
           key: _formKey,
@@ -1428,7 +1596,9 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                       width: 36,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.grey.shade700 : const Color(0xFFD1D5DB),
+                        color: isDark
+                            ? Colors.grey.shade700
+                            : const Color(0xFFD1D5DB),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1466,10 +1636,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                           ),
                           Text(
                             'Isi form di bawah dengan lengkap',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: labelColor,
-                            ),
+                            style: TextStyle(fontSize: 12, color: labelColor),
                           ),
                         ],
                       ),
@@ -1483,147 +1650,83 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                     children: [
                       // Cari santri
                       _formLabel(context, 'Santri'),
-                      TextFormField(
-                        controller: _nisCtrl,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z0-9 ]'),
+                      InkWell(
+                        onTap: () async {
+                          if (_localSantriList.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Data santri lokal kosong atau sedang dimuat.',
+                                ),
+                                backgroundColor: Colors.orange.shade700,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            return;
+                          }
+                          final selected =
+                              await showModalBottomSheet<Map<String, dynamic>>(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (ctx) => SantriSelectionSheet(
+                                  santriList: _localSantriList,
+                                ),
+                              );
+                          if (selected != null) {
+                            setState(() {
+                              _selectedNis = selected['nis']?.toString();
+                              _namaCtrl.text =
+                                  selected['nama_santri']?.toString() ?? '';
+                              _selectedKelas = selected['tingkat']?.toString() ?? selected['kelas']?.toString() ?? '';
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 16,
                           ),
-                        ],
-                        style: TextStyle(fontSize: 14, color: textColor),
-                        decoration: _inputDeco(
-                          context,
-                          hint: 'Ketik NIS atau nama santri...',
-                          icon: Icons.person_search_rounded,
-                          suffix: _loadingSugg
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: _kAccent,
-                                  ),
-                                )
-                              : _selectedNis != null
-                              ? const Icon(
-                                  Icons.check_circle_rounded,
-                                  color: _kAccent,
-                                  size: 18,
-                                )
-                              : null,
-                        ),
-                        onChanged: _onNisChanged,
-                        validator: (v) =>
-                            (v == null || v.isEmpty) ? 'Wajib diisi' : null,
-                      ),
-                      // Saran santri
-                      if (_santriSuggest.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
                           decoration: BoxDecoration(
                             color: inputColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: borderColor),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(12),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            children: _santriSuggest.take(5).map((s) {
-                              final nama = s['nama_santri']?.toString() ?? '';
-                              final nis = s['nis']?.toString() ?? '';
-                              final kelas = s['tingkat']?.toString() ?? '';
-                              return InkWell(
-                                onTap: () => _pilihSantri(s),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 34,
-                                        height: 34,
-                                        decoration: BoxDecoration(
-                                          color: _kAccent.withAlpha(18),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.person_rounded,
-                                          color: _kAccent,
-                                          size: 18,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              nama,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: textColor,
-                                                decoration: TextDecoration.none,
-                                              ),
-                                            ),
-                                            Text(
-                                              '$nis • $kelas',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: labelColor,
-                                                decoration: TextDecoration.none,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      if (_selectedNis != null) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _kAccent.withAlpha(14),
-                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.check_rounded,
-                                size: 14,
+                                Icons.person_search_rounded,
                                 color: _kAccent,
+                                size: 18,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _namaCtrl.text,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: _kAccent,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _namaCtrl.text.isEmpty
+                                      ? 'Ketik NIS atau nama santri...'
+                                      : _namaCtrl.text,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: _namaCtrl.text.isEmpty
+                                        ? labelColor
+                                        : textColor,
+                                    fontWeight: _namaCtrl.text.isEmpty
+                                        ? FontWeight.normal
+                                        : FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                              ),
+                              const Icon(
+                                Icons.arrow_drop_down,
+                                color: Colors.grey,
                               ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
                       const SizedBox(height: 14),
                       // Jenis masalah
                       _formLabel(context, 'Jenis Masalah'),
@@ -1632,10 +1735,7 @@ class _TambahMasalahSheetState extends State<_TambahMasalahSheet> {
                         isExpanded: true,
                         hint: Text(
                           'Pilih jenis masalah',
-                          style: TextStyle(
-                            color: labelColor,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: labelColor, fontSize: 13),
                         ),
                         style: TextStyle(fontSize: 14, color: textColor),
                         dropdownColor: inputColor,

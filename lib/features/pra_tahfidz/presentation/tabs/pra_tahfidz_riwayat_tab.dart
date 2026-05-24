@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/bloc/pra_tahfidz_cubit.dart';
 
@@ -101,8 +102,10 @@ class _PraTahfidzRiwayatTabState extends State<PraTahfidzRiwayatTab>
 
   Future<void> _refresh() async {
     final tanggal = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final activeId = context.read<ActiveKelompokCubit>().state.activeId;
     await context.read<PraTahfidzCubit>().fetchSantriList(
           tanggal: tanggal,
+          idKelompok: activeId > 0 ? activeId : null,
           forceRefresh: true,
         );
   }

@@ -2,7 +2,7 @@ import 'widgets/detail_input_form_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:hijri/hijri_calendar.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
@@ -124,7 +124,7 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
               Navigator.pop(ctx);
               setState(() => _loading = true);
               try {
-                await ApiService.deleteProgress(idPrestasi);
+                await TahsinApiService.deleteProgress(idPrestasi);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Data berhasil dihapus")),
@@ -161,7 +161,7 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
         onSave: (updatedItem) async {
           setState(() => _loading = true);
           try {
-            await ApiService.updateProgress(
+            await TahsinApiService.updateProgress(
               int.tryParse(
                     updatedItem['id']?.toString() ??
                         updatedItem['id_prestasi']?.toString() ??
@@ -191,7 +191,7 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     setState(() => _sendingWa = true);
     try {
       final nis = widget.santri['nis']?.toString() ?? '';
-      final res = await ApiService.sendWaReport(nis: nis, target: target);
+      final res = await TahsinApiService.sendWaReport(nis: nis, target: target);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

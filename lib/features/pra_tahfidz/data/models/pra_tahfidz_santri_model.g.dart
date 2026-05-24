@@ -18,59 +18,74 @@ const PraTahfidzSantriModelSchema = CollectionSchema(
   name: r'PraTahfidzSantriModel',
   id: -4241259615207915459,
   properties: {
-    r'foto': PropertySchema(
+    r'defaultHal': PropertySchema(
       id: 0,
+      name: r'defaultHal',
+      type: IsarType.double,
+    ),
+    r'foto': PropertySchema(
+      id: 1,
       name: r'foto',
       type: IsarType.string,
     ),
     r'idKelas': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'idKelas',
       type: IsarType.long,
     ),
     r'idKelompok': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'idKelompok',
       type: IsarType.long,
     ),
     r'kumulatifHalaman': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'kumulatifHalaman',
       type: IsarType.double,
     ),
     r'namaSantri': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'namaSantri',
       type: IsarType.string,
     ),
     r'nis': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'nis',
       type: IsarType.string,
     ),
     r'pointerHalaman': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'pointerHalaman',
       type: IsarType.double,
     ),
     r'rawJson': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'rawJson',
       type: IsarType.string,
     ),
     r'sudahSetor': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'sudahSetor',
       type: IsarType.bool,
     ),
     r'tingkat': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'tingkat',
       type: IsarType.string,
     ),
+    r'totalHal': PropertySchema(
+      id: 11,
+      name: r'totalHal',
+      type: IsarType.double,
+    ),
     r'totalSetoran': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'totalSetoran',
+      type: IsarType.long,
+    ),
+    r'wajibTesKenaikan': PropertySchema(
+      id: 13,
+      name: r'wajibTesKenaikan',
       type: IsarType.long,
     )
   },
@@ -173,17 +188,20 @@ void _praTahfidzSantriModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.foto);
-  writer.writeLong(offsets[1], object.idKelas);
-  writer.writeLong(offsets[2], object.idKelompok);
-  writer.writeDouble(offsets[3], object.kumulatifHalaman);
-  writer.writeString(offsets[4], object.namaSantri);
-  writer.writeString(offsets[5], object.nis);
-  writer.writeDouble(offsets[6], object.pointerHalaman);
-  writer.writeString(offsets[7], object.rawJson);
-  writer.writeBool(offsets[8], object.sudahSetor);
-  writer.writeString(offsets[9], object.tingkat);
-  writer.writeLong(offsets[10], object.totalSetoran);
+  writer.writeDouble(offsets[0], object.defaultHal);
+  writer.writeString(offsets[1], object.foto);
+  writer.writeLong(offsets[2], object.idKelas);
+  writer.writeLong(offsets[3], object.idKelompok);
+  writer.writeDouble(offsets[4], object.kumulatifHalaman);
+  writer.writeString(offsets[5], object.namaSantri);
+  writer.writeString(offsets[6], object.nis);
+  writer.writeDouble(offsets[7], object.pointerHalaman);
+  writer.writeString(offsets[8], object.rawJson);
+  writer.writeBool(offsets[9], object.sudahSetor);
+  writer.writeString(offsets[10], object.tingkat);
+  writer.writeDouble(offsets[11], object.totalHal);
+  writer.writeLong(offsets[12], object.totalSetoran);
+  writer.writeLong(offsets[13], object.wajibTesKenaikan);
 }
 
 PraTahfidzSantriModel _praTahfidzSantriModelDeserialize(
@@ -193,18 +211,21 @@ PraTahfidzSantriModel _praTahfidzSantriModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = PraTahfidzSantriModel();
-  object.foto = reader.readStringOrNull(offsets[0]);
+  object.defaultHal = reader.readDoubleOrNull(offsets[0]);
+  object.foto = reader.readStringOrNull(offsets[1]);
   object.id = id;
-  object.idKelas = reader.readLongOrNull(offsets[1]);
-  object.idKelompok = reader.readLongOrNull(offsets[2]);
-  object.kumulatifHalaman = reader.readDoubleOrNull(offsets[3]);
-  object.namaSantri = reader.readStringOrNull(offsets[4]);
-  object.nis = reader.readStringOrNull(offsets[5]);
-  object.pointerHalaman = reader.readDoubleOrNull(offsets[6]);
-  object.rawJson = reader.readStringOrNull(offsets[7]);
-  object.sudahSetor = reader.readBoolOrNull(offsets[8]);
-  object.tingkat = reader.readStringOrNull(offsets[9]);
-  object.totalSetoran = reader.readLongOrNull(offsets[10]);
+  object.idKelas = reader.readLongOrNull(offsets[2]);
+  object.idKelompok = reader.readLongOrNull(offsets[3]);
+  object.kumulatifHalaman = reader.readDoubleOrNull(offsets[4]);
+  object.namaSantri = reader.readStringOrNull(offsets[5]);
+  object.nis = reader.readStringOrNull(offsets[6]);
+  object.pointerHalaman = reader.readDoubleOrNull(offsets[7]);
+  object.rawJson = reader.readStringOrNull(offsets[8]);
+  object.sudahSetor = reader.readBoolOrNull(offsets[9]);
+  object.tingkat = reader.readStringOrNull(offsets[10]);
+  object.totalHal = reader.readDoubleOrNull(offsets[11]);
+  object.totalSetoran = reader.readLongOrNull(offsets[12]);
+  object.wajibTesKenaikan = reader.readLongOrNull(offsets[13]);
   return object;
 }
 
@@ -216,26 +237,32 @@ P _praTahfidzSantriModelDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 1:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
       return (reader.readLongOrNull(offset)) as P;
     case 3:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 4:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 8:
-      return (reader.readBoolOrNull(offset)) as P;
-    case 9:
       return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readBoolOrNull(offset)) as P;
     case 10:
+      return (reader.readStringOrNull(offset)) as P;
+    case 11:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 12:
+      return (reader.readLongOrNull(offset)) as P;
+    case 13:
       return (reader.readLongOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -710,6 +737,90 @@ extension PraTahfidzSantriModelQueryWhere on QueryBuilder<PraTahfidzSantriModel,
 
 extension PraTahfidzSantriModelQueryFilter on QueryBuilder<
     PraTahfidzSantriModel, PraTahfidzSantriModel, QFilterCondition> {
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> defaultHalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'defaultHal',
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> defaultHalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'defaultHal',
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> defaultHalEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'defaultHal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> defaultHalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'defaultHal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> defaultHalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'defaultHal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> defaultHalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'defaultHal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
       QAfterFilterCondition> fotoIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -1891,6 +2002,90 @@ extension PraTahfidzSantriModelQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> totalHalIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'totalHal',
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> totalHalIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'totalHal',
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> totalHalEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'totalHal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> totalHalGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'totalHal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> totalHalLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'totalHal',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> totalHalBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'totalHal',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
       QAfterFilterCondition> totalSetoranIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1963,6 +2158,80 @@ extension PraTahfidzSantriModelQueryFilter on QueryBuilder<
       ));
     });
   }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> wajibTesKenaikanIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'wajibTesKenaikan',
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> wajibTesKenaikanIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'wajibTesKenaikan',
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> wajibTesKenaikanEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'wajibTesKenaikan',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> wajibTesKenaikanGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'wajibTesKenaikan',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> wajibTesKenaikanLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'wajibTesKenaikan',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel,
+      QAfterFilterCondition> wajibTesKenaikanBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'wajibTesKenaikan',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension PraTahfidzSantriModelQueryObject on QueryBuilder<
@@ -1973,6 +2242,20 @@ extension PraTahfidzSantriModelQueryLinks on QueryBuilder<PraTahfidzSantriModel,
 
 extension PraTahfidzSantriModelQuerySortBy
     on QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QSortBy> {
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      sortByDefaultHal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defaultHal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      sortByDefaultHalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defaultHal', Sort.desc);
+    });
+  }
+
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
       sortByFoto() {
     return QueryBuilder.apply(this, (query) {
@@ -2114,6 +2397,20 @@ extension PraTahfidzSantriModelQuerySortBy
   }
 
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      sortByTotalHal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalHal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      sortByTotalHalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalHal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
       sortByTotalSetoran() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'totalSetoran', Sort.asc);
@@ -2126,10 +2423,38 @@ extension PraTahfidzSantriModelQuerySortBy
       return query.addSortBy(r'totalSetoran', Sort.desc);
     });
   }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      sortByWajibTesKenaikan() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wajibTesKenaikan', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      sortByWajibTesKenaikanDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wajibTesKenaikan', Sort.desc);
+    });
+  }
 }
 
 extension PraTahfidzSantriModelQuerySortThenBy
     on QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QSortThenBy> {
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      thenByDefaultHal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defaultHal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      thenByDefaultHalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'defaultHal', Sort.desc);
+    });
+  }
+
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
       thenByFoto() {
     return QueryBuilder.apply(this, (query) {
@@ -2285,6 +2610,20 @@ extension PraTahfidzSantriModelQuerySortThenBy
   }
 
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      thenByTotalHal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalHal', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      thenByTotalHalDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalHal', Sort.desc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
       thenByTotalSetoran() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'totalSetoran', Sort.asc);
@@ -2297,10 +2636,31 @@ extension PraTahfidzSantriModelQuerySortThenBy
       return query.addSortBy(r'totalSetoran', Sort.desc);
     });
   }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      thenByWajibTesKenaikan() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wajibTesKenaikan', Sort.asc);
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QAfterSortBy>
+      thenByWajibTesKenaikanDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wajibTesKenaikan', Sort.desc);
+    });
+  }
 }
 
 extension PraTahfidzSantriModelQueryWhereDistinct
     on QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QDistinct> {
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QDistinct>
+      distinctByDefaultHal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'defaultHal');
+    });
+  }
+
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QDistinct>
       distinctByFoto({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2372,9 +2732,23 @@ extension PraTahfidzSantriModelQueryWhereDistinct
   }
 
   QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QDistinct>
+      distinctByTotalHal() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalHal');
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QDistinct>
       distinctByTotalSetoran() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'totalSetoran');
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, PraTahfidzSantriModel, QDistinct>
+      distinctByWajibTesKenaikan() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'wajibTesKenaikan');
     });
   }
 }
@@ -2384,6 +2758,13 @@ extension PraTahfidzSantriModelQueryProperty on QueryBuilder<
   QueryBuilder<PraTahfidzSantriModel, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, double?, QQueryOperations>
+      defaultHalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'defaultHal');
     });
   }
 
@@ -2456,10 +2837,24 @@ extension PraTahfidzSantriModelQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<PraTahfidzSantriModel, double?, QQueryOperations>
+      totalHalProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalHal');
+    });
+  }
+
   QueryBuilder<PraTahfidzSantriModel, int?, QQueryOperations>
       totalSetoranProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'totalSetoran');
+    });
+  }
+
+  QueryBuilder<PraTahfidzSantriModel, int?, QQueryOperations>
+      wajibTesKenaikanProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'wajibTesKenaikan');
     });
   }
 }

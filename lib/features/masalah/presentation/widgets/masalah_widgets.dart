@@ -182,6 +182,7 @@ class MasalahCard extends StatelessWidget {
         item['tgl_deteksi']?.toString() ??
         '';
     final tglSelesai = item['tgl_selesai']?.toString() ?? '';
+    final status = item['status']?.toString() ?? '';
 
     final barClr = masalahJenisColor(jenis);
 
@@ -243,7 +244,19 @@ class MasalahCard extends StatelessWidget {
                           // Row 2: chips NIS & kelas
                           Wrap(
                             spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
+                              if (status.toLowerCase() == 'pending approval')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                                  ),
+                                  child: const Text('Pending', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold)),
+                                ),
                               MasalahChip(icon: Icons.badge_outlined, text: nis),
                               if (kelas.isNotEmpty)
                                 MasalahChip(icon: Icons.school_outlined, text: kelas),

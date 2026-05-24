@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:isar/isar.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
+import 'package:manajemen_tahsin_app/features/masalah/domain/repositories/masalah_repository.dart';
+import 'package:manajemen_tahsin_app/features/masalah/presentation/widgets/santri_selection_sheet.dart';
+import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfidz_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/progress/data/models/progress_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/tahfidz/data/models/tahfidz_santri_model.dart';
 
 class CatatMasalahBottomSheet extends StatefulWidget {
   const CatatMasalahBottomSheet({super.key});
@@ -28,6 +36,60 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
     'Kesehatan',
     'Lainnya',
   ];
+
+  List<Map<String, dynamic>> _localSantriList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocalSantri();
+  }
+
+  Future<void> _loadLocalSantri() async {
+    try {
+      final isar = IsarDb.instance;
+      final List<Map<String, dynamic>> result = [];
+      int activeId = 0;
+      
+      try {
+        activeId = context.read<ActiveKelompokCubit>().state.activeId;
+      } catch (e) {
+        // Fallback jika tidak ada context provider ActiveKelompokCubit
+        activeId = 0;
+      }
+
+      if (activeId > 0) {
+        final t1 = await isar.tahfidzSantriModels.filter().idKelompokEqualTo(activeId).findAll();
+        final t2 = await isar.praTahfidzSantriModels.filter().idKelompokEqualTo(activeId).findAll();
+        final t3 = await isar.progressSantriModels.filter().idKelompokEqualTo(activeId).findAll();
+        for (var s in t1) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
+        for (var s in t2) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
+        for (var s in t3) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.namaKelompok}); }
+      } else {
+        final t1 = await isar.tahfidzSantriModels.where().findAll();
+        final t2 = await isar.praTahfidzSantriModels.where().findAll();
+        final t3 = await isar.progressSantriModels.where().findAll();
+        for (var s in t1) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
+        for (var s in t2) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
+        for (var s in t3) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.namaKelompok}); }
+      }
+
+      final Map<String, Map<String, dynamic>> uniqueMap = {};
+      for (var s in result) {
+        if (s['nis'] != null && s['nis'].toString().isNotEmpty) {
+          uniqueMap[s['nis'].toString()] = s;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _localSantriList = uniqueMap.values.toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error load local santri: $e');
+    }
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -102,6 +164,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
         ),
+        border: isDark ? Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1) : null,
       ),
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -169,163 +232,66 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
               // Field 1: Santri (Autocomplete)
               Text('Santri', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textSub)),
               const SizedBox(height: 8),
-              if (_selectedSantri == null)
-                Autocomplete<Map<String, dynamic>>(
-                  optionsBuilder: (TextEditingValue textEditingValue) async {
-                    final keyword = textEditingValue.text;
-                    if (keyword.length < 2) return <Map<String, dynamic>>[];
-                    try {
-                      final list = await ApiService.cariSantri(keyword);
-                      return list as Iterable<Map<String, dynamic>>;
-                    } catch (_) {
-                      return <Map<String, dynamic>>[];
-                    }
-                  },
-                  displayStringForOption: (option) =>
-                      option['nama_santri'] as String,
-                  // Bug Fix: onSelected correctly sets _selectedSantri state
-                  onSelected: (suggestion) {
+              InkWell(
+                onTap: () async {
+                  if (_localSantriList.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Data santri lokal kosong atau sedang dimuat.'),
+                        backgroundColor: Colors.orange.shade700,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    return;
+                  }
+                  final selected = await showModalBottomSheet<Map<String, dynamic>>(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (ctx) => SantriSelectionSheet(santriList: _localSantriList),
+                  );
+                  if (selected != null) {
                     setState(() {
-                      _selectedSantri = suggestion;
+                      _selectedSantri = selected;
                     });
-                  },
-                  fieldViewBuilder: (
-                    context,
-                    textEditingController,
-                    focusNode,
-                    onFieldSubmitted,
-                  ) {
-                    return TextField(
-                      controller: textEditingController,
-                      focusNode: focusNode,
-                      style: TextStyle(fontSize: 14, color: textMain),
-                      decoration: inputDecoration.copyWith(
-                        hintText: 'Ketik NIS atau nama santri...',
-                        prefixIcon: const Icon(
-                          Icons.person_search_outlined,
-                          color: accentGreen,
-                        ),
-                      ),
-                    );
-                  },
-                  optionsViewBuilder: (context, onSelected, options) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 8,
-                        color: inputFill,
-                        borderRadius: BorderRadius.circular(12),
-                        shadowColor: Colors.black.withValues(alpha: 0.15),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxHeight: 220,
-                            maxWidth: 380,
-                          ),
-                          child: ListView.separated(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length > 5 ? 5 : options.length,
-                            separatorBuilder: (_, __) => Divider(
-                              height: 1,
-                              color: inputBorder,
-                            ),
-                            itemBuilder: (context, index) {
-                              final option = options.elementAt(index);
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: accentGreen.withValues(alpha: 0.12),
-                                  child: const Icon(
-                                    Icons.person,
-                                    color: accentGreen,
-                                  ),
-                                ),
-                                title: Text(
-                                  option['nama_santri'] as String,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: textMain,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  '${option['nis']} • ${option['kelas'] ?? option['tingkat'] ?? ''}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: textSub,
-                                  ),
-                                ),
-                                onTap: () => onSelected(option),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                )
-              else
-                // Selected Santri Card
-                Container(
-                  padding: const EdgeInsets.all(12),
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    color: accentGreen.withValues(alpha: 0.08),
+                    color: inputFill,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: accentGreen.withValues(alpha: 0.25)),
+                    border: Border.all(color: inputBorder),
                   ),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        backgroundColor: accentGreen.withValues(alpha: 0.15),
-                        child: Text(
-                          (_selectedSantri!['nama_santri'] as String)[0].toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: accentGreen,
-                          ),
-                        ),
-                      ),
+                      const Icon(Icons.person_search_outlined, color: accentGreen),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _selectedSantri!['nama_santri'] as String,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: textMain,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'NIS: ${_selectedSantri!['nis']} • Kelas: ${_selectedSantri!['kelas'] ?? _selectedSantri!['tingkat'] ?? '-'}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: textSub,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          _selectedSantri?['nama_santri'] ?? 'Pilih Santri...',
+                          style: TextStyle(
+                            fontSize: 14, 
+                            color: _selectedSantri == null ? textSub : textMain,
+                            fontWeight: _selectedSantri == null ? FontWeight.normal : FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: textSub),
-                        onPressed: () {
-                          setState(() {
-                            _selectedSantri = null;
-                          });
-                        },
-                      ),
+                      const Icon(Icons.arrow_drop_down, color: Colors.grey),
                     ],
                   ),
                 ),
+              ),
               const SizedBox(height: 16),
 
               // Field 2: Jenis Masalah
               Text('Jenis Masalah', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textSub)),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedJenisMasalah,
+                initialValue: _selectedJenisMasalah,
                 dropdownColor: inputFill,
                 hint: Text(
                   'Pilih jenis masalah',
@@ -459,16 +425,30 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                                   '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
 
                               try {
-                                await ApiService.storeMasalah(
-                                  nis: _selectedSantri!['nis'].toString(),
-                                  jenisMasalah: _selectedJenisMasalah!,
-                                  keterangan: _keteranganController.text.trim(),
-                                  tglMasalah: tglStr,
+                                final payload = {
+                                  'nis': _selectedSantri!['nis'].toString(),
+                                  'nama_santri': _selectedSantri!['nama_santri']?.toString() ?? '',
+                                  'kelas': _selectedSantri!['tingkat']?.toString() ?? _selectedSantri!['kelas']?.toString() ?? '',
+                                  'jenis_masalah': _selectedJenisMasalah!,
+                                  'keterangan': _keteranganController.text.trim(),
+                                  'tgl_masalah': tglStr,
+                                };
+                                await context.read<MasalahRepository>().storeMasalah(payload);
+                                
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Tersimpan di antrean offline'),
+                                    backgroundColor: Colors.green.shade700,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
                                 );
-                                if (!mounted) return;
                                 Navigator.pop(context, true);
                               } catch (e) {
-                                if (!mounted) return;
+                                if (!context.mounted) return;
                                 setState(() => _isSaving = false);
                                 final msg = e.toString().replaceFirst('Exception: ', '');
                                 final isApproval = msg.toLowerCase().contains('approval') ||

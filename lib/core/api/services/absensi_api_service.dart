@@ -1,4 +1,8 @@
 import 'package:manajemen_tahsin_app/core/api/core_api_client.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_binaan_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_universal_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/guru_universal_cache.dart';
 
 class AbsensiApiService {
   static Future<Map<String, dynamic>> scanAbsen(
@@ -52,10 +56,12 @@ class AbsensiApiService {
   static Future<Map<String, dynamic>> getAbsenHarian({
     String? tanggal,
     int? idKelas,
+    String? kodeJalur,
   }) async {
     final Map<String, dynamic> queryParams = {};
     if (tanggal != null) queryParams['tanggal'] = tanggal;
     if (idKelas != null) queryParams['id_kelas'] = idKelas;
+    if (kodeJalur != null) queryParams['kode_jalur'] = kodeJalur;
 
     return CoreApiClient.get(
       'guru/absen-santri',
@@ -67,5 +73,76 @@ class AbsensiApiService {
     Map<String, dynamic> payload,
   ) async {
     return CoreApiClient.post('guru/absen-santri/simpan', payload);
+  }
+
+  static Future<void> syncSantriBinaan() async {
+    try {
+      final res = await CoreApiClient.get('guru/absen-santri/binaan');
+      final listSantri = (res['data']?['santri'] as List?) ?? [];
+      
+      final isar = IsarDb.instance;
+      await isar.writeTxn(() async {
+        await isar.santriBinaanCaches.clear();
+        
+        final insertList = <SantriBinaanCache>[];
+        for (var s in listSantri) {
+          insertList.add(SantriBinaanCache()
+            ..nis = s['nis']?.toString() ?? ''
+            ..nama = s['nama_santri'] ?? ''
+            ..tingkatKelas = s['tingkat']
+            ..kodeJalur = s['kode_jalur']
+            ..idKelas = int.tryParse(s['id_kelas']?.toString() ?? '0') ?? 0
+          );
+        }
+        await isar.santriBinaanCaches.putAll(insertList);
+      });
+    } catch (_) {
+      // Abaikan error (fail silently di background)
+    }
+  }
+
+  static Future<int> syncSemuaSantri() async {
+    final res = await CoreApiClient.get('guru/absen-santri/all-santri');
+    final listSantri = (res['data']?['santri'] as List?) ?? [];
+    
+    final isar = IsarDb.instance;
+    await isar.writeTxn(() async {
+      await isar.santriUniversalCaches.clear();
+      
+      final insertList = <SantriUniversalCache>[];
+      for (var s in listSantri) {
+        insertList.add(SantriUniversalCache()
+          ..nis = s['nis']?.toString() ?? ''
+          ..nama = s['nama_santri'] ?? ''
+          ..tingkatKelas = s['tingkat']
+          ..kodeJalur = s['kode_jalur']
+          ..idKelas = int.tryParse(s['id_kelas']?.toString() ?? '0') ?? 0
+        );
+      }
+      await isar.santriUniversalCaches.putAll(insertList);
+    });
+
+    return listSantri.length;
+  }
+
+  static Future<int> syncSemuaGuru() async {
+    final res = await CoreApiClient.get('guru/absen-santri/all-guru');
+    final listGuru = (res['data']?['guru'] as List?) ?? [];
+    
+    final isar = IsarDb.instance;
+    await isar.writeTxn(() async {
+      await isar.guruUniversalCaches.clear();
+      
+      final insertList = <GuruUniversalCache>[];
+      for (var s in listGuru) {
+        insertList.add(GuruUniversalCache()
+          ..nig = s['nig']?.toString() ?? ''
+          ..nama = s['nama_guru'] ?? ''
+        );
+      }
+      await isar.guruUniversalCaches.putAll(insertList);
+    });
+
+    return listGuru.length;
   }
 }

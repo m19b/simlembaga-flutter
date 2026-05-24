@@ -523,10 +523,10 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
               const SizedBox(width: 8),
-              Text('Simpan ke-$ke?'),
+              const Text('Konfirmasi Input Ganda'),
             ],
           ),
-          content: const Text('Santri ini sudah memiliki input hari ini pada sesi yang sama. Apakah Anda yakin ingin menyimpan lagi? (Simpan ke-N)'),
+          content: const Text('Terdapat input pada tanggal yang sama. Anda yakin menyimpan inputan ini?'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal', style: TextStyle(color: Colors.grey))),
             ElevatedButton(
@@ -563,18 +563,22 @@ class ProgressInputScreenState extends State<ProgressInputScreen>
         }
       }
 
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
+      );
+
       final cubit = context.read<TahsinCubit>();
-      final success = await cubit.submitInputMassal(
+      final result = await cubit.submitInputMassal(
         payload,
       );
-      String pesan = success
-          ? 'Evaluasi berhasil diproses!'
-          : 'Gagal memproses evaluasi.';
-
+      
       if (!mounted) return;
+      Navigator.pop(context); // Tutup loading
 
-
-
+      final bool success = result['success'] == true;
+      final String pesan = result['message'] ?? (success ? 'Evaluasi berhasil diproses!' : 'Gagal memproses evaluasi.');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

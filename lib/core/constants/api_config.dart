@@ -151,7 +151,7 @@ class ApiConfig {
           mdnsHost = '$mdnsHost.local';
         }
 
-        debugPrint("🔍 Mencoba mDNS manual untuk: $mdnsHost ...");
+        debugPrint("rrrrrrrrrrrrrrrrrrrrrrr Mencoba mDNS manual untuk: $mdnsHost ...");
 
         // mDNS client dengan binding yang aman
         final MDnsClient client = MDnsClient(

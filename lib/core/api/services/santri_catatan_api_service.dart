@@ -45,24 +45,30 @@ class SantriCatatanApiService {
 
   // ── DAFTAR TES ─────────────────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getCalonTes() async {
-    return CoreApiClient.get('guru/tes/calon');
+  static Future<Map<String, dynamic>> getCalonTes({String? kodeJalur}) async {
+    final Map<String, dynamic> q = {};
+    if (kodeJalur != null && kodeJalur.isNotEmpty) q['kode_jalur'] = kodeJalur;
+    return CoreApiClient.get('guru/tes/calon', queryParameters: q.isEmpty ? null : q);
   }
 
   static Future<Map<String, dynamic>> daftarkanTes({
     required String nis,
     required String idKelas,
     required String idKelompok,
+    required String kodeJalur,
   }) async {
     return CoreApiClient.post('guru/tes/daftarkan', {
       'nis': nis,
       'id_kelas': idKelas,
       'id_kelompok': idKelompok,
+      'kode_jalur': kodeJalur,
     });
   }
 
-  static Future<Map<String, dynamic>> getAntrianTes() async {
-    return CoreApiClient.get('guru/tes/antrian');
+  static Future<Map<String, dynamic>> getAntrianTes({String? kodeJalur}) async {
+    final Map<String, dynamic> q = {};
+    if (kodeJalur != null && kodeJalur.isNotEmpty) q['kode_jalur'] = kodeJalur;
+    return CoreApiClient.get('guru/tes/antrian', queryParameters: q.isEmpty ? null : q);
   }
 
   static Future<Map<String, dynamic>> batalkanTes({
@@ -75,12 +81,14 @@ class SantriCatatanApiService {
     String? status,
     required String tglMulai,
     required String tglAkhir,
+    String? kodeJalur,
   }) async {
     final Map<String, dynamic> q = {
       'tgl_mulai': tglMulai,
       'tgl_akhir': tglAkhir,
     };
     if (status != null && status.isNotEmpty) q['status'] = status;
+    if (kodeJalur != null && kodeJalur.isNotEmpty) q['kode_jalur'] = kodeJalur;
     return CoreApiClient.get('guru/tes/riwayat', queryParameters: q);
   }
 

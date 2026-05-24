@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:google_fonts/google_fonts.dart';
 import 'package:manajemen_tahsin_app/features/catatan_master/data/catatan_master_model.dart';
 import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_cubit.dart';
 import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_state.dart';
@@ -9,7 +8,11 @@ class CatatanFormSheet extends StatefulWidget {
   final CatatanMaster? item;
   final Map<String, dynamic> filterMeta;
 
-  const CatatanFormSheet({super.key, this.item, required this.filterMeta});
+  const CatatanFormSheet({
+    super.key,
+    this.item,
+    required this.filterMeta,
+  });
 
   @override
   State<CatatanFormSheet> createState() => _CatatanFormSheetState();
@@ -19,9 +22,12 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _teksCtrl;
   late TextEditingController _urutanCtrl;
+  
   int? _selectedKelasId;
   int? _selectedKelompokId;
   bool _aktif = true;
+
+  List<Map<String, dynamic>> _kelasList = [];
 
   @override
   void initState() {
@@ -31,6 +37,17 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
     _selectedKelasId = widget.item?.idKelas;
     _selectedKelompokId = widget.item?.idKelompok;
     _aktif = widget.item?.aktif ?? true;
+
+    // Parse filterMeta kelas
+    final rawKelas = widget.filterMeta['kelas_list'];
+    if (rawKelas is List) {
+      _kelasList = rawKelas.map((e) {
+        if (e is Map) {
+          return e.map((k, v) => MapEntry(k.toString(), v));
+        }
+        return <String, dynamic>{};
+      }).where((e) => e.isNotEmpty).toList();
+    }
   }
 
   @override
@@ -44,15 +61,9 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
     if (val == null) return;
     setState(() {
       _selectedKelasId = val;
-      // Cari id_kelompok dari list kelas (Sesuai spec backend: id_kelompok harus dikirim)
-      final rawKelas = widget.filterMeta['kelas_list'];
-      final kelasList = rawKelas is List ? rawKelas.whereType<Map>().map((e) {
-        final Map<String, dynamic> m = {};
-        e.forEach((k, v) => m[k.toString()] = v);
-        return m;
-      }).toList() : [];
+      // Cari id_kelompok dari list kelas (Sesuai spec backend)
       Map<String, dynamic>? kelasData;
-      for (var k in kelasList) {
+      for (var k in _kelasList) {
         if (int.tryParse(k['id_kelas'].toString()) == val) {
           kelasData = k;
           break;
@@ -92,18 +103,13 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.item != null;
-    final rawKelas = widget.filterMeta['kelas_list'];
-    final kelasList = rawKelas is List ? rawKelas.whereType<Map>().map((e) {
-      final Map<String, dynamic> m = {};
-      e.forEach((k, v) => m[k.toString()] = v);
-      return m;
-    }).toList() : [];
 
     return Container(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        color: Theme.of(context).scaffoldBackgroundColor, // bg utama gelap
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 1.5)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -120,15 +126,18 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
               ),
               const SizedBox(height: 24),
+              
+              // Dropdown Kelas (Dropdown 2)
               _buildLabel('Target Kelas'),
-              _buildDropdownKelas(kelasList),
+              _buildDropdownKelas(_kelasList),
               const SizedBox(height: 16),
+              
               _buildLabel('Teks Catatan'),
               TextFormField(
                 controller: _teksCtrl,
                 maxLines: 3,
                 decoration: _inputDecoration(context, 'Contoh: Bunyi huruf sudah fasih'),
-                style: TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 14),
                 validator: (v) => v == null || v.isEmpty ? 'Teks tidak boleh kosong' : null,
               ),
               const SizedBox(height: 16),
@@ -143,7 +152,7 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
                           controller: _urutanCtrl,
                           keyboardType: TextInputType.number,
                           decoration: _inputDecoration(context, '0'),
-                          style: TextStyle(fontSize: 14),
+                          style: const TextStyle(fontSize: 14),
                         ),
                       ],
                     ),
@@ -156,7 +165,7 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
                         _buildLabel('Status'),
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
-                          title: Text(_aktif ? 'Aktif' : 'Nonaktif', style: TextStyle(fontSize: 14)),
+                          title: Text(_aktif ? 'Aktif' : 'Nonaktif', style: const TextStyle(fontSize: 14)),
                           value: _aktif,
                           onChanged: (v) => setState(() => _aktif = v),
                           activeThumbColor: const Color(0xFF16A34A),
@@ -175,14 +184,14 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
                     return ElevatedButton(
                       onPressed: isLoading ? null : _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F4C2A),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
                       child: isLoading
                           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : Text(isEdit ? 'Simpan Perubahan' : 'Tambah Catatan', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                          : Text(isEdit ? 'Simpan Perubahan' : 'Tambah Catatan', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     );
                   },
                 ),
@@ -203,40 +212,41 @@ class _CatatanFormSheetState extends State<CatatanFormSheet> {
   }
 
   InputDecoration _inputDecoration(BuildContext context, String hint) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
       filled: true,
-      fillColor: isDark ? const Color(0xFF374151) : Colors.grey.shade50,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.grey.shade700 : Colors.grey.shade200)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? Colors.green.shade400 : const Color(0xFF0F4C2A))),
+      fillColor: Theme.of(context).cardColor, // inputan diberi warna seperti bg lama
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
   }
 
-  Widget _buildDropdownKelas(List<dynamic> items) {
-    // 🔥 PERBAIKAN: Validasi agar tidak crash jika ID tidak ada di list (Otoritas Guru)
+
+
+  Widget _buildDropdownKelas(List<Map<String, dynamic>> items) {
     final bool valueExists = items.any((item) => int.tryParse(item['id_kelas']?.toString() ?? '') == _selectedKelasId);
     final int? effectiveValue = valueExists ? _selectedKelasId : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF374151) : Colors.grey.shade50,
+        color: Theme.of(context).cardColor, // bg dropdown
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade700 : Colors.grey.shade200),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: effectiveValue,
           isExpanded: true,
-          hint: Text('Pilih Kelas', style: TextStyle(fontSize: 14)),
+          dropdownColor: Theme.of(context).cardColor,
+          hint: const Text('Pilih Kelas', style: TextStyle(fontSize: 14)),
           items: items.map((item) {
             return DropdownMenuItem<int>(
               value: int.tryParse(item['id_kelas']?.toString() ?? '0'),
-              child: Text(item['tingkat']?.toString() ?? '-', style: TextStyle(fontSize: 14)),
+              child: Text(item['tingkat']?.toString() ?? '-', style: const TextStyle(fontSize: 14)),
             );
           }).toList(),
           onChanged: _onKelasChanged,

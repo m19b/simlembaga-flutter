@@ -1,28 +1,31 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/api/api_service.dart';
+import '../../domain/repositories/daftar_tes_repository.dart';
 import '../../data/tes_model.dart';
 import 'tes_state.dart';
+import 'package:manajemen_tahsin_app/core/enums/jalur_enum.dart';
 
 class TesCubit extends Cubit<TesState> {
-  TesCubit() : super(TesInitial());
+  final DaftarTesRepository repository;
+  JalurEnum currentJalur = JalurEnum.tahsin;
+  
+  TesCubit({required this.repository}) : super(TesInitial());
 
   List<RiwayatTes> _riwayatCache = [];
   bool _hasReachedMax = false;
 
-  Future<void> loadDaftarTes() async {
+  Future<void> loadDaftarTes({bool forceRefresh = false, JalurEnum? jalur}) async {
+    if (jalur != null) {
+      currentJalur = jalur;
+    }
     emit(TesLoading());
     try {
-      // 1. Fetch both endpoints concurrently
-      final responses = await Future.wait([
-        ApiService.getCalonTes(),
-        ApiService.getAntrianTes(),
-      ]);
+      final data = await repository.getDaftarTes(
+        forceRefresh: forceRefresh,
+        jalur: currentJalur,
+      );
 
-      final calonResponse = responses[0];
-      final antrianResponse = responses[1];
-
-      final calonData = calonResponse['data'];
-      final antrianData = antrianResponse['data'];
+      final calonData = data['calon']?['data'];
+      final antrianData = data['antrian']?['data'];
 
       final calonList = (calonData is Map && calonData['calon_test'] is List)
           ? (calonData['calon_test'] as List)
@@ -36,7 +39,7 @@ class TesCubit extends Cubit<TesState> {
               .toList()
           : <CalonTes>[];
 
-      // 2. Merge Both Lists
+      // Merge Both Lists
       final mergedList = [...calonList, ...antrianList];
 
       emit(TesLoaded(calonTesList: mergedList));
@@ -49,17 +52,30 @@ class TesCubit extends Cubit<TesState> {
     required String nis,
     required String idKelas,
     required String idKelompok,
+    String? kodeJalur, // Accept kodeJalur overrides
   }) async {
     final currentState = state;
     emit(TesLoading());
+    
+    // Fallback to current state if null
+    final finalKodeJalur = kodeJalur ?? currentJalur.kode;
+    
     try {
-      final response = await ApiService.daftarkanTes(
+      final success = await repository.daftarkanTes(
         nis: nis,
         idKelas: idKelas,
         idKelompok: idKelompok,
+        kodeJalur: finalKodeJalur,
       );
-      emit(TesActionSuccess(response['message'] ?? 'Berhasil mendaftarkan santri'));
-      await loadDaftarTes();
+      if (success) {
+        emit(TesActionSuccess('Tersimpan di antrean offline.'));
+        await loadDaftarTes(forceRefresh: true);
+      } else {
+        emit(TesError('Gagal mendaftarkan tes.'));
+        if (currentState is TesLoaded) {
+          emit(currentState);
+        }
+      }
     } catch (e) {
       emit(TesError(e.toString().replaceAll('Exception: ', '')));
       if (currentState is TesLoaded) {
@@ -72,9 +88,16 @@ class TesCubit extends Cubit<TesState> {
     final currentState = state;
     emit(TesLoading());
     try {
-      final response = await ApiService.batalkanTes(idDaftar: idDaftar);
-      emit(TesActionSuccess(response['message'] ?? 'Berhasil membatalkan tes santri'));
-      await loadDaftarTes();
+      final success = await repository.batalkanTes(idDaftar);
+      if (success) {
+        emit(TesActionSuccess('Tersimpan di antrean offline.'));
+        await loadDaftarTes(forceRefresh: true);
+      } else {
+        emit(TesError('Gagal membatalkan tes.'));
+        if (currentState is TesLoaded) {
+          emit(currentState);
+        }
+      }
     } catch (e) {
       emit(TesError(e.toString().replaceAll('Exception: ', '')));
       if (currentState is TesLoaded) {
@@ -87,8 +110,13 @@ class TesCubit extends Cubit<TesState> {
     String? status, 
     required String tglMulai, 
     required String tglAkhir, 
+    JalurEnum? jalur,
     bool reload = false
   }) async {
+    if (jalur != null) {
+      currentJalur = jalur;
+    }
+    
     if (reload) {
       _riwayatCache.clear();
       _hasReachedMax = false;
@@ -98,10 +126,12 @@ class TesCubit extends Cubit<TesState> {
     }
 
     try {
-      final response = await ApiService.getRiwayatTes(
+      final response = await repository.getRiwayatTes(
         status: status,
         tglMulai: tglMulai,
         tglAkhir: tglAkhir,
+        jalur: currentJalur,
+        forceRefresh: reload,
       );
       
       final rawData = response['data']?['riwayat_test'] ?? response['data']?['riwayat'] ?? response['data'];

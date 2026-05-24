@@ -85,6 +85,7 @@ class AuthApiService {
                 ..idKelas = idKelas
                 ..tingkat = k['tingkat']?.toString()
                 ..idKelompok = int.tryParse(k['id_kelompok']?.toString() ?? '0')
+                ..idKategori = int.tryParse(k['id_kategori']?.toString() ?? '0')
                 ..namaKelompok = k['nama_kelompok']?.toString();
 
               if (k['checkpoints'] != null && k['checkpoints'] is List) {
@@ -180,7 +181,7 @@ class AuthApiService {
         if (fotoFile != null)
           'foto': await MultipartFile.fromFile(fotoFile.path, filename: fotoFile.path.split('/').last),
       });
-      debugPrint('📡 API_POST_MULTIPART: api/guru/profile/update');
+      debugPrint('rrrrrrrrrrrrrrrrrrrrrrr API_POST_MULTIPART: api/guru/profile/update');
       final response = await client.post('api/guru/profile/update', data: formData);
       return CoreApiClient.parseResponseData(response);
     } on DioException catch (e) {

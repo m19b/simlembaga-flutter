@@ -41,12 +41,12 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
     });
   }
 
-  Future<void> _checkConnection() async {
-    if (_isChecking) return;
+  Future<void> _checkConnection({bool force = false}) async {
+    if (_isChecking && !force) return;
     _isChecking = true;
     try {
       final online = await _networkInfo.isConnected;
-      if (mounted && _isOnline != online) {
+      if (mounted) {
         setState(() {
           _isOnline = online;
         });
@@ -113,9 +113,10 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
               top: _pillY,
               child: GestureDetector(
                 onTap: _handleTouch,
-                onDoubleTap: () {
+                onDoubleTap: () async {
                   _handleTouch();
-                  _checkConnection();
+                  await _networkInfo.checkNetworkNow();
+                  _checkConnection(force: true);
                 },
                 onLongPress: () {
                   final navContext = navigatorKey.currentContext;

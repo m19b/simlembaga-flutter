@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/auth_api_service.dart';
 import 'package:manajemen_tahsin_app/features/auth/data/user_model.dart';
 import 'package:manajemen_tahsin_app/features/sync/presentation/screens/initial_sync_screen.dart';
 import 'package:manajemen_tahsin_app/core/widgets/settings_dialog.dart';
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final UserModel user = await ApiService.login(identity, password);
+      final UserModel user = await AuthApiService.login(identity, password);
 
       if (!mounted) return;
 

@@ -4,10 +4,17 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/absensi_api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/santri_catatan_api_service.dart';
 import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/bottom.dart';
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_binaan_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_universal_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/guru_universal_cache.dart';
+import 'package:isar/isar.dart';
 
 enum ScanState { waiting, success }
 
@@ -32,6 +39,8 @@ class _AbsenScreenState extends State<AbsenScreen>
   final FocusNode _rfidFocusNode = FocusNode();
   final TextEditingController _manualController = TextEditingController();
   final FocusNode _manualFocusNode = FocusNode();
+  
+  final GlobalKey<AbsenMassalTabState> _massalTabKey = GlobalKey<AbsenMassalTabState>();
 
   ScanState _scanState = ScanState.waiting;
   Map<String, dynamic>? _lastScannedUser;
@@ -213,7 +222,7 @@ class _AbsenScreenState extends State<AbsenScreen>
         "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
     try {
-      final res = await ApiService.scanAbsen(cleanCode, 'masuk');
+      final res = await AbsensiApiService.scanAbsen(cleanCode, 'masuk').timeout(const Duration(seconds: 3));
       final data = res['data'] as Map<String, dynamic>?;
 
       final namaLengkap = data?['nama_santri'] ?? 'Tidak Diketahui';
@@ -253,6 +262,7 @@ class _AbsenScreenState extends State<AbsenScreen>
           'pesan': pesanInfo,
           'user_absen': userAbsen,
           'sudah_absen': isAlreadyAbsent,
+          'tipe': tipe,
         };
         _scanState = ScanState.success;
       });
@@ -268,17 +278,101 @@ class _AbsenScreenState extends State<AbsenScreen>
         }
       });
 
-      _tts.speak(
-        isAlreadyAbsent ? '$namaPanggilan sudah absen' : '$namaPanggilan hadir',
-      );
+      if (tipe == 'guru') {
+        _tts.speak(isAlreadyAbsent ? 'Ustaz $namaPanggilan sudah absen' : 'Ustaz $namaPanggilan hadir');
+      } else {
+        _tts.speak(isAlreadyAbsent ? '$namaPanggilan sudah absen' : '$namaPanggilan hadir');
+      }
     } catch (e) {
-      _handleScanError(e, isFromCamera);
+      if (e is TimeoutException || 
+          e.toString().toLowerCase().contains('socket') || 
+          e.toString().toLowerCase().contains('network') || 
+          e.toString().toLowerCase().contains('offline')) {
+        await _handleOfflineScan(cleanCode, currentJamStr);
+      } else {
+        _handleScanError(e, isFromCamera);
+      }
     } finally {
       if (mounted) {
         _rfidController.clear();
         _manualController.clear();
       }
     }
+  }
+
+  Future<void> _handleOfflineScan(String cleanCode, String jamStr) async {
+    final isar = IsarDb.instance;
+    
+    // Fallback Chain 1: Santri Binaan
+    final cachedBinaan = await isar.santriBinaanCaches.filter().nisEqualTo(cleanCode).findFirst();
+    if (cachedBinaan != null) {
+      await _prosesOfflineFound(cleanCode, cachedBinaan.nama, cachedBinaan.nis, cachedBinaan.tingkatKelas ?? '-', jamStr, 'santri');
+      return;
+    }
+
+    // Fallback Chain 2: Santri Universal
+    final cachedSantriUniv = await isar.santriUniversalCaches.filter().nisEqualTo(cleanCode).findFirst();
+    if (cachedSantriUniv != null) {
+      await _prosesOfflineFound(cleanCode, cachedSantriUniv.nama, cachedSantriUniv.nis, cachedSantriUniv.tingkatKelas ?? '-', jamStr, 'santri');
+      return;
+    }
+
+    // Fallback Chain 3: Guru Universal
+    final cachedGuruUniv = await isar.guruUniversalCaches.filter().nigEqualTo(cleanCode).findFirst();
+    if (cachedGuruUniv != null) {
+      await _prosesOfflineFound(cleanCode, cachedGuruUniv.nama, cachedGuruUniv.nig, 'Guru/Staf', jamStr, 'guru');
+      return;
+    }
+
+    // Jika tidak ketemu satupun
+    _lastProcessedCode = '';
+    _tts.speak('Mode luring. QR tidak dikenali.');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Mode Luring: QR tidak dikenali atau belum diunduh ke cache. Harap sambungkan ke internet.'),
+          backgroundColor: Colors.red.shade800,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _prosesOfflineFound(String cleanCode, String nama, String identitas, String kelas, String jamStr, String tipe) async {
+    final payload = {'kode': cleanCode, 'waktu': 'masuk', 'offline_timestamp': DateTime.now().toIso8601String()};
+    await LocalDataSourceImpl().enqueueRequest('guru/absen-santri/scan', payload);
+
+    if (!mounted) return;
+    setState(() {
+      _lastScannedUser = {
+        'nama_lengkap': nama,
+        'nama_panggilan': nama,
+        'identitas': identitas,
+        'jk': '-',
+        'kelas': kelas,
+        'foto_url': null,
+        'jam': jamStr,
+        'pesan': 'Disimpan Luring: Hadir',
+        'user_absen': 'Luring',
+        'sudah_absen': false,
+        'tipe': tipe,
+      };
+      _scanState = ScanState.success;
+    });
+
+    _successBlinkController.repeat(reverse: true);
+    
+    if (tipe == 'guru') {
+      _tts.speak('Ustaz $nama hadir luring');
+    } else {
+      _tts.speak('$nama hadir luring');
+    }
+
+    _resetTimer?.cancel();
+    _resetTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _isProcessing = false);
+    });
   }
 
   void _handleScanError(dynamic error, bool isFromCamera) {
@@ -347,7 +441,7 @@ class _AbsenScreenState extends State<AbsenScreen>
       return Scaffold(
         backgroundColor: bgColor,
         appBar: _buildCustomAppBar(),
-        body: const AbsenMassalTab(),
+        body: AbsenMassalTab(key: _massalTabKey),
         bottomNavigationBar: _buildCustomBottomNav(),
       );
     }
@@ -404,6 +498,24 @@ class _AbsenScreenState extends State<AbsenScreen>
                 tooltip: 'Senter',
                 onPressed: () => _cameraController.toggleTorch(),
               ),
+            ),
+          ),
+        ],
+        if (_tabController.index == 2) ...[
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, top: 8.0, bottom: 8.0),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+              ),
+              icon: const Icon(Icons.save, size: 16),
+              label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+              onPressed: () {
+                 _massalTabKey.currentState?.simpan();
+              },
             ),
           ),
         ],
@@ -533,7 +645,7 @@ class _AbsenScreenState extends State<AbsenScreen>
           optionsBuilder: (TextEditingValue textEditingValue) async {
             if (textEditingValue.text.length < 2) return const Iterable<Map<String, dynamic>>.empty();
             try {
-              final results = await ApiService.cariSantri(textEditingValue.text);
+              final results = await SantriCatatanApiService.cariSantri(textEditingValue.text);
               return results.cast<Map<String, dynamic>>();
             } catch (e) {
               return const Iterable<Map<String, dynamic>>.empty();
@@ -712,9 +824,15 @@ class _AbsenScreenState extends State<AbsenScreen>
     final user = _lastScannedUser!;
     final bool isWarning = user['sudah_absen'] == true;
 
+    final String tipe = user['tipe'] ?? 'santri';
+    final bool isGuru = tipe == 'guru';
+
     final cs = Theme.of(context).colorScheme;
-    final Color bgColor = isWarning ? Colors.orange.shade50 : cs.primaryContainer;
+    final Color successBgColor = isGuru ? Colors.teal.shade50 : cs.primaryContainer;
+    final Color bgColor = isWarning ? Colors.orange.shade50 : successBgColor;
     final IconData statusIcon = isWarning ? Icons.info_outline : Icons.check;
+    final Color successIconColor = isGuru ? Colors.teal.shade700 : cs.onPrimaryContainer;
+    final Color successIconBg = isGuru ? Colors.teal.shade200 : cs.onPrimaryContainer.withValues(alpha: 0.2);
 
     return Padding(
       padding: const EdgeInsets.only(
@@ -749,14 +867,12 @@ class _AbsenScreenState extends State<AbsenScreen>
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isWarning
-                        ? Colors.orange.shade200
-                        : cs.onPrimaryContainer.withValues(alpha: 0.2),
+                    color: isWarning ? Colors.orange.shade200 : successIconBg,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     statusIcon,
-                    color: isWarning ? Colors.orange.shade900 : cs.onPrimaryContainer,
+                    color: isWarning ? Colors.orange.shade900 : successIconColor,
                     size: 24,
                   ),
                 ),
@@ -766,9 +882,9 @@ class _AbsenScreenState extends State<AbsenScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isWarning ? 'Peringatan: Sudah Absen!' : 'Absen Masuk Berhasil!',
+                        isWarning ? 'Peringatan: Sudah Absen!' : (isGuru ? 'Absen Guru Berhasil!' : 'Absen Masuk Berhasil!'),
                         style: GoogleFonts.plusJakartaSans(
-                          color: isWarning ? Colors.orange.shade900 : cs.onPrimaryContainer,
+                          color: isWarning ? Colors.orange.shade900 : successIconColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),

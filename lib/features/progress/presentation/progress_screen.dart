@@ -5,24 +5,18 @@ import 'package:flutter/material.dart';
 import 'progress_detail_screen.dart';
 import 'progress_input_screen.dart';
 import 'riwayat_global_tab.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_cubit.dart';
-import 'package:manajemen_tahsin_app/features/catatan_master/presentation/bloc/catatan_master_state.dart';
-import 'package:manajemen_tahsin_app/features/catatan_master/data/catatan_master_model.dart';
-import 'package:manajemen_tahsin_app/features/catatan_master/presentation/widgets/catatan_form_sheet.dart';
-import 'package:flutter/services.dart';
-import 'package:manajemen_tahsin_app/features/catatan_master/domain/repositories/catatan_master_repository.dart';
-import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
+
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/bloc/tahsin_cubit.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
-import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
+
 
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
@@ -40,14 +34,6 @@ class ProgressScreen extends StatelessWidget {
               networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
             ),
             activeKelompokCubit: context.read<ActiveKelompokCubit>(),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => CatatanMasterCubit(
-            repository: CatatanMasterRepository(
-              networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
-              localDataSource: LocalDataSourceImpl(),
-            ),
           ),
         ),
       ],
@@ -84,7 +70,7 @@ class _ProgressViewState extends State<_ProgressView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       // Hanya update notifier saat index tab benar-benar berubah (bukan saat animasi)
       if (!_tabController.indexIsChanging) {
@@ -104,21 +90,6 @@ class _ProgressViewState extends State<_ProgressView>
     _kelasListNotifier.dispose();
     _selectedKelasNotifier.dispose();
     super.dispose();
-  }
-
-  void _showCatatanForm(BuildContext context, {
-    CatatanMaster? item,
-    required Map<String, dynamic> filterMeta,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => BlocProvider.value(
-        value: context.read<CatatanMasterCubit>(),
-        child: CatatanFormSheet(item: item, filterMeta: filterMeta),
-      ),
-    );
   }
 
   @override
@@ -167,8 +138,7 @@ class _ProgressViewState extends State<_ProgressView>
                     : Text(
                         tabIdx == 0 ? 'Progres'
                           : tabIdx == 1 ? 'Input Evaluasi'
-                          : tabIdx == 2 ? 'Riwayat Kelas'
-                          : 'Catatan',
+                          : 'Riwayat Kelas',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       );
                 },
@@ -274,19 +244,6 @@ class _ProgressViewState extends State<_ProgressView>
                           onPressed: () => _showSendReportSheet(context),
                         ),
                       ],
-                      if (tabIdx == 3)
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-                          tooltip: 'Tambah Catatan',
-                          onPressed: () {
-                            final state = context.read<CatatanMasterCubit>().state;
-                            if (state is CatatanMasterLoaded) {
-                              _showCatatanForm(context, filterMeta: state.filterMeta);
-                            } else if (state is CatatanMasterActionProgress) {
-                              _showCatatanForm(context, filterMeta: state.filterMeta);
-                            }
-                          },
-                        ),
                     ],
                   ),
                 ),
@@ -319,9 +276,9 @@ class _ProgressViewState extends State<_ProgressView>
             RiwayatGlobalTab(
               key: _riwayatKey,
               repository: context.read<TahsinCubit>().repository,
-            ),const _CatatanEmbeddedTab(),
-        ],
-      ),
+            ),
+          ],
+        ),
       bottomNavigationBar: _buildCustomBottomNav(),
     );
   }
@@ -358,7 +315,6 @@ class _ProgressViewState extends State<_ProgressView>
             Expanded(child: _buildNavItem(0, Icons.bar_chart_rounded, 'Progress', tabIdx)),
             Expanded(child: _buildNavItem(1, Icons.edit_document, 'Input', tabIdx)),
             Expanded(child: _buildNavItem(2, Icons.history_edu, 'Riwayat', tabIdx)),
-            Expanded(child: _buildNavItem(3, Icons.sticky_note_2_outlined, 'Catatan', tabIdx)),
           ],
         ),
       ),
@@ -471,7 +427,7 @@ class _SendReportBottomSheetState extends State<_SendReportBottomSheet> {
     setState(() => _sending = true);
     try {
       final df = DateFormat('yyyy-MM-dd');
-      final res = await ApiService.sendKolektifWaReport(
+      final res = await TahsinApiService.sendKolektifWaReport(
         tglMulai: df.format(_startDate),
         tglAkhir: df.format(_endDate),
       );
@@ -1466,631 +1422,6 @@ class _SkeletonCardState extends State<_SkeletonCard>
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- Tab Catatan (Embedded tanpa UserModel, konten sama dengan CatatanMasterScreen) ------
-class _CatatanEmbeddedTab extends StatefulWidget {
-  const _CatatanEmbeddedTab();
-
-  @override
-  State<_CatatanEmbeddedTab> createState() => _CatatanEmbeddedTabState();
-}
-
-class _CatatanEmbeddedTabState extends State<_CatatanEmbeddedTab> with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  int? _selectedKelasId;
-  int? _selectedKelompokId;
-  final TextEditingController _searchCtrl = TextEditingController();
-  List<CatatanMaster> _filteredList = [];
-  bool _isSearchExpanded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    context.read<CatatanMasterCubit>().loadCatatan();
-    _searchCtrl.addListener(
-      () => _updateFilteredList(context.read<CatatanMasterCubit>().state),
-    );
-  }
-
-  void _updateFilteredList(dynamic state) {
-    if (state is CatatanMasterLoaded) {
-      final query = _searchCtrl.text.toLowerCase();
-      setState(() {
-        _filteredList = query.isEmpty
-            ? state.catatan
-            : state.catatan
-                  .where((c) => c.teksCatatan.toLowerCase().contains(query))
-                  .toList();
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  void _showForm({
-    CatatanMaster? item,
-    required Map<String, dynamic> filterMeta,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => BlocProvider.value(
-        value: context.read<CatatanMasterCubit>(),
-        child: CatatanFormSheet(item: item, filterMeta: filterMeta),
-      ),
-    );
-  }
-
-  void _confirmDelete(CatatanMaster item) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'Hapus Catatan?',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          'Apakah Anda yakin ingin menghapus catatan "${item.teksCatatan}"?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              HapticFeedback.heavyImpact();
-              context.read<CatatanMasterCubit>().deleteCatatan(item.idCatatan);
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade100,
-              foregroundColor: Colors.red.shade900,
-              elevation: 0,
-            ),
-            icon: const Icon(Icons.delete_outline, size: 18),
-            label: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: BlocConsumer<CatatanMasterCubit, dynamic>(
-        listener: (context, state) {
-          if (state is CatatanMasterLoaded && state.message != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message!),
-                backgroundColor: state.message!.contains('Error')
-                    ? Colors.red
-                    : Theme.of(context).extension<AppCustomStyles>()!.success,
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is CatatanMasterLoading || state is CatatanMasterInitial) {
-            return const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SkeletonListWidget(itemCount: 8, itemHeight: 80),
-            );
-          }
-          if (state is CatatanMasterError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    size: 64,
-                    color: Colors.redAccent,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    state.message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () =>
-                        context.read<CatatanMasterCubit>().loadCatatan(),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).extension<AppCustomStyles>()!.success),
-                    child: const Text(
-                      'Coba Lagi',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          Map<String, dynamic> filterMeta = {};
-
-          if (state is CatatanMasterLoaded ||
-              state is CatatanMasterActionProgress) {
-            filterMeta = state is CatatanMasterLoaded
-                ? state.filterMeta
-                : (state as CatatanMasterActionProgress).filterMeta;
-
-            if (state is CatatanMasterLoaded) {
-              final query = _searchCtrl.text.toLowerCase();
-              _filteredList = query.isEmpty
-                  ? state.catatan
-                  : state.catatan
-                        .where(
-                          (c) => c.teksCatatan.toLowerCase().contains(query),
-                        )
-                        .toList();
-            }
-          }
-
-          return Column(
-            children: [
-              if (state is CatatanMasterLoaded && state.isOfflineWarning)
-                Container(
-                  width: double.infinity,
-                  color: Colors.orange.shade100,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Anda sedang offline. Menampilkan data lokal terakhir.',
-                          style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              // -- Filter Bar --
-              Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: Row(
-                  children: [
-                    if (!_isSearchExpanded)
-                      Expanded(
-                        child: _buildFilters(filterMeta),
-                      ),
-                    if (!_isSearchExpanded) const SizedBox(width: 8),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      width: _isSearchExpanded
-                          ? MediaQuery.of(context).size.width - 24
-                          : 40,
-                      child: _isSearchExpanded
-                          ? SizedBox(
-                              height: 36,
-                              child: TextField(
-                                controller: _searchCtrl,
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                  hintText: 'Cari catatan...',
-                                  hintStyle: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                  prefixIcon: const Icon(
-                                    Icons.search,
-                                    size: 16,
-                                    color: Colors.grey,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.close, size: 16),
-                                    onPressed: () {
-                                      _searchCtrl.clear();
-                                      setState(() => _isSearchExpanded = false);
-                                    },
-                                  ),
-                                  filled: true,
-                                  fillColor: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? const Color(0xFF374151)
-                                      : Colors.grey.shade100,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                    borderSide: BorderSide.none,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 0,
-                                    horizontal: 12,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? const Color(0xFF374151)
-                                    : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(Icons.search, size: 20),
-                                onPressed: () {
-                                  setState(() => _isSearchExpanded = true);
-                                },
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              // -- List --
-              Expanded(
-                child: RefreshIndicator(
-                  color: Theme.of(context).extension<AppCustomStyles>()?.success ?? Colors.green,
-                  onRefresh: () =>
-                      context.read<CatatanMasterCubit>().loadCatatan(
-                        idKelas: _selectedKelasId,
-                        idKelompok: _selectedKelompokId,
-                      ),
-                  child: _filteredList.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.5,
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.notes_rounded,
-                                      size: 64,
-                                      color: Colors.grey.shade300,
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Tidak ada catatan ditemukan',
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-                          itemCount: _filteredList.length,
-                          itemBuilder: (context, index) {
-                            final item = _filteredList[index];
-                            return Card(
-                              elevation: 0,
-                              margin: const EdgeInsets.only(bottom: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: InkWell(
-                                onTap: () => _showForm(
-                                  item: item,
-                                  filterMeta: filterMeta,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              item.teksCatatan,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                color: Theme.of(
-                                                  context,
-                                                ).colorScheme.onSurface,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  (item.aktif
-                                                          ? Colors.green
-                                                          : Colors.grey)
-                                                      .withValues(alpha: 0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              border: Border.all(
-                                                color:
-                                                    (item.aktif
-                                                            ? Colors.green
-                                                            : Colors.grey)
-                                                        .withValues(alpha: 0.4),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              item.aktif ? 'AKTIF' : 'NONAKTIF',
-                                              style: TextStyle(
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.bold,
-                                                color: item.aktif
-                                                    ? Colors.green.shade700
-                                                    : Colors.grey.shade600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.school_outlined,
-                                            size: 12,
-                                            color: Colors.grey,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '${item.namaKelompok} • ${item.namaKelas}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurface
-                                                  .withValues(alpha: 0.6),
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue.shade50,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              'Urutan: ${item.urutan}',
-                                              style: TextStyle(
-                                                fontSize: 9,
-                                                color: Colors.blue.shade700,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 8,
-                                        ),
-                                        child: Divider(height: 1),
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          TextButton.icon(
-                                            onPressed: () =>
-                                                _confirmDelete(item),
-                                            icon: const Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.red,
-                                              size: 16,
-                                            ),
-                                            label: const Text(
-                                              'Hapus',
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            style: TextButton.styleFrom(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 0,
-                                                  ),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          ElevatedButton.icon(
-                                            onPressed: () => _showForm(
-                                              item: item,
-                                              filterMeta: filterMeta,
-                                            ),
-                                            icon: const Icon(
-                                              Icons.edit_outlined,
-                                              size: 14,
-                                              color: Colors.white,
-                                            ),
-                                            label: const Text(
-                                              'Edit',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Theme.of(context).colorScheme.primary,
-                                              elevation: 0,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 6,
-                                                  ),
-                                              minimumSize: Size.zero,
-                                              tapTargetSize:
-                                                  MaterialTapTargetSize
-                                                      .shrinkWrap,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildFilters(Map<String, dynamic> meta) {
-    List<Map<String, dynamic>> safeMeta(dynamic raw) {
-      if (raw is! List) return [];
-      return raw.whereType<Map>().map((e) {
-        final Map<String, dynamic> m = {};
-        e.forEach((k, v) => m[k.toString()] = v);
-        return m;
-      }).toList();
-    }
-
-    final isAdmin = meta['is_admin'] == true;
-    final kelompokList = safeMeta(meta['kelompok_list']);
-    final kelasList = safeMeta(meta['kelas_list']);
-
-    return Row(
-      children: [
-        if (isAdmin && kelompokList.length > 1) ...[
-          Expanded(
-            child: _buildDropdown(
-              'Kelompok',
-              _selectedKelompokId,
-              kelompokList,
-              'id_kelompok',
-              (v) {
-                setState(() {
-                  _selectedKelompokId = v;
-                  _selectedKelasId = null;
-                });
-                context.read<CatatanMasterCubit>().loadCatatan(idKelompok: v);
-              },
-            ),
-          ),
-          const SizedBox(width: 6),
-        ],
-        Expanded(
-          child: _buildDropdown(
-            'Kelas',
-            _selectedKelasId,
-            kelasList,
-            'id_kelas',
-            (v) {
-              setState(() => _selectedKelasId = v);
-              context.read<CatatanMasterCubit>().loadCatatan(
-                idKelompok: _selectedKelompokId,
-                idKelas: v,
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDropdown(
-    String label,
-    int? value,
-    List<Map<String, dynamic>> items,
-    String idField,
-    ValueChanged<int?> onChanged,
-  ) {
-    final bool valueExists =
-        value == null ||
-        items.any(
-          (item) => int.tryParse(item[idField]?.toString() ?? '') == value,
-        );
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF374151)
-            : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: valueExists ? value : null,
-          isExpanded: true,
-          isDense: true,
-          hint: Text('Semua $label', style: const TextStyle(fontSize: 11)),
-          style: TextStyle(
-            fontSize: 11,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          items: [
-            DropdownMenuItem<int>(
-              value: null,
-              child: Text('Semua $label', style: const TextStyle(fontSize: 11)),
-            ),
-            ...items.map(
-              (item) => DropdownMenuItem<int>(
-                value: int.tryParse(item[idField]?.toString() ?? '0'),
-                child: Text(
-                  item['kelompok']?.toString() ??
-                      item['tingkat']?.toString() ??
-                      '-',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-            ),
-          ],
-          onChanged: onChanged,
         ),
       ),
     );

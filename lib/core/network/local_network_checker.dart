@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/auth_api_service.dart';
 
 enum LocalNetworkStatus { online, offline }
 
@@ -47,18 +47,15 @@ class LocalNetworkChecker {
 
     try {
       final results = await Connectivity().checkConnectivity();
-      if (results.contains(ConnectivityResult.mobile) || 
-          results.contains(ConnectivityResult.wifi) || 
+      if (results.contains(ConnectivityResult.wifi) || 
           results.contains(ConnectivityResult.ethernet)) {
         
-        // Walaupun WiFi / Mobile terhubung, pastikan server CI4 BENAR-BENAR bisa dijangkau
         try {
-          await ApiService.checkConnection();
+          await AuthApiService.checkConnection();
           _updateStatus(LocalNetworkStatus.online);
           _isPinging = false;
           return true;
         } catch (e) {
-          // Server mati atau salah jaringan
           _updateStatus(LocalNetworkStatus.offline);
           _isPinging = false;
           return false;
@@ -76,11 +73,32 @@ class LocalNetworkChecker {
     }
   }
 
+  /// Bypass timer dan paksa ping sekarang (Manual Override)
+  Future<void> checkNetworkNow() async {
+    // Jalankan tanpa peduli _isPinging, abaikan timer, langsung ping
+    try {
+      final results = await Connectivity().checkConnectivity();
+      if (results.contains(ConnectivityResult.wifi) || 
+          results.contains(ConnectivityResult.ethernet)) {
+        try {
+          await AuthApiService.checkConnection();
+          _updateStatus(LocalNetworkStatus.online);
+        } catch (e) {
+          _updateStatus(LocalNetworkStatus.offline);
+        }
+      } else {
+        _updateStatus(LocalNetworkStatus.offline);
+      }
+    } catch (e) {
+      _updateStatus(LocalNetworkStatus.offline);
+    }
+  }
+
   void _updateStatus(LocalNetworkStatus newStatus) {
     if (_currentStatus != newStatus) {
       _currentStatus = newStatus;
       _statusController.add(_currentStatus);
-      debugPrint("📡 LocalNetworkChecker: Status berubah menjadi ${_currentStatus.name}");
+      debugPrint("rrrrrrrrrrrrrrrrrrrrrrr LocalNetworkChecker: Status berubah menjadi ${_currentStatus.name}");
     }
   }
 }

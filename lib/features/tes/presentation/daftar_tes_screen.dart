@@ -9,17 +9,41 @@ import '../data/tes_model.dart';
 
 import '../../../../core/constants/api_config.dart';
 import '../../../../core/widgets/app_header_bar.dart';
+import 'package:manajemen_tahsin_app/core/enums/jalur_enum.dart';
 
-class DaftarTesScreen extends StatefulWidget {
+import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
+import 'package:manajemen_tahsin_app/core/network/network_info.dart';
+import '../domain/repositories/daftar_tes_repository.dart';
+
+class DaftarTesScreen extends StatelessWidget {
   const DaftarTesScreen({super.key});
 
   @override
-  State<DaftarTesScreen> createState() => _DaftarTesScreenState();
+  Widget build(BuildContext context) {
+    final repository = DaftarTesRepository(
+      networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+    );
+    return RepositoryProvider<DaftarTesRepository>.value(
+      value: repository,
+      child: BlocProvider(
+        create: (_) => TesCubit(repository: repository),
+        child: const _DaftarTesView(),
+      ),
+    );
+  }
 }
 
-class _DaftarTesScreenState extends State<DaftarTesScreen> {
+class _DaftarTesView extends StatefulWidget {
+  const _DaftarTesView();
+
+  @override
+  State<_DaftarTesView> createState() => _DaftarTesViewState();
+}
+
+class _DaftarTesViewState extends State<_DaftarTesView> {
   int _currentIndex = 0;
   String _baseUrl = '';
+  JalurEnum _selectedJalur = JalurEnum.tahsin;
 
   // Grab-style Month Selector Logic
   late DateTime _selectedMonth;
@@ -37,7 +61,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
     super.initState();
     _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
     _fetchBaseUrl();
-    context.read<TesCubit>().loadDaftarTes();
+    context.read<TesCubit>().loadDaftarTes(jalur: _selectedJalur, forceRefresh: true);
     _loadRiwayat();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -74,6 +98,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
     context.read<TesCubit>().loadRiwayatTes(
       tglMulai: tglMulai,
       tglAkhir: tglAkhir,
+      jalur: _selectedJalur,
       reload: true,
     );
   }
@@ -113,11 +138,52 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
         appBar: AppHeaderBar(
           title: _currentIndex == 0 ? 'Daftar Calon Tes' : 'Riwayat Tes',
         ),
-        body: IndexedStack(
-          index: _currentIndex,
-          children: [_buildCalonTesTab(), _buildRiwayatTab()],
+        body: Column(
+          children: [
+            if (_currentIndex == 0) _buildJalurFilter(),
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [_buildCalonTesTab(), _buildRiwayatTab()],
+              ),
+            ),
+          ],
         ),
         bottomNavigationBar: _buildCustomBottomNav(),
+      ),
+    );
+  }
+
+  Widget _buildJalurFilter() {
+    return Container(
+      width: double.infinity,
+      color: Theme.of(context).cardColor,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SegmentedButton<JalurEnum>(
+        segments: JalurEnum.values.map((jalur) {
+          return ButtonSegment<JalurEnum>(
+            value: jalur,
+            label: Text(
+              jalur.nama,
+              style: const TextStyle(fontSize: 12),
+            ),
+          );
+        }).toList(),
+        selected: {_selectedJalur},
+        onSelectionChanged: (Set<JalurEnum> newSelection) {
+          setState(() {
+            _selectedJalur = newSelection.first;
+          });
+          if (_currentIndex == 0) {
+            context.read<TesCubit>().loadDaftarTes(jalur: _selectedJalur, forceRefresh: true);
+          } else {
+            _loadRiwayat();
+          }
+        },
+        style: ButtonStyle(
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+        ),
       ),
     );
   }
@@ -233,7 +299,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                       )
                     : RefreshIndicator(
                         onRefresh: () =>
-                            context.read<TesCubit>().loadDaftarTes(),
+                            context.read<TesCubit>().loadDaftarTes(forceRefresh: true),
                         child: ListView.builder(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -291,12 +357,33 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                                 ),
                                               ),
                                               const SizedBox(height: 2),
-                                              Text(
-                                                "NIS: ${item.nis} • ${item.tingkat}",
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.grey.shade600,
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    "NIS: ${item.nis} • ${item.tingkat}",
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: JalurEnum.fromKode(item.kodeJalur).warna.withValues(alpha: 0.1),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: JalurEnum.fromKode(item.kodeJalur).warna.withValues(alpha: 0.5)),
+                                                    ),
+                                                    child: Text(
+                                                      JalurEnum.fromKode(item.kodeJalur).nama,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: JalurEnum.fromKode(item.kodeJalur).warna,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                               const SizedBox(height: 8),
                                               Container(
@@ -331,9 +418,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                                     ),
                                                     const SizedBox(width: 6),
                                                     Text(
-                                                      tunggakan
-                                                          ? "Ada Tunggakan"
-                                                          : "Lunas",
+                                                      "${tunggakan ? 'Ada Tunggakan' : 'Lunas'} ${isTerdaftar ? '[antri tes]' : '[daftar tes]'}",
                                                       style: TextStyle(
                                                         fontSize: 12,
                                                         fontWeight:
@@ -548,8 +633,8 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
+          backgroundColor: Theme.of(context).cardColor,
+          surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -559,7 +644,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
               const SizedBox(width: 8),
               Text(
                 "Info Keuangan",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).colorScheme.onSurface),
               ),
             ],
           ),
@@ -594,7 +679,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                   Text(
                     "Pendaftaran tes tetap dapat dilanjutkan.",
                     style: TextStyle(
-                      color: Colors.black87,
+                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
                       fontSize: 13,
                       height: 1.4,
                     ),
@@ -606,7 +691,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                       "Rincian Tagihan:",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -626,9 +711,9 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50.withValues(alpha: 0.5),
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.orange.withValues(alpha: 0.1) : Colors.orange.shade50.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade100),
+                            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.orange.withValues(alpha: 0.2) : Colors.orange.shade100),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,7 +723,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade800,
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.grey.shade800,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -662,7 +747,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                       "Rincian Kebocoran Data:",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -677,9 +762,9 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.red.shade50.withValues(alpha: 0.5),
+                            color: Theme.of(context).brightness == Brightness.dark ? Colors.red.withValues(alpha: 0.1) : Colors.red.shade50.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.red.shade200),
+                            border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade200),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +774,7 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.grey.shade800,
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.grey.shade800,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -889,12 +974,33 @@ class _DaftarTesScreenState extends State<DaftarTesScreen> {
                                         ),
                                       ),
                                       const SizedBox(height: 2),
-                                      Text(
-                                        "NIS: ${item.nis} • ${item.kelompok}",
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            "NIS: ${item.nis} • ${item.kelompok}",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: JalurEnum.fromKode(item.kodeJalur).warna.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: JalurEnum.fromKode(item.kodeJalur).warna.withValues(alpha: 0.5)),
+                                            ),
+                                            child: Text(
+                                              JalurEnum.fromKode(item.kodeJalur).nama,
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: JalurEnum.fromKode(item.kodeJalur).warna,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),

@@ -7,6 +7,7 @@ class OfflineQueue {
   Id id = Isar.autoIncrement;
   
   late String endpoint;
+  late String type;
   late String payloadJson;
   late DateTime timestamp;
   late String status;

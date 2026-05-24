@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/bloc/pra_tahfidz_cubit.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/widgets/pra_tahfidz_santri_card.dart';
@@ -90,11 +91,19 @@ class _PraTahfidzProgressTabState extends State<PraTahfidzProgressTab>
     });
   }
 
-  Future<void> _load({bool forceRefresh = false}) async {
-    final tanggal =
-        DateFormat('yyyy-MM-dd').format(widget.selectedDate);
+  Future<void> _load({bool forceRefresh = false, int? overrideIdKelompok}) async {
+    final tanggal = DateFormat('yyyy-MM-dd').format(widget.selectedDate);
+    final idKelompok = overrideIdKelompok ?? context.read<ActiveKelompokCubit>().state.activeId;
+    
+    print('rrrrrrrrrrrrrrrrrrrrrrr START LOADING: Santri untuk kelompok $idKelompok');
+    List<int> kelasIds = [];
+    if (_selectedKelasId != null) {
+      kelasIds = [_selectedKelasId!];
+    }
     await context.read<PraTahfidzCubit>().fetchSantriList(
           tanggal: tanggal,
+          idKelompok: idKelompok,
+          kelasIds: kelasIds.isEmpty ? null : kelasIds,
           forceRefresh: forceRefresh,
         );
   }
@@ -153,7 +162,41 @@ class _PraTahfidzProgressTabState extends State<PraTahfidzProgressTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final activeId = context.watch<ActiveKelompokCubit>().state.activeId;
+    
+    if (activeId <= 0) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.business, size: 64, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Silakan pilih Kelompok / Cabang di menu Header/Dashboard terlebih dahulu.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+    }
+
     return BlocConsumer<PraTahfidzCubit, PraTahfidzState>(
+      listenWhen: (prev, curr) =>
+          curr is PraTahfidzLoaded ||
+          curr is PraTahfidzError ||
+          curr is PraTahfidzLoading,
+      buildWhen: (prev, curr) =>
+          curr is PraTahfidzLoaded ||
+          curr is PraTahfidzError ||
+          curr is PraTahfidzLoading,
       listener: (context, state) {
         if (state is PraTahfidzLoaded) {
           _applyData(state.data);
@@ -170,12 +213,8 @@ class _PraTahfidzProgressTabState extends State<PraTahfidzProgressTab>
         }
       },
       builder: (context, state) {
-        if (_loading && _allSantri.isEmpty) {
-          return _buildSkeleton();
-        }
-        if (_error.isNotEmpty && _allSantri.isEmpty) {
-          return _buildError();
-        }
+        if (_loading && _allSantri.isEmpty) return _buildSkeleton();
+        if (_error.isNotEmpty && _allSantri.isEmpty) return _buildError();
         return _buildList();
       },
     );

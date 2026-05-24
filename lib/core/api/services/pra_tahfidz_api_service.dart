@@ -3,9 +3,18 @@ import 'package:manajemen_tahsin_app/core/api/core_api_client.dart';
 class PraTahfidzApiService {
   static Future<Map<String, dynamic>> getPraTahfidzList({
     String? tanggal,
+    int? idKelompok,
+    List<int>? kelasIds,
+    int? sesi,
+    String? filterKehadiran,
   }) async {
     final Map<String, dynamic> q = {};
     if (tanggal != null && tanggal.isNotEmpty) q['tanggal'] = tanggal;
+    if (idKelompok != null) q['id_kelompok'] = idKelompok.toString();
+    if (kelasIds != null && kelasIds.isNotEmpty) q['kelas_ids'] = kelasIds.join(',');
+    if (sesi != null) q['sesi'] = sesi.toString();
+    if (filterKehadiran != null && filterKehadiran.isNotEmpty) q['filter_kehadiran'] = filterKehadiran;
+    
     return CoreApiClient.get('guru/pra-tahfidz', queryParameters: q.isEmpty ? null : q);
   }
 

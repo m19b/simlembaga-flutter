@@ -1,4 +1,4 @@
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/santri_catatan_api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 
@@ -18,7 +18,7 @@ class SantriRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getSantriList(); // Adaptasikan jika API support filter
+        final data = await SantriCatatanApiService.getSantriList(); // Adaptasikan jika API support filter
         await localDataSource.cacheData(cacheKey, data);
         return data;
       } catch (e) {
@@ -38,7 +38,7 @@ class SantriRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getSantriDetail(nis);
+        final data = await SantriCatatanApiService.getSantriDetail(nis);
         await localDataSource.cacheData(cacheKey, data);
         return data;
       } catch (e) {

@@ -11,6 +11,9 @@ import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfid
 import 'package:manajemen_tahsin_app/features/tahfidz/data/models/tahfidz_santri_model.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/data/models/tahfidz_riwayat_model.dart';
 import 'package:manajemen_tahsin_app/core/data/models/kelas_model.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_binaan_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_universal_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/guru_universal_cache.dart';
 
 class IsarDb {
   static late Isar instance;
@@ -29,6 +32,9 @@ class IsarDb {
         TahfidzSantriModelSchema,
         TahfidzRiwayatModelSchema,
         KelasModelSchema,
+        SantriBinaanCacheSchema,
+        SantriUniversalCacheSchema,
+        GuruUniversalCacheSchema,
       ],
       directory: dir.path,
     );

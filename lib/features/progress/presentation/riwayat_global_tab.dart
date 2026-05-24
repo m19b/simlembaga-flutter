@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 // import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'package:manajemen_tahsin_app/features/progress/presentation/bottom_edit.dart';
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
@@ -189,7 +189,7 @@ class _HariSubTabState extends State<_HariSubTab>
 
     if (confirm == true) {
       try {
-        await ApiService.deleteProgress(idPrestasi);
+        await TahsinApiService.deleteProgress(idPrestasi);
         _loadData(); // Refresh list
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -227,7 +227,7 @@ class _HariSubTabState extends State<_HariSubTab>
             DateFormat('yyyy-MM-dd').format(DateTime.now()),
         onSave: (updatedData) async {
           try {
-            await ApiService.updateProgress(
+            await TahsinApiService.updateProgress(
               int.parse(item['id_prestasi'].toString()),
               updatedData,
             );
@@ -657,7 +657,7 @@ class _MingguSubTabState extends State<_MingguSubTab>
       final tglMulai = DateFormat('yyyy-MM-dd').format(range.start);
       final tglAkhir = DateFormat('yyyy-MM-dd').format(range.end);
 
-      final resp = await ApiService.getRiwayatGlobalChart(tglMulai, tglAkhir);
+      final resp = await TahsinApiService.getRiwayatGlobalChart(tglMulai, tglAkhir);
       final data = resp['data'] ?? {};
 
       setState(() {

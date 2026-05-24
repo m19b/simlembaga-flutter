@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/absensi_api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/dashboard_api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 
@@ -22,15 +23,17 @@ class AbsensiRepository {
 
   Future<Map<String, dynamic>> getAbsenHarian(
     String tanggal,
-    String idKelas,
-  ) async {
-    final String cacheKey = 'absen_harian_${tanggal}_$idKelas';
+    String idKelas, {
+    String? kodeJalur,
+  }) async {
+    final String cacheKey = 'absen_harian_${tanggal}_${idKelas}_${kodeJalur ?? "all"}';
 
     if (await networkInfo.isConnected) {
       try {
-        final Map<String, dynamic> data = await ApiService.getAbsenHarian(
+        final Map<String, dynamic> data = await AbsensiApiService.getAbsenHarian(
           tanggal: tanggal,
           idKelas: int.tryParse(idKelas),
+          kodeJalur: kodeJalur,
         );
         await localDataSource.cacheData(cacheKey, data);
         return data;
@@ -54,7 +57,7 @@ class AbsensiRepository {
     if (await networkInfo.isConnected) {
       try {
         final Map<String, dynamic> data =
-            await ApiService.getStatusAbsenMandiri(idKelompok);
+            await AbsensiApiService.getStatusAbsenMandiri(idKelompok);
         await localDataSource.cacheData(cacheKey, data);
         return data;
       } catch (_) {
@@ -78,27 +81,46 @@ class AbsensiRepository {
     String tanggalAkhir, {
     int? idKelas,
   }) async {
-    if (!await networkInfo.isConnected) {
-      throw Exception(
-        'Tidak ada koneksi ke server. Halaman rekap memerlukan data real-time.',
-      );
+    final String cacheKey = 'rekap_absen_${tanggalAwal}_${tanggalAkhir}_$idKelas';
+
+    if (await networkInfo.isConnected) {
+      try {
+        final Map<String, dynamic> data = await AbsensiApiService.getRekapAbsen(
+          tglMulai: tanggalAwal,
+          tglAkhir: tanggalAkhir,
+          idKelas: idKelas,
+        );
+        await localDataSource.cacheData(cacheKey, data);
+        return data;
+      } catch (_) {
+        final Map<String, dynamic>? cached = await localDataSource.getCachedData(cacheKey);
+        if (cached != null) return cached;
+        throw Exception('Gagal memuat rekap absensi dari server dan cache kosong.');
+      }
     }
-    try {
-      return await ApiService.getRekapAbsen(
-        tglMulai: tanggalAwal,
-        tglAkhir: tanggalAkhir,
-        idKelas: idKelas,
-      );
-    } catch (_) {
-      throw Exception('Gagal memuat rekap absensi dari server.');
-    }
+
+    final Map<String, dynamic>? cached = await localDataSource.getCachedData(cacheKey);
+    if (cached != null) return cached;
+    throw Exception('Offline: Data rekap absensi belum ada di cache.');
   }
 
   Future<Map<String, dynamic>> getFilterKelas() async {
-    if (!await networkInfo.isConnected) {
-      throw Exception('Tidak ada koneksi ke server.');
+    const String cacheKey = 'rekap_filter_kelas';
+    if (await networkInfo.isConnected) {
+      try {
+        final data = await DashboardApiService.getFilterKelas();
+        await localDataSource.cacheData(cacheKey, data);
+        return data;
+      } catch (_) {
+        final cached = await localDataSource.getCachedData(cacheKey);
+        if (cached != null) return cached;
+        throw Exception('Gagal memuat filter kelas dan cache kosong.');
+      }
     }
-    return ApiService.getFilterKelas();
+    
+    final cached = await localDataSource.getCachedData(cacheKey);
+    if (cached != null) return cached;
+    throw Exception('Tidak ada koneksi ke server dan filter belum dicache.');
   }
 
   // ── WRITE: OPTIMISTIC QUEUE BOX ──────────────────────────────────────────
@@ -125,7 +147,7 @@ class AbsensiRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final Map<String, dynamic> res = await ApiService.postAbsenMandiri(
+        final Map<String, dynamic> res = await AbsensiApiService.postAbsenMandiri(
           tipe: tipe,
           idKelompok: idKelompok,
           lat: lat,
@@ -168,7 +190,7 @@ class AbsensiRepository {
     if (await networkInfo.isConnected) {
       try {
         final Map<String, dynamic> res =
-            await ApiService.simpanAbsenMassal(payload);
+            await AbsensiApiService.simpanAbsenMassal(payload);
         return res['status'] == 200 || res['success'] == true;
       } catch (_) {
         return _enqueuePayload('api/guru/absensi/simpan-massal', payload);
@@ -184,7 +206,7 @@ class AbsensiRepository {
     };
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.scanAbsen(cleanCode, type);
+        await AbsensiApiService.scanAbsen(cleanCode, type);
         return true;
       } catch (_) {
         return _enqueuePayload('api/guru/absensi/scan', payload);

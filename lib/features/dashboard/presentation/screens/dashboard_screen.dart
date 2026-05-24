@@ -10,7 +10,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hijri/hijri_calendar.dart';
 import 'package:intl/intl.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/absensi_api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/auth_api_service.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
@@ -29,9 +30,8 @@ import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_scree
 import 'package:manajemen_tahsin_app/features/progress/presentation/tahfidz_coming_soon_screen.dart';
 import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
 import 'package:manajemen_tahsin_app/features/tes/presentation/daftar_tes_screen.dart';
-import 'package:manajemen_tahsin_app/features/tes/presentation/bloc/tes_cubit.dart';
 import 'package:manajemen_tahsin_app/features/profile/presentation/profile_screen.dart';
-import 'package:manajemen_tahsin_app/core/state/sync_badge_cubit.dart';
+import 'package:manajemen_tahsin_app/core/state/sync_center_cubit.dart';
 import 'package:manajemen_tahsin_app/core/utils/sync_manager.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/presentation/widgets/stat_card.dart';
@@ -129,6 +129,10 @@ class _DashboardViewState extends State<_DashboardView> {
     _loadUser();
     context.read<DashboardCubit>().fetchDashboard();
     _fetchHariLibur();
+    
+    // Sinkronisasi data santri binaan secara background
+    AbsensiApiService.syncSantriBinaan();
+
     _updateTime();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateTime();
@@ -140,7 +144,7 @@ class _DashboardViewState extends State<_DashboardView> {
     if (!isOnline) return;
 
     try {
-      final res = await ApiService.getStatusAbsenMandiri(idKelompok);
+      final res = await AbsensiApiService.getStatusAbsenMandiri(idKelompok);
       if (mounted) {
         setState(() {
           _statusAbsen =
@@ -157,7 +161,7 @@ class _DashboardViewState extends State<_DashboardView> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      final res = await ApiService.postAbsenMandiri(
+      final res = await AbsensiApiService.postAbsenMandiri(
         tipe: tipe,
         idKelompok: ActiveKelompokCubit.activeKelompokId,
       );
@@ -205,7 +209,7 @@ class _DashboardViewState extends State<_DashboardView> {
     if (!isOnline) return;
 
     try {
-      final resp = await ApiService.getProfile();
+      final resp = await AuthApiService.getProfile();
       final data = resp['data'] as Map<String, dynamic>? ?? {};
       if (mounted) {
         setState(() {
@@ -359,7 +363,7 @@ class _DashboardViewState extends State<_DashboardView> {
         barrierDismissible: false,
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
-      await ApiService.logout();
+      await AuthApiService.logout();
       if (!mounted) return;
       Navigator.pop(context); // Ttp loading
       Navigator.pushAndRemoveUntil(
@@ -758,9 +762,9 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 
   Widget _buildSyncBtn() {
-    return BlocBuilder<SyncBadgeCubit, int>(
-      builder: (context, count) {
-        final hasQueue = count > 0;
+    return BlocBuilder<SyncCenterCubit, SyncCenterState>(
+      builder: (context, state) {
+        final hasQueue = state.totalAntrean > 0;
         final icon = hasQueue ? Icons.cloud_upload : Icons.cloud_done;
         final color = hasQueue ? Colors.orange : Colors.white;
 
@@ -790,7 +794,7 @@ class _DashboardViewState extends State<_DashboardView> {
                     minHeight: 16,
                   ),
                   child: Text(
-                    '$count',
+                    '${state.totalAntrean}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -817,14 +821,15 @@ class _DashboardViewState extends State<_DashboardView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return BlocBuilder<SyncBadgeCubit, int>(
+        return BlocBuilder<SyncCenterCubit, SyncCenterState>(
           builder: (context, state) {
             return Container(
               padding: const EdgeInsets.all(20),
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (state == 0) ...[
+                  if (state.totalAntrean == 0) ...[
                     const Icon(Icons.check_circle_outline, size: 50, color: Colors.green),
                     const SizedBox(height: 16),
                     const Text(
@@ -836,11 +841,42 @@ class _DashboardViewState extends State<_DashboardView> {
                     const Icon(Icons.warning_amber_rounded, size: 50, color: Colors.orange),
                     const SizedBox(height: 16),
                     Text(
-                      'Ada $state data tertunda karena masalah jaringan. Data ini tersimpan aman di HP Anda.',
+                      'Ada ${state.totalAntrean} data tertunda karena masalah jaringan. Data ini tersimpan aman di HP Anda.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 16),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: state.daftarAntrean.length,
+                        itemBuilder: (context, index) {
+                          final item = state.daftarAntrean[index];
+                          // Format payload summary for UI
+                          String detail = item.endpoint;
+                          try {
+                            final map = json.decode(item.payloadJson);
+                            if (map is Map) {
+                              if (map.containsKey('nis')) detail = 'NIS: ${map['nis']}';
+                              if (map.containsKey('rows')) detail = 'Massal: ${map['rows'].length} santri';
+                            }
+                          } catch (_) {}
+
+                          return ListTile(
+                            leading: const Icon(Icons.sync_problem, color: Colors.orange),
+                            title: Text(
+                              DateFormat('dd MMM HH:mm').format(item.timestamp),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              detail,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -851,12 +887,31 @@ class _DashboardViewState extends State<_DashboardView> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.pop(ctx);
-                          OfflineSyncManager().syncQueueManual();
+                          
+                          // Tampilkan loading overlay
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (BuildContext context) {
+                              return const Center(
+                                child: CircularProgressIndicator(color: Colors.white),
+                              );
+                            },
+                          );
+                          
+                          try {
+                            await OfflineSyncManager().syncQueueManual();
+                          } finally {
+                            // Tutup loading overlay
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          }
                         },
                         child: Text(
-                          'Sync Sekarang',
+                          'Sinkronkan Sekarang',
                           style: GoogleFonts.plusJakartaSans(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -1898,6 +1953,11 @@ class _DashboardViewState extends State<_DashboardView> {
     String timeInfo = 'Tidak ada libur';
 
     if (nearest != null) {
+      final kategoriText = (nearest.kategori != null && nearest.kategori!.isNotEmpty) 
+          ? nearest.kategori! 
+          : 'Terdekat';
+      title = 'Libur $kategoriText';
+      
       try {
         final parsed = DateTime.parse(nearest.tanggalMulai);
         timeInfo = '${parsed.day}/${parsed.month}/${parsed.year}\n${nearest.namaLibur}';
@@ -2104,10 +2164,7 @@ class _DashboardViewState extends State<_DashboardView> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => BlocProvider(
-              create: (_) => TesCubit(),
-              child: const DaftarTesScreen(),
-            ),
+            builder: (_) => const DaftarTesScreen(),
           ),
         ),
       ),

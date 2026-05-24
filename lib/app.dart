@@ -9,7 +9,7 @@ import 'package:manajemen_tahsin_app/features/auth/presentation/login_screen.dar
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/core/theme/theme_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-import 'package:manajemen_tahsin_app/core/state/sync_badge_cubit.dart';
+import 'package:manajemen_tahsin_app/core/state/sync_center_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/indicator_settings_cubit.dart';
 import 'package:manajemen_tahsin_app/features/pengaturan/presentation/bloc/header_settings_cubit.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -56,7 +56,7 @@ class MyApp extends StatelessWidget {
         providers: [
           BlocProvider(create: (_) => ThemeCubit()),
           BlocProvider(create: (_) => ActiveKelompokCubit()),
-          BlocProvider(create: (_) => SyncBadgeCubit()),
+          BlocProvider(create: (_) => SyncCenterCubit()),
           BlocProvider(create: (_) => IndicatorSettingsCubit()),
           BlocProvider(create: (_) => HeaderSettingsCubit()),
           BlocProvider(

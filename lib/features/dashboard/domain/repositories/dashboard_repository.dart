@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/dashboard_api_service.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/features/dashboard/data/models/dashboard_model.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
@@ -38,7 +38,7 @@ class DashboardRepository {
     final cacheKey = 'dashboard_data_cache_${idKategori ?? 0}';
     final isar = IsarDb.instance;
 
-    final Map<String, dynamic> responseData = await ApiService.getDashboardGuru(idKategori: idKategori);
+    final Map<String, dynamic> responseData = await DashboardApiService.getDashboardGuru(idKategori: idKategori);
     
     final Map<String, dynamic> payload =
         (responseData['data'] is Map<String, dynamic>)

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
@@ -228,7 +228,7 @@ class TahsinRepository {
 
         if (lastSyncTime.isEmpty || !hasMetaCache || !hasData) {
           // FULL PULL menggunakan endpoint lama (termasuk metadata)
-          final data = await ApiService.getProgressList(
+          final data = await TahsinApiService.getProgressList(
             idKelompok: idKelompok,
             idKelas: idKelas,
             tanggal: tanggal,
@@ -297,7 +297,7 @@ class TahsinRepository {
           }
 
           debugPrint("Repository: Fetching Delta Sync started...");
-          final deltaData = await ApiService.getDeltaProgress(
+          final deltaData = await TahsinApiService.getDeltaProgress(
             idKelompok: idKelompok,
             idKelas: idKelas,
             lastSync: lastSyncTime,
@@ -387,7 +387,7 @@ class TahsinRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getProgressDetail(
+        final data = await TahsinApiService.getProgressDetail(
           nis,
         ).timeout(const Duration(seconds: 10));
         await _isar.writeTxn(() async {
@@ -474,7 +474,7 @@ class TahsinRepository {
 
     if (!isWithin14Days) {
       if (await networkInfo.isConnected) {
-        return await ApiService.getRiwayatGlobal(
+        return await TahsinApiService.getRiwayatGlobal(
           tanggal,
           page: page,
           limit: limit,
@@ -491,7 +491,7 @@ class TahsinRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getRiwayatGlobal(
+        final data = await TahsinApiService.getRiwayatGlobal(
           tanggal,
           page: page,
           limit: limit,
@@ -540,42 +540,52 @@ class TahsinRepository {
 
   /// --- TAHAP 2: OPTIMISTIC UI UPDATE (WRITE) ---
 
-  Future<bool> inputMassalProgress(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> inputMassalProgress(Map<String, dynamic> payload) async {
     // MISSION 2 FIX (Fast-Fail): Cek status jaringan instan
     final bool isOnline = await networkInfo.isConnected;
     if (!isOnline) {
-      return _enqueuePayload('api/guru/progress/input-massal', payload);
+      return _enqueuePayload('api/guru/progress/input-massal', payload, 'progress_tahsin');
     }
 
     try {
-      final res = await ApiService.inputMassalProgress(payload);
-      return res['status'] == 200 || res['success'] == true;
+      final res = await TahsinApiService.inputMassalProgress(payload);
+      if (res['status'] == 200 || res['success'] == true) {
+        return {'success': true, 'is_offline': false, 'message': 'Tersimpan ke Server'};
+      } else {
+        return {'success': false, 'message': res['message'] ?? 'Gagal menyimpan'};
+      }
     } catch (e) {
-      return _enqueuePayload('api/guru/progress/input-massal', payload);
+      return _enqueuePayload('api/guru/progress/input-massal', payload, 'progress_tahsin');
     }
   }
 
-  Future<bool> inputCepatProgress(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> inputCepatProgress(Map<String, dynamic> payload) async {
     // MISSION 2 FIX (Fast-Fail): Cek status jaringan instan
     final bool isOnline = await networkInfo.isConnected;
     if (!isOnline) {
-      return _enqueuePayload('api/guru/progress/input-cepat', payload);
+      return _enqueuePayload('api/guru/progress/input-cepat', payload, 'progress_tahsin');
     }
 
     try {
-      final res = await ApiService.inputCepatProgress(payload);
-      return res['status'] == 200 || res['success'] == true;
+      final res = await TahsinApiService.inputCepatProgress(payload);
+      if (res['status'] == 200 || res['success'] == true) {
+        return {'success': true, 'is_offline': false, 'message': 'Tersimpan ke Server'};
+      } else {
+        return {'success': false, 'message': res['message'] ?? 'Gagal menyimpan'};
+      }
     } catch (e) {
-      return _enqueuePayload('api/guru/progress/input-cepat', payload);
+      return _enqueuePayload('api/guru/progress/input-cepat', payload, 'progress_tahsin');
     }
   }
 
-  Future<bool> _enqueuePayload(
+  Future<Map<String, dynamic>> _enqueuePayload(
     String endpoint,
     Map<String, dynamic> payload,
+    String type,
   ) async {
     final request = OfflineQueue()
       ..endpoint = endpoint
+      ..type = type
       ..payloadJson = await compute(_encodeJsonString, payload)
       ..timestamp = DateTime.now()
       ..status = 'pending';
@@ -583,7 +593,7 @@ class TahsinRepository {
     await _isar.writeTxn(() async {
       await _isar.offlineQueues.put(request);
     });
-    return true;
+    return {'success': true, 'is_offline': true, 'message': 'Tersimpan Lokal - Menunggu Sinyal'};
   }
 
   /// Mengecek jumlah input hari ini berdasarkan tanggal dan sesi pada database Isar lokal (RiwayatTahsinModels).

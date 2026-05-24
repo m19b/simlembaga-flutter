@@ -46,9 +46,11 @@ class MasalahCubit extends Cubit<MasalahState> {
   }
 
   Future<void> fetchMasalah({bool forceRefresh = false}) async {
+    if (isClosed) return;
     emit(MasalahLoading());
     try {
       final data = await repository.getMasalahList(forceRefresh: forceRefresh);
+      if (isClosed) return;
       final isOffline = data['is_offline_fallback'] == true;
       emit(MasalahLoaded(
         aktif:   (data['aktif'] as List?)?.cast<Map<String, dynamic>>()   ?? [],
@@ -56,6 +58,7 @@ class MasalahCubit extends Cubit<MasalahState> {
         isOfflineWarning: isOffline,
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(MasalahError(e.toString().replaceAll('Exception: ', '')));
     }
   }

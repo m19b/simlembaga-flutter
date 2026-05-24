@@ -23,18 +23,23 @@ const KelasModelSchema = CollectionSchema(
       type: IsarType.objectList,
       target: r'CheckpointLokal',
     ),
-    r'idKelompok': PropertySchema(
+    r'idKategori': PropertySchema(
       id: 1,
+      name: r'idKategori',
+      type: IsarType.long,
+    ),
+    r'idKelompok': PropertySchema(
+      id: 2,
       name: r'idKelompok',
       type: IsarType.long,
     ),
     r'namaKelompok': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'namaKelompok',
       type: IsarType.string,
     ),
     r'tingkat': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'tingkat',
       type: IsarType.string,
     )
@@ -53,6 +58,19 @@ const KelasModelSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'idKelompok',
+          type: IndexType.value,
+          caseSensitive: false,
+        )
+      ],
+    ),
+    r'idKategori': IndexSchema(
+      id: 4999808549075746472,
+      name: r'idKategori',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'idKategori',
           type: IndexType.value,
           caseSensitive: false,
         )
@@ -114,9 +132,10 @@ void _kelasModelSerialize(
     CheckpointLokalSchema.serialize,
     object.checkpoints,
   );
-  writer.writeLong(offsets[1], object.idKelompok);
-  writer.writeString(offsets[2], object.namaKelompok);
-  writer.writeString(offsets[3], object.tingkat);
+  writer.writeLong(offsets[1], object.idKategori);
+  writer.writeLong(offsets[2], object.idKelompok);
+  writer.writeString(offsets[3], object.namaKelompok);
+  writer.writeString(offsets[4], object.tingkat);
 }
 
 KelasModel _kelasModelDeserialize(
@@ -132,10 +151,11 @@ KelasModel _kelasModelDeserialize(
     allOffsets,
     CheckpointLokal(),
   );
+  object.idKategori = reader.readLongOrNull(offsets[1]);
   object.idKelas = id;
-  object.idKelompok = reader.readLongOrNull(offsets[1]);
-  object.namaKelompok = reader.readStringOrNull(offsets[2]);
-  object.tingkat = reader.readStringOrNull(offsets[3]);
+  object.idKelompok = reader.readLongOrNull(offsets[2]);
+  object.namaKelompok = reader.readStringOrNull(offsets[3]);
+  object.tingkat = reader.readStringOrNull(offsets[4]);
   return object;
 }
 
@@ -156,8 +176,10 @@ P _kelasModelDeserializeProp<P>(
     case 1:
       return (reader.readLongOrNull(offset)) as P;
     case 2:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 3:
+      return (reader.readStringOrNull(offset)) as P;
+    case 4:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -188,6 +210,14 @@ extension KelasModelQueryWhereSort
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         const IndexWhereClause.any(indexName: r'idKelompok'),
+      );
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhere> anyIdKategori() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'idKategori'),
       );
     });
   }
@@ -374,6 +404,117 @@ extension KelasModelQueryWhere
       ));
     });
   }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause> idKategoriIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'idKategori',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause>
+      idKategoriIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'idKategori',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause> idKategoriEqualTo(
+      int? idKategori) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'idKategori',
+        value: [idKategori],
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause> idKategoriNotEqualTo(
+      int? idKategori) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'idKategori',
+              lower: [],
+              upper: [idKategori],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'idKategori',
+              lower: [idKategori],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'idKategori',
+              lower: [idKategori],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'idKategori',
+              lower: [],
+              upper: [idKategori],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause> idKategoriGreaterThan(
+    int? idKategori, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'idKategori',
+        lower: [idKategori],
+        includeLower: include,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause> idKategoriLessThan(
+    int? idKategori, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'idKategori',
+        lower: [],
+        upper: [idKategori],
+        includeUpper: include,
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterWhereClause> idKategoriBetween(
+    int? lowerIdKategori,
+    int? upperIdKategori, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'idKategori',
+        lower: [lowerIdKategori],
+        includeLower: includeLower,
+        upper: [upperIdKategori],
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension KelasModelQueryFilter
@@ -482,6 +623,79 @@ extension KelasModelQueryFilter
         upper,
         includeUpper,
       );
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterFilterCondition>
+      idKategoriIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'idKategori',
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterFilterCondition>
+      idKategoriIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'idKategori',
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterFilterCondition> idKategoriEqualTo(
+      int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'idKategori',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterFilterCondition>
+      idKategoriGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'idKategori',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterFilterCondition>
+      idKategoriLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'idKategori',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterFilterCondition> idKategoriBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'idKategori',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
     });
   }
 
@@ -931,6 +1145,18 @@ extension KelasModelQueryLinks
 
 extension KelasModelQuerySortBy
     on QueryBuilder<KelasModel, KelasModel, QSortBy> {
+  QueryBuilder<KelasModel, KelasModel, QAfterSortBy> sortByIdKategori() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'idKategori', Sort.asc);
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterSortBy> sortByIdKategoriDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'idKategori', Sort.desc);
+    });
+  }
+
   QueryBuilder<KelasModel, KelasModel, QAfterSortBy> sortByIdKelompok() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'idKelompok', Sort.asc);
@@ -970,6 +1196,18 @@ extension KelasModelQuerySortBy
 
 extension KelasModelQuerySortThenBy
     on QueryBuilder<KelasModel, KelasModel, QSortThenBy> {
+  QueryBuilder<KelasModel, KelasModel, QAfterSortBy> thenByIdKategori() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'idKategori', Sort.asc);
+    });
+  }
+
+  QueryBuilder<KelasModel, KelasModel, QAfterSortBy> thenByIdKategoriDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'idKategori', Sort.desc);
+    });
+  }
+
   QueryBuilder<KelasModel, KelasModel, QAfterSortBy> thenByIdKelas() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'idKelas', Sort.asc);
@@ -1021,6 +1259,12 @@ extension KelasModelQuerySortThenBy
 
 extension KelasModelQueryWhereDistinct
     on QueryBuilder<KelasModel, KelasModel, QDistinct> {
+  QueryBuilder<KelasModel, KelasModel, QDistinct> distinctByIdKategori() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'idKategori');
+    });
+  }
+
   QueryBuilder<KelasModel, KelasModel, QDistinct> distinctByIdKelompok() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'idKelompok');
@@ -1054,6 +1298,12 @@ extension KelasModelQueryProperty
       checkpointsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'checkpoints');
+    });
+  }
+
+  QueryBuilder<KelasModel, int?, QQueryOperations> idKategoriProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'idKategori');
     });
   }
 

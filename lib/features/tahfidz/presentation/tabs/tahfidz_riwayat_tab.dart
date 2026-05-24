@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahfidz_api_service.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_screen.dart'
@@ -41,7 +41,7 @@ class _TahfidzRiwayatTabState extends State<TahfidzRiwayatTab>
       final activeId =
           context.read<ActiveKelompokCubit>().state.activeId;
       final tanggal = _selectedDate.toIso8601String().split('T')[0];
-      final res = await ApiService.getTahfidzList(tanggal: tanggal);
+      final res = await TahfidzApiService.getTahfidzList(tanggal: tanggal);
       final raw = res['data'] ?? res;
       final santriList = raw is Map ? (raw['santri_list'] ?? []) : raw;
 

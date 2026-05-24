@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/tahfidz_api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/generic_cache.dart';
 import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
@@ -64,13 +64,14 @@ class TahfidzRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getTahfidzList(
+        final data = await TahfidzApiService.getTahfidzList(
           tanggal: tanggal,
           sesi: sesi,
           filterKehadiran: filterKehadiran,
         );
 
         // Heavy parsing di isolate
+        debugPrint("Repository: CI4 Response received. Data: $data");
         final parseResult = await compute(_parseSantriList, {
           'data': data,
           'idKelompok': idKelompok,
@@ -130,7 +131,7 @@ class TahfidzRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getTahfidzDetail(nis);
+        final data = await TahfidzApiService.getTahfidzDetail(nis);
         await _isar.writeTxn(() async {
           final gc = GenericCache()
             ..key = cacheKey
@@ -184,7 +185,7 @@ class TahfidzRepository {
     String? tglSampai,
   }) async {
     if (await networkInfo.isConnected) {
-      return ApiService.getTahfidzDashboard(
+      return TahfidzApiService.getTahfidzDashboard(
         nis,
         tglDari: tglDari,
         tglSampai: tglSampai,
@@ -202,7 +203,7 @@ class TahfidzRepository {
   Future<bool> inputCepat(Map<String, dynamic> payload) async {
     if (await networkInfo.isConnected) {
       try {
-        final res = await ApiService.inputCepatTahfidz(payload);
+        final res = await TahfidzApiService.inputCepatTahfidz(payload);
         return res['status'] == 200 || res['status'] == true;
       } catch (e) {
         return _enqueuePayload('api/guru/tahfidz-quran/input-cepat', payload);
@@ -218,7 +219,7 @@ class TahfidzRepository {
   Future<bool> inputMassal(Map<String, dynamic> payload, {int? sesi}) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.inputMassalTahfidz(payload);
+        await TahfidzApiService.inputMassalTahfidz(payload);
         return true;
       } catch (e) {
         return _enqueuePayload('api/guru/tahfidz-quran/input-massal', payload, sesi: sesi);
@@ -269,7 +270,7 @@ class TahfidzRepository {
   ) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.updateTahfidz(idPrestasi, data);
+        await TahfidzApiService.updateTahfidz(idPrestasi, data);
         return true;
       } catch (e) {
         return _enqueuePayload(
@@ -288,7 +289,7 @@ class TahfidzRepository {
   Future<bool> hapusRiwayat(int idPrestasi, String nis) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.deleteTahfidz(idPrestasi, nis);
+        await TahfidzApiService.deleteTahfidz(idPrestasi, nis);
         // Hapus dari cache lokal juga
         await _isar.writeTxn(() async {
           await _isar.tahfidzRiwayatModels.delete(idPrestasi);
@@ -305,6 +306,63 @@ class TahfidzRepository {
       'api/guru/tahfidz-quran/delete/$idPrestasi',
       {'nis': nis},
     );
+  }
+
+  Future<void> saveInputMassalOffline(
+    Map<String, dynamic> payload,
+    List<Map<String, dynamic>> santriRows,
+  ) async {
+    final request = OfflineQueue()
+      ..endpoint = 'api/guru/tahfidz-quran/input-massal'
+      ..payloadJson = jsonEncode(payload)
+      ..timestamp = DateTime.now()
+      ..status = 'pending';
+
+    await _isar.writeTxn(() async {
+      await _isar.offlineQueues.put(request);
+
+      for (final row in santriRows) {
+        final nis = row['nis']?.toString();
+        if (nis == null || nis.isEmpty) continue;
+
+        final model = await _isar.tahfidzSantriModels
+            .filter()
+            .nisEqualTo(nis)
+            .findFirst();
+
+        if (model != null) {
+          final zTot = double.tryParse(row['z_tot']?.toString() ?? '0') ?? 0;
+          final sTot = double.tryParse(row['s_tot']?.toString() ?? '0') ?? 0;
+          final mTot = double.tryParse(row['m_tot']?.toString() ?? '0') ?? 0;
+
+          model.totalZiyadahHal = (model.totalZiyadahHal ?? 0) + zTot;
+          model.totalSabaqHal = (model.totalSabaqHal ?? 0) + sTot;
+          model.totalManzilHal = (model.totalManzilHal ?? 0) + mTot;
+          model.sudahSetor = true;
+
+          if (model.rawJson != null && model.rawJson!.isNotEmpty) {
+            try {
+              final rawMap = jsonDecode(model.rawJson!) as Map<String, dynamic>;
+              rawMap['total_ziyadah_hal'] = model.totalZiyadahHal;
+              rawMap['total_sabaq_hal'] = model.totalSabaqHal;
+              rawMap['total_manzil_hal'] = model.totalManzilHal;
+              rawMap['sudah_setor'] = true;
+              
+              final riwayatList = rawMap['riwayat_hari_ini'] is List ? rawMap['riwayat_hari_ini'] as List : [];
+              riwayatList.add({
+                'id': -1,
+                'status_halaman': row['z_status'],
+              });
+              rawMap['riwayat_hari_ini'] = riwayatList;
+              
+              model.rawJson = jsonEncode(rawMap);
+            } catch (_) {}
+          }
+
+          await _isar.tahfidzSantriModels.put(model);
+        }
+      }
+    });
   }
 
   // ===========================================================================
@@ -342,22 +400,33 @@ Map<String, dynamic> _parseSantriList(Map<String, dynamic> args) {
   final idKelompok = args['idKelompok'] as int?;
 
   final actualData = data['data'] ?? data;
-  final Map<String, dynamic> metaMap = {
-    'filter_meta': actualData['filter_meta'],
-  };
-
   var rawList = actualData['santri_list'];
 
   final List<TahfidzSantriModel> models = [];
+  String? maxTglUpdate;
+
   if (rawList is List) {
     for (final e in rawList) {
       if (e is Map<String, dynamic>) {
         models.add(
           TahfidzSantriModel.fromJson(e, idKelompok: idKelompok),
         );
+        final tgl = e['tanggal_update'];
+        if (tgl != null) {
+          if (maxTglUpdate == null || tgl.toString().compareTo(maxTglUpdate) > 0) {
+            maxTglUpdate = tgl.toString();
+          }
+        }
       }
     }
   }
+
+  final Map<String, dynamic> metaMap = {
+    'filter_meta': actualData['filter_meta'],
+    'jadwal_info': actualData['jadwal_info'],
+    'jadwal_list': actualData['jadwal_list'],
+    'tanggal_update': maxTglUpdate,
+  };
 
   return {
     'models': models,

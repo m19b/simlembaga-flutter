@@ -81,6 +81,13 @@ class DashboardCubit extends Cubit<DashboardState> {
     try {
       final freshData = await repository.fetchFreshData(null);
       _masterData = freshData;
+
+      // [AUTO-SET KELOMPOK SAAT LOGIN/APP START]
+      // Jika activeId masih 0 (baru login), otomatis set ke idKelompok dari response Dashboard
+      if (activeKelompokCubit.state.activeId <= 0 && freshData.idKelompok > 0) {
+        activeKelompokCubit.changeKelompok(freshData.idKelompok);
+      }
+
       _applyFilters(isRefreshing: false);
     } catch (e) {
       if (_masterData == null) {

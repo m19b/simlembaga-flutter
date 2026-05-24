@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
-import 'package:manajemen_tahsin_app/core/api/api_service.dart';
+import 'package:manajemen_tahsin_app/core/api/services/pra_tahfidz_api_service.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
 import 'package:manajemen_tahsin_app/core/data/models/generic_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/kelas_model.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfidz_santri_model.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfidz_riwayat_model.dart';
 
@@ -23,6 +24,9 @@ class PraTahfidzRepository {
   Future<Map<String, dynamic>> getSantriList({
     String? tanggal,
     int? idKelompok,
+    List<int>? kelasIds,
+    int? sesi,
+    String? filterKehadiran,
     bool forceRefresh = false,
   }) async {
     final tgl = tanggal ?? DateTime.now().toIso8601String().split('T')[0];
@@ -52,6 +56,8 @@ class PraTahfidzRepository {
 
       return {
         'filter_meta': metaMap['filter_meta'],
+        'jadwal_list': metaMap['jadwal_list'],
+        'jadwal_info': metaMap['jadwal_info'],
         'santri_list': mapList,
       };
     }
@@ -63,7 +69,13 @@ class PraTahfidzRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getPraTahfidzList(tanggal: tgl);
+        final data = await PraTahfidzApiService.getPraTahfidzList(
+          tanggal: tgl,
+          idKelompok: idKelompok,
+          kelasIds: kelasIds,
+          sesi: sesi,
+          filterKehadiran: filterKehadiran,
+        );
 
         // Parsing berat di background isolate (Anti-Jank)
         final parseResult = await compute(_parseSantriList, {
@@ -87,10 +99,36 @@ class PraTahfidzRepository {
             ..dataJson = parseResult['metaJson'] as String
             ..updatedAt = DateTime.now();
           await _isar.genericCaches.put(gc);
+
+          // ─── UPSERT KELAS METADATA ──────────────────────────────────
+          try {
+            final parsedMeta = jsonDecode(parseResult['metaJson'] as String);
+            final filterMeta = parsedMeta['filter_meta'];
+            if (filterMeta != null && filterMeta['kelas'] is List) {
+              for (final k in filterMeta['kelas']) {
+                final int kId = int.tryParse(k['id_kelas']?.toString() ?? '') ?? 0;
+                if (kId > 0) {
+                  final existing = await _isar.kelasModels.get(kId);
+                  final updated = existing ?? KelasModel()..idKelas = kId;
+                  
+                  updated.tingkat = k['tingkat']?.toString() ?? updated.tingkat;
+                  updated.idKelompok = idKelompok ?? updated.idKelompok;
+                  final kCat = int.tryParse(k['id_kategori']?.toString() ?? '');
+                  if (kCat != null) updated.idKategori = kCat;
+                  
+                  await _isar.kelasModels.put(updated);
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Gagal upsert kelas model: $e');
+          }
         });
 
         return data;
-      } catch (e) {
+      } catch (e, stacktrace) {
+        print('xxxxxxxxxxxxxxxxxxxxxxx ERROR PRA-TAHFIDZ: $e');
+        print('xxxxxxxxxxxxxxxxxxxxxxx STACKTRACE: $stacktrace');
         if (e.toString().contains('401')) rethrow;
         final local = await loadLocal();
         if (local != null) return local;
@@ -124,7 +162,7 @@ class PraTahfidzRepository {
 
     if (await networkInfo.isConnected) {
       try {
-        final data = await ApiService.getPraTahfidzDetail(nis);
+        final data = await PraTahfidzApiService.getPraTahfidzDetail(nis);
         await _isar.writeTxn(() async {
           final gc = GenericCache()
             ..key = cacheKey
@@ -162,7 +200,7 @@ class PraTahfidzRepository {
     String? tglSampai,
   }) async {
     if (await networkInfo.isConnected) {
-      return ApiService.getPraTahfidzDashboard(nis,
+      return PraTahfidzApiService.getPraTahfidzDashboard(nis,
           tglDari: tglDari, tglSampai: tglSampai);
     }
     final cacheKey = 'pratahfidz_dashboard_$nis';
@@ -179,7 +217,7 @@ class PraTahfidzRepository {
   Future<bool> inputCepat(Map<String, dynamic> payload) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.inputCepatPraTahfidz(payload);
+        await PraTahfidzApiService.inputCepatPraTahfidz(payload);
         return true;
       } catch (e) {
         return _enqueuePayload('api/guru/pra-tahfidz/input-cepat', payload);
@@ -192,16 +230,21 @@ class PraTahfidzRepository {
   // 5. WRITE: Input Massal (Optimistic Update + Offline Queue)
   // ────────────────────────────────────────────────────────────────────────────
 
-  Future<bool> inputMassal(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> inputMassal(Map<String, dynamic> payload) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.inputMassalPraTahfidz(payload);
-        return true;
+        final res = await PraTahfidzApiService.inputMassalPraTahfidz(payload);
+        final dataNode = res['data'] is Map ? res['data'] : res;
+        final bool isConfirm = dataNode['require_confirmation'] ?? res['require_confirmation'] ?? false;
+        final String msg = dataNode['message'] ?? res['message'] ?? 'Data berhasil disimpan';
+        return {'success': true, 'require_confirmation': isConfirm, 'message': msg};
       } catch (e) {
-        return _enqueuePayload('api/guru/pra-tahfidz/input-massal', payload);
+        final ok = await _enqueuePayload('api/guru/pra-tahfidz/input-massal', payload);
+        return {'success': ok, 'message': ok ? 'Tersimpan offline' : e.toString(), 'require_confirmation': false};
       }
     }
-    return _enqueuePayload('api/guru/pra-tahfidz/input-massal', payload);
+    final ok = await _enqueuePayload('api/guru/pra-tahfidz/input-massal', payload);
+    return {'success': ok, 'message': 'Tersimpan offline', 'require_confirmation': false};
   }
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -212,7 +255,7 @@ class PraTahfidzRepository {
       int idPrestasi, Map<String, dynamic> payload) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.updatePraTahfidz(idPrestasi, payload);
+        await PraTahfidzApiService.updatePraTahfidz(idPrestasi, payload);
         return true;
       } catch (e) {
         return _enqueuePayload(
@@ -229,7 +272,7 @@ class PraTahfidzRepository {
   Future<bool> hapusRiwayat(int idPrestasi) async {
     if (await networkInfo.isConnected) {
       try {
-        await ApiService.deletePraTahfidz(idPrestasi);
+        await PraTahfidzApiService.deletePraTahfidz(idPrestasi);
         // Hapus dari Isar (Optimistic)
         await _isar.writeTxn(() async {
           await _isar.praTahfidzRiwayatModels.delete(idPrestasi);
@@ -275,22 +318,27 @@ class PraTahfidzRepository {
 // ─── TOP-LEVEL ISOLATE FUNCTIONS ─────────────────────────────────────────────
 
 Map<String, dynamic> _parseSantriList(Map<String, dynamic> args) {
-  final data = args['data'] as Map<String, dynamic>;
-  final idKelompok = args['idKelompok'] as int?;
+  try {
+    final parsedData = args['data'] as Map<String, dynamic>;
+    final idKelompok = args['idKelompok'] as int?;
 
-  final actualData = data['data'] ?? data;
-  final metaMap = {
-    'filter_meta': actualData['filter_meta'],
-  };
+    // Pastikan membaca dari key 'data' sesuai instruksi
+    final responseData = parsedData['data'] ?? parsedData;
 
-  var rawList = actualData['santri_list'];
-  if (rawList is Map && rawList.containsKey('data')) {
-    rawList = rawList['data'];
+    final metaMap = {
+      'filter_meta': responseData['filter_meta'],
+      'jadwal_list': responseData['jadwal_list'] ?? [],
+      'jadwal_info': responseData['jadwal_info'],
+    };
+
+  var santriRaw = responseData['santri_list'];
+  if (santriRaw is Map && santriRaw.containsKey('data')) {
+    santriRaw = santriRaw['data'];
   }
 
   final List<PraTahfidzSantriModel> models = [];
-  if (rawList is List) {
-    for (final e in rawList) {
+  if (santriRaw is List) {
+    for (final e in santriRaw) {
       if (e is Map<String, dynamic>) {
         models.add(PraTahfidzSantriModel.fromJson(
           e,
@@ -300,10 +348,15 @@ Map<String, dynamic> _parseSantriList(Map<String, dynamic> args) {
     }
   }
 
-  return {
-    'models': models,
-    'metaJson': jsonEncode(metaMap),
-  };
+    return {
+      'models': models,
+      'metaJson': jsonEncode(metaMap),
+    };
+  } catch (e, stacktrace) {
+    print('xxxxxxxxxxxxxxxxxxxxxxx ERROR PRA-TAHFIDZ _parseSantriList: $e');
+    print('xxxxxxxxxxxxxxxxxxxxxxx STACKTRACE: $stacktrace');
+    rethrow;
+  }
 }
 
 List<Map<String, dynamic>> _mapSantriListToJson(

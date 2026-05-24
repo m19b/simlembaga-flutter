@@ -36,6 +36,11 @@ const OfflineQueueSchema = CollectionSchema(
       id: 3,
       name: r'timestamp',
       type: IsarType.dateTime,
+    ),
+    r'type': PropertySchema(
+      id: 4,
+      name: r'type',
+      type: IsarType.string,
     )
   },
   estimateSize: _offlineQueueEstimateSize,
@@ -61,6 +66,7 @@ int _offlineQueueEstimateSize(
   bytesCount += 3 + object.endpoint.length * 3;
   bytesCount += 3 + object.payloadJson.length * 3;
   bytesCount += 3 + object.status.length * 3;
+  bytesCount += 3 + object.type.length * 3;
   return bytesCount;
 }
 
@@ -74,6 +80,7 @@ void _offlineQueueSerialize(
   writer.writeString(offsets[1], object.payloadJson);
   writer.writeString(offsets[2], object.status);
   writer.writeDateTime(offsets[3], object.timestamp);
+  writer.writeString(offsets[4], object.type);
 }
 
 OfflineQueue _offlineQueueDeserialize(
@@ -88,6 +95,7 @@ OfflineQueue _offlineQueueDeserialize(
   object.payloadJson = reader.readString(offsets[1]);
   object.status = reader.readString(offsets[2]);
   object.timestamp = reader.readDateTime(offsets[3]);
+  object.type = reader.readString(offsets[4]);
   return object;
 }
 
@@ -106,6 +114,8 @@ P _offlineQueueDeserializeProp<P>(
       return (reader.readString(offset)) as P;
     case 3:
       return (reader.readDateTime(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -720,6 +730,140 @@ extension OfflineQueueQueryFilter
       ));
     });
   }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition> typeEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition>
+      typeGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition> typeLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition> typeBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'type',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition>
+      typeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition> typeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition> typeContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition> typeMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'type',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition>
+      typeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'type',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterFilterCondition>
+      typeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'type',
+        value: '',
+      ));
+    });
+  }
 }
 
 extension OfflineQueueQueryObject
@@ -776,6 +920,18 @@ extension OfflineQueueQuerySortBy
   QueryBuilder<OfflineQueue, OfflineQueue, QAfterSortBy> sortByTimestampDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'timestamp', Sort.desc);
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterSortBy> sortByType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'type', Sort.asc);
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterSortBy> sortByTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'type', Sort.desc);
     });
   }
 }
@@ -842,6 +998,18 @@ extension OfflineQueueQuerySortThenBy
       return query.addSortBy(r'timestamp', Sort.desc);
     });
   }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterSortBy> thenByType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'type', Sort.asc);
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QAfterSortBy> thenByTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'type', Sort.desc);
+    });
+  }
 }
 
 extension OfflineQueueQueryWhereDistinct
@@ -870,6 +1038,13 @@ extension OfflineQueueQueryWhereDistinct
   QueryBuilder<OfflineQueue, OfflineQueue, QDistinct> distinctByTimestamp() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'timestamp');
+    });
+  }
+
+  QueryBuilder<OfflineQueue, OfflineQueue, QDistinct> distinctByType(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'type', caseSensitive: caseSensitive);
     });
   }
 }
@@ -903,6 +1078,12 @@ extension OfflineQueueQueryProperty
   QueryBuilder<OfflineQueue, DateTime, QQueryOperations> timestampProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'timestamp');
+    });
+  }
+
+  QueryBuilder<OfflineQueue, String, QQueryOperations> typeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'type');
     });
   }
 }

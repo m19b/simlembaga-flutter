@@ -69,6 +69,7 @@ class CalonTes {
   final int targetLatihan;
   final Keuangan? keuangan;
   final List<dynamic> bocor;
+  final String kodeJalur;
   
   final bool isTerdaftar;
   final String? idDaftar;
@@ -85,6 +86,7 @@ class CalonTes {
     required this.targetLatihan,
     this.keuangan,
     this.bocor = const [],
+    this.kodeJalur = 'tahsin',
     required this.isTerdaftar,
     this.idDaftar,
   });
@@ -102,6 +104,7 @@ class CalonTes {
       targetLatihan: int.tryParse(json['target_latihan']?.toString() ?? '0') ?? 0,
       keuangan: json['keuangan'] != null ? Keuangan.fromJson(json['keuangan']) : null,
       bocor: json['bocor'] is List ? List<dynamic>.from(json['bocor']) : [],
+      kodeJalur: json['kode_jalur']?.toString() ?? 'tahsin',
       isTerdaftar: json['isTerdaftar'] == true || json['id_daftar'] != null,
       idDaftar: json['id_daftar']?.toString(),
     );
@@ -124,6 +127,7 @@ class RiwayatTes {
   final String kelompok;
   final String naikKe;
   final String penguji;
+  final String kodeJalur;
 
   RiwayatTes({
     required this.idRiwayat,
@@ -140,6 +144,7 @@ class RiwayatTes {
     required this.penguji,
     required this.tglDaftar,
     required this.namaPendaftar,
+    this.kodeJalur = 'tahsin',
   });
 
   factory RiwayatTes.fromJson(Map<String, dynamic> json) {
@@ -158,6 +163,7 @@ class RiwayatTes {
       penguji: json['nama_penguji']?.toString() ?? json['nama_pentest']?.toString() ?? '-',
       tglDaftar: json['tgl_daftar']?.toString() ?? '-',
       namaPendaftar: json['nama_pendaftar']?.toString() ?? '-',
+      kodeJalur: json['kode_jalur']?.toString() ?? 'tahsin',
     );
   }
 }

@@ -13,8 +13,8 @@ class CoreApiClient {
     try {
       final client = await DioClient.dio;
       final fullUrl = '${client.options.baseUrl}api/$endpoint';
-      debugPrint("📡 API_GET: $fullUrl");
-      if (queryParameters != null) debugPrint("🔍 PARAMS: $queryParameters");
+      debugPrint("rrrrrrrrrrrrrrrrrrrrrrr API_GET: $fullUrl");
+      if (queryParameters != null) debugPrint("rrrrrrrrrrrrrrrrrrrrrrr PARAMS: $queryParameters");
 
       final response = await client.get(
         'api/$endpoint',
@@ -36,15 +36,18 @@ class CoreApiClient {
     try {
       final client = await DioClient.dio;
       final fullUrl = '${client.options.baseUrl}api/$endpoint';
-      debugPrint("📡 API_POST: $fullUrl");
-      debugPrint("📦 BODY: $body");
-      if (queryParameters != null) debugPrint("🔍 QUERY: $queryParameters");
+      debugPrint("rrrrrrrrrrrrrrrrrrrrrrr API_POST: $fullUrl");
+      debugPrint("rrrrrrrrrrrrrrrrrrrrrrr BODY: $body");
+      if (queryParameters != null) debugPrint("rrrrrrrrrrrrrrrrrrrrrrr QUERY: $queryParameters");
 
       final response = await client.post(
         'api/$endpoint',
         data: body,
         queryParameters: queryParameters,
-        options: Options(headers: {'Content-Type': 'application/json'}),
+        options: Options(
+          headers: {'Content-Type': 'application/json'},
+          contentType: Headers.jsonContentType,
+        ),
       );
       debugPrint("Repository: CI4 Response Status: ${response.statusCode}");
       return parseResponseData(response);
@@ -71,6 +74,8 @@ class CoreApiClient {
       throw Exception('Format respons tidak valid: Bukan JSON Object. Raw Data: $data');
     }
 
+    print('xxxxxxxxxxxxxxxxxxxxxxx RAW RESPONSE: $parsedData');
+
     final isSuccess = parsedData['status'] == 200 || parsedData['status'] == true;
     if (!isSuccess || parsedData['error'] == true) {
       throw Exception(parsedData['message'] ?? 'Gagal memproses permintaan.');
@@ -80,6 +85,11 @@ class CoreApiClient {
 
   /// Global Error Handler untuk DioException
   static void handleDioError(DioException e) {
+    print('xxxxxxxxxxxxxxxxxxxxxxx DIO ERROR DETAIL xxxxxxxxxxxxxxxxxxxxxxx');
+    print('Request URL: ${e.requestOptions.uri}');
+    print('Response Data: ${e.response?.data}');
+    print('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+
     String humanReadableMsg = "Terjadi kesalahan jaringan.";
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {

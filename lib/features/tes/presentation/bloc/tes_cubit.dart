@@ -42,8 +42,10 @@ class TesCubit extends Cubit<TesState> {
       // Merge Both Lists
       final mergedList = [...calonList, ...antrianList];
 
+      if (isClosed) return;
       emit(TesLoaded(calonTesList: mergedList));
     } catch (e) {
+      if (isClosed) return;
       emit(TesError('Gagal memuat data: ${e.toString().replaceAll('Exception: ', '')}'));
     }
   }
@@ -67,6 +69,7 @@ class TesCubit extends Cubit<TesState> {
         idKelompok: idKelompok,
         kodeJalur: finalKodeJalur,
       );
+      if (isClosed) return;
       if (success) {
         emit(TesActionSuccess('Tersimpan di antrean offline.'));
         await loadDaftarTes(forceRefresh: true);
@@ -77,6 +80,7 @@ class TesCubit extends Cubit<TesState> {
         }
       }
     } catch (e) {
+      if (isClosed) return;
       emit(TesError(e.toString().replaceAll('Exception: ', '')));
       if (currentState is TesLoaded) {
         emit(currentState);
@@ -89,6 +93,7 @@ class TesCubit extends Cubit<TesState> {
     emit(TesLoading());
     try {
       final success = await repository.batalkanTes(idDaftar);
+      if (isClosed) return;
       if (success) {
         emit(TesActionSuccess('Tersimpan di antrean offline.'));
         await loadDaftarTes(forceRefresh: true);
@@ -99,6 +104,7 @@ class TesCubit extends Cubit<TesState> {
         }
       }
     } catch (e) {
+      if (isClosed) return;
       emit(TesError(e.toString().replaceAll('Exception: ', '')));
       if (currentState is TesLoaded) {
         emit(currentState);
@@ -144,11 +150,13 @@ class TesCubit extends Cubit<TesState> {
       _riwayatCache = loadedList;
       _hasReachedMax = true; // No pagination so fully loaded.
 
+      if (isClosed) return;
       emit(TesRiwayatLoaded(
         riwayatList: List.of(_riwayatCache),
         hasReachedMax: _hasReachedMax,
       ));
     } catch (e) {
+      if (isClosed) return;
       emit(TesError(e.toString().replaceAll('Exception: ', '')));
     }
   }

@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:isar/isar.dart';
-import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
+import 'package:manajemen_tahsin_app/features/masalah/presentation/bloc/masalah_cubit.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-import 'package:manajemen_tahsin_app/features/masalah/domain/repositories/masalah_repository.dart';
 import 'package:manajemen_tahsin_app/features/masalah/presentation/widgets/santri_selection_sheet.dart';
-import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfidz_santri_model.dart';
-import 'package:manajemen_tahsin_app/features/progress/data/models/progress_santri_model.dart';
-import 'package:manajemen_tahsin_app/features/tahfidz/data/models/tahfidz_santri_model.dart';
 
 class CatatMasalahBottomSheet extends StatefulWidget {
   const CatatMasalahBottomSheet({super.key});
@@ -47,10 +42,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
 
   Future<void> _loadLocalSantri() async {
     try {
-      final isar = IsarDb.instance;
-      final List<Map<String, dynamic>> result = [];
       int activeId = 0;
-      
       try {
         activeId = context.read<ActiveKelompokCubit>().state.activeId;
       } catch (e) {
@@ -58,21 +50,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
         activeId = 0;
       }
 
-      if (activeId > 0) {
-        final t1 = await isar.tahfidzSantriModels.filter().idKelompokEqualTo(activeId).findAll();
-        final t2 = await isar.praTahfidzSantriModels.filter().idKelompokEqualTo(activeId).findAll();
-        final t3 = await isar.progressSantriModels.filter().idKelompokEqualTo(activeId).findAll();
-        for (var s in t1) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
-        for (var s in t2) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
-        for (var s in t3) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.namaKelompok}); }
-      } else {
-        final t1 = await isar.tahfidzSantriModels.where().findAll();
-        final t2 = await isar.praTahfidzSantriModels.where().findAll();
-        final t3 = await isar.progressSantriModels.where().findAll();
-        for (var s in t1) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
-        for (var s in t2) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.idKelas?.toString()}); }
-        for (var s in t3) { result.add({'nis': s.nis, 'nama_santri': s.namaSantri, 'tingkat': s.tingkat ?? s.namaKelompok}); }
-      }
+      final result = await context.read<MasalahCubit>().getLocalSantri(activeId);
 
       final Map<String, Map<String, dynamic>> uniqueMap = {};
       for (var s in result) {
@@ -433,7 +411,7 @@ class _CatatMasalahBottomSheetState extends State<CatatMasalahBottomSheet> {
                                   'keterangan': _keteranganController.text.trim(),
                                   'tgl_masalah': tglStr,
                                 };
-                                await context.read<MasalahRepository>().storeMasalah(payload);
+                                await context.read<MasalahCubit>().submitMasalahBaru(payload);
                                 
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(

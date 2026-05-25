@@ -9,6 +9,7 @@ import 'package:manajemen_tahsin_app/core/data/models/generic_cache.dart';
 import 'package:manajemen_tahsin_app/features/progress/data/models/progress_santri_model.dart';
 import 'package:manajemen_tahsin_app/features/progress/data/models/riwayat_tahsin_model.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
+import 'package:manajemen_tahsin_app/core/data/models/kelas_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TahsinRepository {
@@ -578,6 +579,44 @@ class TahsinRepository {
     }
   }
 
+  Future<Map<String, dynamic>> updateProgress(Map<String, dynamic> payload) async {
+    final bool isOnline = await networkInfo.isConnected;
+    if (!isOnline) {
+      return _enqueuePayload('api/guru/progress/update', payload, 'progress_tahsin');
+    }
+
+    try {
+      final idPrestasi = int.tryParse(payload['id_prestasi']?.toString() ?? '0') ?? 0;
+      final res = await TahsinApiService.updateProgress(idPrestasi, payload);
+      if (res['status'] == 200 || res['success'] == true) {
+        return {'success': true, 'is_offline': false, 'message': 'Data berhasil diperbarui'};
+      } else {
+        return {'success': false, 'message': res['message'] ?? 'Gagal memperbarui'};
+      }
+    } catch (e) {
+      return _enqueuePayload('api/guru/progress/update', payload, 'progress_tahsin');
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteProgress(Map<String, dynamic> payload) async {
+    final bool isOnline = await networkInfo.isConnected;
+    if (!isOnline) {
+      return _enqueuePayload('api/guru/progress/delete', payload, 'progress_tahsin');
+    }
+
+    try {
+      final idPrestasi = int.tryParse(payload['id_prestasi']?.toString() ?? '0') ?? 0;
+      final res = await TahsinApiService.deleteProgress(idPrestasi);
+      if (res['status'] == 200 || res['success'] == true) {
+        return {'success': true, 'is_offline': false, 'message': 'Data berhasil dihapus'};
+      } else {
+        return {'success': false, 'message': res['message'] ?? 'Gagal menghapus'};
+      }
+    } catch (e) {
+      return _enqueuePayload('api/guru/progress/delete', payload, 'progress_tahsin');
+    }
+  }
+
   Future<Map<String, dynamic>> _enqueuePayload(
     String endpoint,
     Map<String, dynamic> payload,
@@ -615,6 +654,19 @@ class TahsinRepository {
       debugPrint("Error checking existing progress count: $e");
     }
     return total;
+  }
+
+  /// Mengambil checkpoint kelas dari Isar dan mengonversinya ke format Map (mencegah Isar model bocor ke UI).
+  Future<List<Map<String, dynamic>>> getCheckpointsKelas(int idKelas) async {
+    final kelas = await _isar.kelasModels.get(idKelas);
+    final checkpoints = kelas?.checkpoints ?? [];
+    return checkpoints.map((cp) {
+      return {
+        'halaman_target': cp.halamanTarget,
+        'harus_tes': cp.harusTes,
+        'keterangan': cp.keterangan,
+      };
+    }).toList();
   }
 }
 

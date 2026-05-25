@@ -9,6 +9,8 @@ import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
 import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_skeleton_widget.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_error_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'bottom_edit.dart';
 
@@ -124,10 +126,14 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
               Navigator.pop(ctx);
               setState(() => _loading = true);
               try {
-                await TahsinApiService.deleteProgress(idPrestasi);
+                final payload = {
+                  'id_prestasi': idPrestasi,
+                  'nis': widget.santri['nis']?.toString() ?? '',
+                };
+                final res = await _repository.deleteProgress(payload);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Data berhasil dihapus")),
+                  SnackBar(content: Text(res['message'] ?? "Data berhasil dihapus")),
                 );
                 _load(forceRefresh: true);
               } catch (e) {
@@ -161,18 +167,18 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
         onSave: (updatedItem) async {
           setState(() => _loading = true);
           try {
-            await TahsinApiService.updateProgress(
-              int.tryParse(
-                    updatedItem['id']?.toString() ??
-                        updatedItem['id_prestasi']?.toString() ??
-                        '0',
-                  ) ??
-                  0,
-              updatedItem,
-            );
+            final payload = Map<String, dynamic>.from(updatedItem);
+            payload['id_prestasi'] = int.tryParse(
+              updatedItem['id']?.toString() ??
+              updatedItem['id_prestasi']?.toString() ??
+              '0',
+            ) ?? 0;
+            payload['nis'] = widget.santri['nis']?.toString() ?? '';
+
+            final res = await _repository.updateProgress(payload);
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Data berhasil diperbarui")),
+              SnackBar(content: Text(res['message'] ?? "Data berhasil diperbarui")),
             );
             _load(forceRefresh: true);
           } catch (e) {
@@ -292,9 +298,12 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
         ),
       ),
       body: _loading
-          ? _buildShimmerLoading(styles)
+          ? const GlobalSkeletonWidget(itemCount: 5)
           : _error.isNotEmpty
-          ? _buildError()
+          ? GlobalErrorWidget(
+              message: _error,
+              onRetry: () => _load(forceRefresh: true),
+            )
           : TabBarView(
               controller: _tabs,
               children: [
@@ -364,71 +373,7 @@ class _ProgressDetailScreenState extends State<ProgressDetailScreen>
     );
   }
 
-  Widget _buildShimmerLoading(AppCustomStyles? styles) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 5,
-      itemBuilder: (context, index) => Container(
-        height: 120,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: styles?.shimmerBase ?? Colors.grey.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: styles?.cardBorder ?? Colors.transparent),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.wifi_off_rounded,
-              size: 64,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF22C55E),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () => _load(forceRefresh: true),
-                icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Coba Lagi',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
-
 class _RingkasanTab extends StatefulWidget {
   final Map<String, dynamic>? detail;
   final TahsinRepository repository;

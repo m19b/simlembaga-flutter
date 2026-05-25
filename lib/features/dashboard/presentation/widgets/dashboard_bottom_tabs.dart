@@ -19,7 +19,7 @@ String mapSesi(String? sesi) {
 /// Sudah tidak dipakai — absensi kehadiran dipindahkan ke card di DashboardScreen.
 class DashboardBottomTabs extends StatelessWidget {
   final dynamic data;
-  final String currentTime;
+  final DateTime currentTime;
   const DashboardBottomTabs({
     super.key,
     required this.data,

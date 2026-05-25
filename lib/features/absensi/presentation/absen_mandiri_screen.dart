@@ -251,7 +251,7 @@ class _AbsenMandiriView extends StatelessWidget {
           }
 
           if (state is AbsensiError) {
-            return ErrorStateWidget(
+            return GlobalErrorWidget(
               message: state.message,
               onRetry: () =>
                   context.read<AbsensiCubit>().fetchAbsenMandiri(idKelompok),

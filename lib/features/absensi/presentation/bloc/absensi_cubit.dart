@@ -215,6 +215,10 @@ class AbsensiCubit extends Cubit<AbsensiState> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  Future<Map<String, dynamic>?> lookupOfflineData(String cleanCode) async {
+    return repository.lookupOfflineData(cleanCode);
+  }
+
   List<Map<String, dynamic>> _parseRiwayat(dynamic rawRiwayat) {
     if (rawRiwayat is! List) return [];
     return rawRiwayat.whereType<Map>().map((e) {

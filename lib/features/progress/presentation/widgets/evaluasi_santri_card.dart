@@ -91,11 +91,11 @@ class _EvaluasiSantriCardState extends State<EvaluasiSantriCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isTerkunci ? Colors.green.withValues(alpha: 0.1) : Theme.of(context).cardColor,
+        color: isTerkunci ? (isDark ? Colors.green.withValues(alpha: 0.05) : Colors.green.withValues(alpha: 0.1)) : Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: isRiwayatUlang
-            ? Border.all(color: Colors.orange.shade300, width: 1.5)
-            : (isTerkunci ? Border.all(color: Colors.green.shade100) : Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.1))),
+            ? Border.all(color: isDark ? Colors.orange.shade600 : Colors.orange.shade300, width: 1.5)
+            : (isTerkunci ? Border.all(color: isDark ? Colors.green.shade800 : Colors.green.shade100) : Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.1))),
         boxShadow: [
           BoxShadow(
             color: isRiwayatUlang

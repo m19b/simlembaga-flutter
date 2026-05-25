@@ -9,7 +9,7 @@ abstract class LocalDataSource {
   Future<Map<String, dynamic>?> getCachedData(String key);
   Future<void> clearCache();
   
-  Future<void> enqueueRequest(String endpoint, Map<String, dynamic> payload);
+  Future<void> enqueueRequest(String endpoint, Map<String, dynamic> payload, {String type = 'default'});
   Future<List<Map<String, dynamic>>> getQueue();
   Future<void> removeFromQueue(int id);
   Future<void> clearQueue();
@@ -47,9 +47,10 @@ class LocalDataSourceImpl implements LocalDataSource {
   }
 
   @override
-  Future<void> enqueueRequest(String endpoint, Map<String, dynamic> payload) async {
+  Future<void> enqueueRequest(String endpoint, Map<String, dynamic> payload, {String type = 'default'}) async {
     final request = OfflineQueue()
       ..endpoint = endpoint
+      ..type = type
       ..payloadJson = jsonEncode(payload)
       ..timestamp = DateTime.now()
       ..status = 'pending';

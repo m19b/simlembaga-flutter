@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
+
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/bloc/pra_tahfidz_cubit.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/widgets/pra_tahfidz_santri_card.dart';
-import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/widgets/pra_tahfidz_skeleton_card.dart';
 import 'package:manajemen_tahsin_app/features/pra_tahfidz/presentation/pra_tahfidz_detail_screen.dart';
+import 'package:manajemen_tahsin_app/core/widgets/empty_kelompok_widget.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_error_widget.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_skeleton_widget.dart';
 
 /// Tab 0: Daftar santri + status setoran hari ini
 class PraTahfidzProgressTab extends StatefulWidget {
@@ -165,27 +167,7 @@ class _PraTahfidzProgressTabState extends State<PraTahfidzProgressTab>
     final activeId = context.watch<ActiveKelompokCubit>().state.activeId;
     
     if (activeId <= 0) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.business, size: 64, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Silakan pilih Kelompok / Cabang di menu Header/Dashboard terlebih dahulu.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+      return const EmptyKelompokWidget();
     }
 
     return BlocConsumer<PraTahfidzCubit, PraTahfidzState>(
@@ -213,54 +195,15 @@ class _PraTahfidzProgressTabState extends State<PraTahfidzProgressTab>
         }
       },
       builder: (context, state) {
-        if (_loading && _allSantri.isEmpty) return _buildSkeleton();
-        if (_error.isNotEmpty && _allSantri.isEmpty) return _buildError();
+        if (_loading && _allSantri.isEmpty) return const GlobalSkeletonWidget();
+        if (_error.isNotEmpty && _allSantri.isEmpty) {
+          return GlobalErrorWidget(
+            message: _error,
+            onRetry: () => _load(forceRefresh: true),
+          );
+        }
         return _buildList();
       },
-    );
-  }
-
-  Widget _buildSkeleton() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: 8,
-      itemBuilder: (context, index) => const PraTahfidzSkeletonCard(),
-    );
-  }
-
-  Widget _buildError() {
-    final styles = Theme.of(context).extension<AppCustomStyles>()!;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              _error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: styles.success,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => _load(forceRefresh: true),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Coba Lagi'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

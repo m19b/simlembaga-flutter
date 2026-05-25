@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-// import 'package:google_fonts/google_fonts.dart';
+
 import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:manajemen_tahsin_app/core/widgets/state_widgets.dart';
@@ -350,7 +350,7 @@ class _HariSubTabState extends State<_HariSubTab>
             child: _isLoading
                 ? const Padding(
                     padding: EdgeInsets.all(16.0),
-                    child: SkeletonListWidget(itemCount: 5, itemHeight: 80),
+                    child: GlobalSkeletonWidget(itemCount: 5, itemHeight: 80),
                   )
                 : _error.isNotEmpty
                 ? Center(
@@ -787,7 +787,7 @@ class _MingguSubTabState extends State<_MingguSubTab>
               child: _isLoading
                   ? const Padding(
                       padding: EdgeInsets.all(16.0),
-                      child: SkeletonListWidget(itemCount: 5, itemHeight: 200),
+                      child: GlobalSkeletonWidget(itemCount: 5, itemHeight: 200),
                     )
                   : _error.isNotEmpty
                   ? Center(

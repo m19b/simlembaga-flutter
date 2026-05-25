@@ -14,6 +14,8 @@ import 'package:manajemen_tahsin_app/features/tahfidz/presentation/bloc/tahfidz_
 import 'package:manajemen_tahsin_app/features/tahfidz/domain/repositories/tahfidz_repository.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/widgets/tahfidz_header_widget.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/widgets/tahfidz_santri_card.dart';
+import 'package:manajemen_tahsin_app/core/utils/dialog_utils.dart';
+import 'package:manajemen_tahsin_app/features/tahfidz/presentation/widgets/tahfidz_filter_sheet.dart';
 
 class TahfidzInputMassalTab extends StatefulWidget {
   const TahfidzInputMassalTab({super.key});
@@ -152,71 +154,7 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
     } catch (_) {}
   }
 
-  void _showUrutkanBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).dividerColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Urutkan Berdasarkan',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              _buildSortOption(ctx, 'halaman_desc', 'Tertinggi - Terendah (Halaman)'),
-              _buildSortOption(ctx, 'halaman_asc', 'Terendah - Tertinggi (Halaman)'),
-              _buildSortOption(ctx, 'az', 'A-Z'),
-              _buildSortOption(ctx, 'za', 'Z-A'),
-              _buildSortOption(ctx, 'asli', 'Asli'),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
-  Widget _buildSortOption(BuildContext ctx, String mode, String title) {
-    final isSelected = _sortMode == mode;
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    return InkWell(
-      onTap: () {
-        setState(() => _sortMode = mode);
-        Navigator.pop(ctx);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.5))),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(title, style: TextStyle(fontSize: 14, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-            if (isSelected) Icon(Icons.check, color: primaryColor, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
 
   Future<void> _loadSantri() async {
     if (_selectedKelasId == null) return;
@@ -393,6 +331,7 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
 
     try {
       final List<Map<String, dynamic>> arr = [];
+      final List<String> nisListToSave = [];
       for (final s in _santriList) {
         final nis = s['nis']?.toString() ?? '';
         if (nis.isEmpty) continue;
@@ -429,6 +368,7 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
             'disimak': '1',
           });
         }
+        nisListToSave.add(nis);
       }
 
       if (arr.isEmpty) {
@@ -445,9 +385,52 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
         'id_kelompok': context.read<ActiveKelompokCubit>().state.activeId,
         'tanggal': _tanggal.toIso8601String().split('T')[0],
         'sesi': _selectedSesi ?? 1,
+        'type': 'progress_tahfidz',
         'rows': arr,
       };
 
+      // SECURITY PATCH: Cek Double Submit
+      final tanggalStr = _tanggal.toIso8601String().split('T')[0];
+      final sesiStr = _selectedSesi ?? 1;
+
+      final existingCount = await context
+          .read<TahfidzCubit>()
+          .checkExistingProgressCount(nisListToSave, tanggalStr, sesiStr);
+
+      if (existingCount > 0) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        DialogUtils.showDoubleInputConfirmation(
+          context: context,
+          message:
+              'Ada $existingCount santri yang sudah memiliki riwayat setoran pada tanggal dan sesi ini. Lanjutkan menyimpan?',
+          onConfirm: () async {
+            setState(() => _isSaving = true);
+            await _executeSave(payload, arr);
+          },
+        );
+        return;
+      }
+
+      await _executeSave(payload, arr);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal menyiapkan data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _executeSave(
+    Map<String, dynamic> payload,
+    List<Map<String, dynamic>> arr,
+  ) async {
+    try {
       await context.read<TahfidzRepository>().saveInputMassalOffline(
         payload,
         List<Map<String, dynamic>>.from(arr),
@@ -575,7 +558,13 @@ class TahfidzInputMassalTabState extends State<TahfidzInputMassalTab>
               jadwalList: _jadwalList,
               selectedStatusAbsen: _selectedStatusAbsen,
               kelipatanCtrl: _kelipatanCtrl,
-              onUrutkanTap: () => _showUrutkanBottomSheet(context),
+              onUrutkanTap: () {
+                TahfidzFilterSheet.show(
+                  context,
+                  sortMode: _sortMode,
+                  onSortChanged: (mode) => setState(() => _sortMode = mode),
+                );
+              },
               onTanggalTap: _pickTanggal,
               onKelasChanged: (val) {
                 setState(() => _selectedKelasId = val);

@@ -12,40 +12,27 @@ class ConnectionStatusBadge extends StatefulWidget {
 }
 
 class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
-  bool _isOnline = true;
   late Stream<void> _queueStream;
 
   @override
   void initState() {
     super.initState();
-    _checkInitialConnection();
-    LocalNetworkChecker().onStatusChange.listen((status) {
-      if (mounted) {
-        setState(() {
-          _isOnline = status == LocalNetworkStatus.online;
-        });
-      }
-    });
-
     _queueStream = IsarDb.instance.offlineQueues.watchLazy(fireImmediately: true);
-  }
-
-  Future<void> _checkInitialConnection() async {
-    final hasConn = LocalNetworkChecker().currentStatus == LocalNetworkStatus.online;
-    if (mounted) {
-      setState(() {
-        _isOnline = hasConn;
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<void>(
-      stream: _queueStream,
-      builder: (context, snapshot) {
-        // Query current count synchronously when stream fires
-        final pendingCount = IsarDb.instance.offlineQueues.countSync();
+    return StreamBuilder<LocalNetworkStatus>(
+      stream: LocalNetworkChecker().onStatusChange,
+      initialData: LocalNetworkChecker().currentStatus,
+      builder: (context, statusSnapshot) {
+        final _isOnline = statusSnapshot.data == LocalNetworkStatus.online;
+
+        return StreamBuilder<void>(
+          stream: _queueStream,
+          builder: (context, snapshot) {
+            // Query current count synchronously when stream fires
+            final pendingCount = IsarDb.instance.offlineQueues.countSync();
 
             return Row(
               mainAxisSize: MainAxisSize.min,
@@ -127,6 +114,8 @@ class _ConnectionStatusBadgeState extends State<ConnectionStatusBadge> {
                 ),
               ],
             );
+          },
+        );
       },
     );
   }

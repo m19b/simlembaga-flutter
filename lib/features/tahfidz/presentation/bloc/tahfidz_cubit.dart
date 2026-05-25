@@ -141,6 +141,15 @@ class TahfidzCubit extends Cubit<TahfidzState> {
     return ok;
   }
 
+  /// Cek progres yang sudah ada
+  Future<int> checkExistingProgressCount(
+    List<String> nisList,
+    String tanggalStr,
+    int sesi,
+  ) async {
+    return repository.checkExistingProgressCount(nisList, tanggalStr, sesi);
+  }
+
   /// Update riwayat setoran
   Future<bool> updateRiwayat(
     int idPrestasi,

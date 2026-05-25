@@ -177,6 +177,10 @@ class TahsinCubit extends Cubit<TahsinState> with WidgetsBindingObserver {
     return result;
   }
 
+  Future<List<Map<String, dynamic>>> getCheckpointsKelas(int idKelas) async {
+    return await repository.getCheckpointsKelas(idKelas);
+  }
+
   @override
   Future<void> close() {
     WidgetsBinding.instance.removeObserver(this);

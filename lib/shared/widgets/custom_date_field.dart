@@ -44,6 +44,12 @@ class CustomDateField extends StatelessWidget {
             datePickerTheme: DatePickerThemeData(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF047857) // Warna hijau header
+                      : Colors.transparent,
+                  width: 1.5,
+                ),
               ),
               headerBackgroundColor: Theme.of(context).brightness == Brightness.dark 
                   ? Colors.green.shade900 

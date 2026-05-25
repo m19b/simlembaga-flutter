@@ -57,64 +57,45 @@ class OfflineSyncManager {
           final dio = await DioClient.dio;
           final payload = jsonDecode(item.payloadJson) as Map<String, dynamic>;
           String endpoint = item.endpoint;
-          
           bool isSuccess = false;
 
           // ---------------------------------------------------------
-          // HANDLER KHUSUS progress_tahsin
+          // ROUTING ENDPOINT BERDASARKAN TIPE
           // ---------------------------------------------------------
-          if (item.type == 'progress_tahsin') {
-            // Fix old wrong endpoints jika tersisa
-            if (endpoint.contains('api/guru/tahsin/')) {
-              endpoint = endpoint.replaceAll('api/guru/tahsin/', 'api/guru/progress/');
-            }
-            if (!endpoint.startsWith('api/')) {
-              endpoint = 'api/$endpoint';
-            }
-            endpoint = endpoint.replaceAll('api/api/', 'api/');
-
-            final payloadKeys = payload.keys.toList();
-            debugPrint('🔄 SYNC TAHSIN ID ${item.id} → $endpoint | keys=$payloadKeys');
-
-            final response = await dio.post(endpoint, data: payload);
-            
-            if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
-              isSuccess = true;
-              if (response.data is Map) {
-                final resData = response.data as Map;
-                if (resData.containsKey('status')) {
-                  final status = resData['status'];
-                  if (status != 200 && status != true) {
-                    isSuccess = false;
-                    debugPrint("❌ TAHSIN API HTTP 200 tapi JSON status = $status");
-                  }
-                }
+          switch (item.type) {
+            case 'absensi_harian':
+            case 'absensi_massal':
+            case 'progress_tahsin':
+            case 'progress_pra_tahfidz':
+            case 'progress_tahfidz':
+            case 'daftar_tes':
+            case 'catatan_masalah':
+              if (!endpoint.startsWith('api/')) endpoint = 'api/$endpoint';
+              endpoint = endpoint.replaceAll('api/api/', 'api/');
+              if (item.type == 'progress_tahsin') {
+                endpoint = endpoint.replaceAll('api/guru/tahsin/', 'api/guru/progress/');
               }
-            }
-          } else {
-            // ---------------------------------------------------------
-            // HANDLER UMUM/LEGACY
-            // ---------------------------------------------------------
-            if (endpoint.startsWith('tahfidz-quran/')) {
-              endpoint = 'api/guru/$endpoint';
-            }
-            if (!endpoint.startsWith('api/')) {
-              endpoint = 'api/$endpoint';
-            }
-            endpoint = endpoint.replaceAll('api/api/', 'api/');
+              break;
+            default:
+              if (endpoint.startsWith('tahfidz-quran/')) endpoint = 'api/guru/$endpoint';
+              if (!endpoint.startsWith('api/')) endpoint = 'api/$endpoint';
+              endpoint = endpoint.replaceAll('api/api/', 'api/');
+              break;
+          }
 
-            debugPrint('🔄 SYNC ID ${item.id} → $endpoint');
-            final response = await dio.post(endpoint, data: payload);
-            
-            if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
-              isSuccess = true;
-              if (response.data is Map) {
-                final resData = response.data as Map;
-                if (resData.containsKey('status')) {
-                  final status = resData['status'];
-                  if (status != 200 && status != true) {
-                    isSuccess = false;
-                  }
+          debugPrint('🔄 SYNC [${item.type}] ID ${item.id} → $endpoint');
+          final response = await dio.post(endpoint, data: payload);
+          
+          // A. HTTP 200/201 (Sukses) -> Hapus dari Isar
+          if (response.statusCode != null && response.statusCode! >= 200 && response.statusCode! < 300) {
+            isSuccess = true;
+            if (response.data is Map) {
+              final resData = response.data as Map;
+              if (resData.containsKey('status')) {
+                final status = resData['status'];
+                if (status != 200 && status != true) {
+                  isSuccess = false;
+                  debugPrint("❌ API HTTP 200 tapi JSON status = $status");
                 }
               }
             }
@@ -127,19 +108,17 @@ class OfflineSyncManager {
             successCount++;
           }
         } on DioException catch (e) {
-          final responseBody = e.response?.data;
           final statusCode = e.response?.statusCode;
           debugPrint('❌ SYNC GAGAL ID ${item.id} | HTTP $statusCode');
-          debugPrint('   ↳ CI4 Response Body: $responseBody');
-
-          // JIKA API me-return HTTP 400 (Error Validasi Backend, contoh: melampaui Checkpoint)
-          // Hapus item tersebut dari OfflineQueue karena data cacat secara logika dan tak akan pernah diterima.
-          if (statusCode == 400) {
+          
+          // B. HTTP 400/422 (Error Validasi CI4) -> Hapus dari Isar (Data drop)
+          if (statusCode == 400 || statusCode == 422) {
             await _isar.writeTxn(() async {
               await _isar.offlineQueues.delete(item.id);
             });
-            debugPrint('🗑️ Antrean ID ${item.id} dihapus permanen karena HTTP 400 (Data Tidak Valid)');
+            debugPrint('🗑️ Antrean ID ${item.id} dihapus permanen karena HTTP $statusCode (Data Tidak Valid/Error Validasi)');
           }
+          // C. Timeout/SocketException (Luring) -> Skip (Biarkan di Isar)
         } catch (e) {
           debugPrint('❌ SYNC ERROR ID ${item.id} (non-Dio): $e');
         }

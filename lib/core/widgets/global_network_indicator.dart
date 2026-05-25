@@ -16,10 +16,7 @@ class GlobalNetworkIndicator extends StatefulWidget {
 }
 
 class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
-  bool _isOnline = true;
-  bool _isChecking = false;
   late final NetworkInfo _networkInfo;
-  Timer? _timer;
 
   double _pillX = 20;
   double _pillY = 120;
@@ -33,27 +30,6 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
   void initState() {
     super.initState();
     _networkInfo = NetworkInfoImpl(LocalNetworkChecker());
-    _checkConnection();
-
-    // Polling setiap 10 detik dengan pengecekan agar tidak bertumpuk jika server unreachable
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _checkConnection();
-    });
-  }
-
-  Future<void> _checkConnection({bool force = false}) async {
-    if (_isChecking && !force) return;
-    _isChecking = true;
-    try {
-      final online = await _networkInfo.isConnected;
-      if (mounted) {
-        setState(() {
-          _isOnline = online;
-        });
-      }
-    } finally {
-      _isChecking = false;
-    }
   }
 
   void _handleTouch() {
@@ -74,7 +50,6 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
 
   @override
   void dispose() {
-    _timer?.cancel();
     _visibilityTimer?.cancel();
     super.dispose();
   }
@@ -102,22 +77,26 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
             ? baseCardColor.withValues(alpha: settings.opacity)
             : baseCardColor.withValues(alpha: 0.0);
 
-        final Color indicatorColor = _isOnline ? settings.onlineColor : settings.offlineColor;
-        final String indicatorText = _isOnline ? settings.onlineText : settings.offlineText;
+        return StreamBuilder<LocalNetworkStatus>(
+          stream: LocalNetworkChecker().onStatusChange,
+          initialData: LocalNetworkChecker().currentStatus,
+          builder: (context, statusSnapshot) {
+            final _isOnline = statusSnapshot.data == LocalNetworkStatus.online;
+            final Color indicatorColor = _isOnline ? settings.onlineColor : settings.offlineColor;
+            final String indicatorText = _isOnline ? settings.onlineText : settings.offlineText;
 
-        return Stack(
-          children: [
-            widget.child,
-            Positioned(
-              left: _pillX,
-              top: _pillY,
-              child: GestureDetector(
-                onTap: _handleTouch,
-                onDoubleTap: () async {
-                  _handleTouch();
-                  await _networkInfo.checkNetworkNow();
-                  _checkConnection(force: true);
-                },
+            return Stack(
+              children: [
+                widget.child,
+                Positioned(
+                  left: _pillX,
+                  top: _pillY,
+                  child: GestureDetector(
+                    onTap: _handleTouch,
+                    onDoubleTap: () async {
+                      _handleTouch();
+                      await _networkInfo.checkNetworkNow();
+                    },
                 onLongPress: () {
                   final navContext = navigatorKey.currentContext;
                   if (navContext != null) {
@@ -196,6 +175,8 @@ class _GlobalNetworkIndicatorState extends State<GlobalNetworkIndicator> {
               ),
             ),
           ],
+        );
+          },
         );
       },
     );

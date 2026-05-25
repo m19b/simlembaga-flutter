@@ -27,16 +27,22 @@ class PengaturanScreen extends StatelessWidget {
           ],
         ),
         content: const Text(
-            'Tindakan ini akan menghapus SELURUH data offline dari memori perangkat. Anda akan diarahkan ke halaman Login ulang untuk memastikan sinkronisasi dari awal.\n\nApakah Anda yakin?'),
+          'Tindakan ini akan menghapus SELURUH data offline dari memori perangkat. Anda akan diarahkan ke halaman Login ulang untuk memastikan sinkronisasi dari awal.\n\nApakah Anda yakin?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Batal'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Ya, Hapus Semua', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Ya, Hapus Semua',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -49,36 +55,37 @@ class PengaturanScreen extends StatelessWidget {
         barrierDismissible: false,
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
-      
+
       try {
         await IsarDb.instance.writeTxn(() async {
           await IsarDb.instance.clear();
         });
-        
+
         final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('LOGGED_IN_USER'); // Logout the user as well since data is gone
-        
+        await prefs.remove(
+          'LOGGED_IN_USER',
+        ); // Logout the user as well since data is gone
+
         const storage = FlutterSecureStorage();
         await storage.delete(key: 'cached_password');
         await storage.delete(key: 'jwt_token');
-        
+
         if (!context.mounted) return;
         Navigator.pop(context); // close loading
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Database berhasil dikosongkan.'),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Arahkan kembali ke Login karena data (termasuk kelomok list dll) sudah hilang
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const LoginScreen()),
           (route) => false,
         );
-
       } catch (e) {
         if (!context.mounted) return;
         Navigator.pop(context);
@@ -109,7 +116,13 @@ class PengaturanScreen extends StatelessWidget {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(width: 20),
-            Expanded(child: Text(isSantri ? 'Mengunduh semua data santri...' : 'Mengunduh semua data guru...')),
+            Expanded(
+              child: Text(
+                isSantri
+                    ? 'Mengunduh semua data santri...'
+                    : 'Mengunduh semua data guru...',
+              ),
+            ),
           ],
         ),
       ),
@@ -128,7 +141,9 @@ class PengaturanScreen extends StatelessWidget {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Berhasil mengunduh $count data ${isSantri ? 'santri' : 'guru'} untuk Mode Luring.'),
+          content: Text(
+            'Berhasil mengunduh $count data ${isSantri ? 'santri' : 'guru'} untuk Mode Luring.',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -172,7 +187,10 @@ class PengaturanScreen extends StatelessWidget {
                 isDark ? Icons.dark_mode : Icons.light_mode,
                 color: isDark ? Colors.amber : Colors.orange,
               ),
-              title: const Text('Tema Gelap (Dark Mode)', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: const Text(
+                'Tema Gelap (Dark Mode)',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               subtitle: const Text('Ubah tampilan aplikasi menjadi gelap'),
               trailing: Switch(
                 value: isDark,
@@ -183,7 +201,7 @@ class PengaturanScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           Card(
             margin: const EdgeInsets.only(bottom: 24),
             elevation: 0,
@@ -196,15 +214,25 @@ class PengaturanScreen extends StatelessWidget {
             color: Theme.of(context).colorScheme.surfaceContainer,
             child: ListTile(
               leading: const Icon(Icons.wifi_tethering, color: Colors.blue),
-              title: const Text('Kustomisasi Indikator Jaringan', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Ubah warna, transparansi, ketebalan, & teks indikator online'),
+              title: const Text(
+                'Kustomisasi Indikator Jaringan',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Ubah warna, transparansi, ketebalan, & teks indikator online',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PengaturanIndikatorScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PengaturanIndikatorScreen(),
+                  ),
+                );
               },
             ),
           ),
-          
+
           Card(
             margin: const EdgeInsets.only(bottom: 24),
             elevation: 0,
@@ -216,18 +244,35 @@ class PengaturanScreen extends StatelessWidget {
             ),
             color: Theme.of(context).colorScheme.surfaceContainer,
             child: ListTile(
-              leading: const Icon(Icons.dashboard_customize, color: Colors.purple),
-              title: const Text('Kustomisasi Header Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('Ubah urutan dan visibilitas gambar di header'),
+              leading: const Icon(
+                Icons.dashboard_customize,
+                color: Colors.purple,
+              ),
+              title: const Text(
+                'Kustomisasi Header Dashboard',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                'Ubah urutan dan visibilitas gambar di header',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PengaturanHeaderScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PengaturanHeaderScreen(),
+                  ),
+                );
               },
             ),
           ),
 
           // SEGMEN DATABASE
-          _buildSectionHeader(context, 'Database & Sinkronisasi', Icons.storage_rounded),
+          _buildSectionHeader(
+            context,
+            'Database & Sinkronisasi',
+            Icons.storage_rounded,
+          ),
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -241,25 +286,43 @@ class PengaturanScreen extends StatelessWidget {
               children: [
                 ListTile(
                   leading: const Icon(Icons.sync, color: Colors.blue),
-                  title: const Text('Muat Ulang Database', style: TextStyle(fontWeight: FontWeight.w600)),
+                  title: const Text(
+                    'Muat Ulang Database',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   subtitle: const Text('Ambil ulang data terbaru dari server'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _handleMuatUlang(context),
                 ),
-                Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+                Divider(
+                  height: 1,
+                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                ),
                 ListTile(
                   leading: const Icon(Icons.delete_forever, color: Colors.red),
-                  title: const Text('Hapus Total Data Offline', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
-                  subtitle: const Text('Kosongkan memori perangkat dari data aplikasi'),
+                  title: const Text(
+                    'Hapus Total Data Offline',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Kosongkan memori perangkat dari data aplikasi',
+                  ),
                   trailing: const Icon(Icons.chevron_right, color: Colors.red),
                   onTap: () => _handleHapusDatabase(context),
                 ),
               ],
             ),
           ),
-          
+
           // SEGMEN CACHE OFFLINE
-          _buildSectionHeader(context, 'Cache Mode Luring (Offline)', Icons.offline_bolt),
+          _buildSectionHeader(
+            context,
+            'Cache Mode Luring (Offline)',
+            Icons.offline_bolt,
+          ),
           Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
@@ -272,33 +335,103 @@ class PengaturanScreen extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.sync_alt, color: Colors.blueAccent),
+                  title: const Text(
+                    'Sinkron Total Semua Data',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('Unduh sekaligus semua santri & guru'),
+                  trailing: const Icon(Icons.download),
+                  onTap: () async {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => const AlertDialog(
+                        content: Row(
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(width: 20),
+                            Expanded(
+                              child: Text(
+                                'Mengunduh semua data santri & guru...',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    try {
+                      await AbsensiApiService.syncSemuaSantri();
+                      await AbsensiApiService.syncSemuaGuru();
+                      if (!context.mounted) return;
+                      Navigator.pop(context); // Tutup dialog loading
+
+                      // Setelah data master santri/guru berhasil,
+                      // arahkan ke InitialSyncScreen agar progress belajar, jadwal, dan kelas ikut disinkronkan.
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const InitialSyncScreen(),
+                        ),
+                        (route) => false,
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Gagal mengunduh: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                Divider(
+                  height: 1,
+                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                ),
+                ListTile(
                   leading: const Icon(Icons.group, color: Colors.teal),
-                  title: const Text('Unduh Semua Santri', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Simpan seluruh santri untuk absen offline'),
+                  title: const Text(
+                    'Unduh Semua Santri',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Simpan seluruh santri untuk absen offline',
+                  ),
                   trailing: const Icon(Icons.download),
                   onTap: () => _syncUniversal(context, true),
                 ),
-                Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+                Divider(
+                  height: 1,
+                  color: isDark ? Colors.white12 : Colors.grey.shade200,
+                ),
                 ListTile(
-                  leading: const Icon(Icons.co_present, color: Colors.deepOrange),
-                  title: const Text('Unduh Semua Guru', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Simpan seluruh guru/staf untuk absen offline'),
+                  leading: const Icon(
+                    Icons.co_present,
+                    color: Colors.deepOrange,
+                  ),
+                  title: const Text(
+                    'Unduh Semua',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Simpan seluruh guru/staf, jadwal, kelas, progress, dll untuk offline',
+                  ),
                   trailing: const Icon(Icons.download),
                   onTap: () => _syncUniversal(context, false),
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'Versi Aplikasi 1.0.0\nSIM Biza App',
+              'Versi Aplikasi 1.0.5\nSIM Biza App',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
             ),
           ),
         ],
@@ -306,7 +439,11 @@ class PengaturanScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String title,
+    IconData icon,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(left: 4, bottom: 8, top: 8),
       child: Row(
@@ -326,4 +463,3 @@ class PengaturanScreen extends StatelessWidget {
     );
   }
 }
-

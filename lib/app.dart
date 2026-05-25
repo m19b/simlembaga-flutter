@@ -18,6 +18,9 @@ import 'package:manajemen_tahsin_app/features/hari_libur/data/repositories/hari_
 import 'package:manajemen_tahsin_app/features/progress/domain/repositories/tahsin_repository.dart';
 import 'package:manajemen_tahsin_app/features/santri/domain/repositories/santri_repository.dart';
 import 'package:manajemen_tahsin_app/features/sync/presentation/bloc/initial_sync_cubit.dart';
+import 'package:manajemen_tahsin_app/features/dashboard/domain/repositories/dashboard_repository.dart';
+import 'package:manajemen_tahsin_app/features/dashboard/presentation/bloc/dashboard_cubit.dart';
+import 'package:manajemen_tahsin_app/features/hari_libur/presentation/bloc/hari_libur_cubit.dart';
 
 // Global navigator key untuk melakukan redirect tanpa Context (misal saat 401 Unauthorized)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -51,6 +54,11 @@ class MyApp extends StatelessWidget {
             networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
           ),
         ),
+        RepositoryProvider<DashboardRepository>(
+          create: (_) => DashboardRepository(
+            networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+          ),
+        ),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -64,6 +72,17 @@ class MyApp extends StatelessWidget {
               santriRepository: context.read<SantriRepository>(),
               tahsinRepository: context.read<TahsinRepository>(),
               hariLiburRepository: context.read<HariLiburRepository>(),
+            ),
+          ),
+          BlocProvider(
+            create: (context) => DashboardCubit(
+              repository: context.read<DashboardRepository>(),
+              activeKelompokCubit: context.read<ActiveKelompokCubit>(),
+            ),
+          ),
+          BlocProvider(
+            create: (context) => HariLiburCubit(
+              repository: context.read<HariLiburRepository>(),
             ),
           ),
         ],

@@ -5,9 +5,11 @@ import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/bloc/tahfidz_cubit.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_screen.dart'
-    show TahfidzSkeletonCard, formatHal;
+    show formatHal;
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_error_widget.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_skeleton_widget.dart';
 
 /// Tab 1 — Daftar santri dengan rekap Ziyadah / Sabaq / Manzil.
 class TahfidzProgressTab extends StatefulWidget {
@@ -141,49 +143,15 @@ class _TahfidzProgressTabState extends State<TahfidzProgressTab>
   }
 
   Widget _buildSkeleton() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
+    return const GlobalSkeletonWidget(
       itemCount: 8,
-      itemBuilder: (context, index) => const TahfidzSkeletonCard(),
     );
   }
 
   Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.wifi_off_rounded,
-              size: 64,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    Theme.of(context).extension<AppCustomStyles>()!.success,
-              ),
-              onPressed: () => _load(forceRefresh: true),
-              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-              label: const Text(
-                'Coba Lagi',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return GlobalErrorWidget(
+      message: _error,
+      onRetry: () => _load(forceRefresh: true),
     );
   }
 

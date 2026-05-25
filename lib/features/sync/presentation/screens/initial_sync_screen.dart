@@ -11,13 +11,25 @@ class InitialSyncScreen extends StatefulWidget {
   State<InitialSyncScreen> createState() => _InitialSyncScreenState();
 }
 
-class _InitialSyncScreenState extends State<InitialSyncScreen> {
+class _InitialSyncScreenState extends State<InitialSyncScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<InitialSyncCubit>().runInitialSync();
     });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -49,10 +61,16 @@ class _InitialSyncScreenState extends State<InitialSyncScreen> {
             message = state.message;
           } else if (state is InitialSyncFailure) {
             isError = true;
+            _animationController.stop();
             message = "Gagal menyinkronkan data:\n${state.error.replaceFirst('Exception: ', '')}";
           } else if (state is InitialSyncSuccess) {
             progress = 1.0;
             message = state.message;
+            _animationController.stop();
+          } else {
+            if (!_animationController.isAnimating && !isError) {
+              _animationController.repeat();
+            }
           }
 
           return SafeArea(
@@ -76,10 +94,13 @@ class _InitialSyncScreenState extends State<InitialSyncScreen> {
                           ),
                         ],
                       ),
-                      child: Icon(
-                        Icons.sync_rounded,
-                        size: 80,
-                        color: isDark ? Colors.green[400] : Colors.green[800],
+                      child: RotationTransition(
+                        turns: _animationController,
+                        child: Icon(
+                          Icons.sync_rounded,
+                          size: 80,
+                          color: isDark ? Colors.green[400] : Colors.green[800],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),

@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/state/active_kelompok_cubit.dart';
-import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/domain/repositories/tahfidz_repository.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/bloc/tahfidz_cubit.dart';
@@ -319,82 +318,6 @@ class _TahfidzViewState extends State<_TahfidzView>
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// Skeleton shimmer card — reusable
-// =============================================================================
-class TahfidzSkeletonCard extends StatelessWidget {
-  const TahfidzSkeletonCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final base =
-        Theme.of(context).extension<AppCustomStyles>()!.shimmerBase;
-    final highlight =
-        Theme.of(context).extension<AppCustomStyles>()!.shimmerHighlight;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: base,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder,
-        ),
-      ),
-      child: _ShimmerBox(base: base, highlight: highlight),
-    );
-  }
-}
-
-class _ShimmerBox extends StatefulWidget {
-  final Color base;
-  final Color highlight;
-  const _ShimmerBox({required this.base, required this.highlight});
-
-  @override
-  State<_ShimmerBox> createState() => _ShimmerBoxState();
-}
-
-class _ShimmerBoxState extends State<_ShimmerBox>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0, end: 1).animate(_ctrl);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) => Container(
-        height: 90,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            stops: [_anim.value - 0.3, _anim.value, _anim.value + 0.3],
-            colors: [widget.base, widget.highlight, widget.base],
-          ),
         ),
       ),
     );

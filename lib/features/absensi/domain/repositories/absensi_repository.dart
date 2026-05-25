@@ -1,5 +1,9 @@
-import 'dart:convert';
+import 'package:isar/isar.dart';
 
+import 'package:manajemen_tahsin_app/core/data/models/santri_binaan_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/santri_universal_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/models/guru_universal_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/api/services/absensi_api_service.dart';
 import 'package:manajemen_tahsin_app/core/api/services/dashboard_api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
@@ -166,7 +170,7 @@ class AbsensiRepository {
         );
       } catch (_) {
         // Server error → masuk ke offline queue
-        await _enqueuePayload('api/guru/absen-guru/store', payload);
+        await _enqueuePayload('api/guru/absen-guru/store', payload, 'absensi_harian');
         return AbsenMandiriResult(
           success: true,
           savedOffline: true,
@@ -177,7 +181,7 @@ class AbsensiRepository {
     }
 
     // LAN mati → langsung masuk offline queue
-    await _enqueuePayload('api/guru/absen-guru/store', payload);
+    await _enqueuePayload('api/guru/absen-guru/store', payload, 'absensi_harian');
     return AbsenMandiriResult(
       success: true,
       savedOffline: true,
@@ -193,10 +197,10 @@ class AbsensiRepository {
             await AbsensiApiService.simpanAbsenMassal(payload);
         return res['status'] == 200 || res['success'] == true;
       } catch (_) {
-        return _enqueuePayload('api/guru/absen-santri/simpan', payload);
+        return _enqueuePayload('api/guru/absen-santri/simpan', payload, 'absensi_massal');
       }
     }
-    return _enqueuePayload('api/guru/absen-santri/simpan', payload);
+    return _enqueuePayload('api/guru/absen-santri/simpan', payload, 'absensi_massal');
   }
 
   Future<bool> scanAbsen(String cleanCode, String type) async {
@@ -209,20 +213,43 @@ class AbsensiRepository {
         await AbsensiApiService.scanAbsen(cleanCode, type);
         return true;
       } catch (_) {
-        return _enqueuePayload('api/guru/absen-santri/scan', payload);
+        return _enqueuePayload('api/guru/absen-santri/scan', payload, 'absensi_harian');
       }
     }
-    return _enqueuePayload('api/guru/absen-santri/scan', payload);
+    return _enqueuePayload('api/guru/absen-santri/scan', payload, 'absensi_harian');
   }
 
   Future<bool> _enqueuePayload(
     String endpoint,
     Map<String, dynamic> payload,
+    String type,
   ) async {
-    // Encode ke JSON string agar aman disimpan di Isar (teks murni)
-    final String payloadJson = jsonEncode(payload);
-    await localDataSource.enqueueRequest(endpoint, {'__json': payloadJson});
+    payload['type'] = type; // Include inside payload
+    await localDataSource.enqueueRequest(endpoint, payload, type: type);
     return true;
+  }
+  Future<Map<String, dynamic>?> lookupOfflineData(String cleanCode) async {
+    final isar = IsarDb.instance;
+    
+    // Fallback Chain 1: Santri Binaan
+    final cachedBinaan = await isar.santriBinaanCaches.filter().nisEqualTo(cleanCode).findFirst();
+    if (cachedBinaan != null) {
+      return {'nama': cachedBinaan.nama, 'id': cachedBinaan.nis, 'tingkat': cachedBinaan.tingkatKelas ?? '-', 'jenis': 'santri'};
+    }
+
+    // Fallback Chain 2: Santri Universal
+    final cachedSantriUniv = await isar.santriUniversalCaches.filter().nisEqualTo(cleanCode).findFirst();
+    if (cachedSantriUniv != null) {
+      return {'nama': cachedSantriUniv.nama, 'id': cachedSantriUniv.nis, 'tingkat': cachedSantriUniv.tingkatKelas ?? '-', 'jenis': 'santri'};
+    }
+
+    // Fallback Chain 3: Guru Universal
+    final cachedGuruUniv = await isar.guruUniversalCaches.filter().nigEqualTo(cleanCode).findFirst();
+    if (cachedGuruUniv != null) {
+      return {'nama': cachedGuruUniv.nama, 'id': cachedGuruUniv.nig, 'tingkat': 'Guru/Staf', 'jenis': 'guru'};
+    }
+
+    return null;
   }
 }
 

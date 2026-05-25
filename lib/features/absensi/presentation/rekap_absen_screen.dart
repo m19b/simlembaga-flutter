@@ -241,14 +241,14 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
           if (state is AbsensiLoading || _isParsing) {
             return Column(children: [
               _buildFilterSection(0, cs),
-              Expanded(child: _buildSkeletonLoader(cs)),
+              Expanded(child: const GlobalSkeletonWidget()),
             ]);
           }
 
           if (state is AbsensiError) {
             return Column(children: [
               _buildFilterSection(0, cs),
-              Expanded(child: ErrorStateWidget(message: state.message, onRetry: _triggerLoad)),
+              Expanded(child: GlobalErrorWidget(message: state.message, onRetry: _triggerLoad)),
             ]);
           }
 
@@ -266,14 +266,7 @@ class _RekapAbsenViewState extends State<_RekapAbsenView> {
     );
   }
 
-  // ─── Skeleton Loader ────────────────────────────────────────────────────────
-  Widget _buildSkeletonLoader(ColorScheme cs) {
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: 6,
-      itemBuilder: (_, __) => _SkeletonCard(cs: cs),
-    );
-  }
+
 
   Widget _buildFilterSection(int hariKerja, ColorScheme cs) {
     return Container(
@@ -513,69 +506,6 @@ class _RekapItem extends StatelessWidget {
   }
 }
 
-// ─── Skeleton Card ─────────────────────────────────────────────────────────
-class _SkeletonCard extends StatefulWidget {
-  final ColorScheme cs;
-  const _SkeletonCard({required this.cs});
-
-  @override
-  State<_SkeletonCard> createState() => _SkeletonCardState();
-}
-
-class _SkeletonCardState extends State<_SkeletonCard> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.3, end: 0.7).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) {
-        final shimmerColor = widget.cs.onSurface.withValues(alpha: _anim.value * 0.12);
-        return Card(
-          elevation: 1,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              Row(children: [
-                Container(width: 40, height: 40, decoration: BoxDecoration(color: shimmerColor, shape: BoxShape.circle)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(height: 14, width: double.infinity, decoration: BoxDecoration(color: shimmerColor, borderRadius: BorderRadius.circular(4))),
-                    const SizedBox(height: 6),
-                    Container(height: 11, width: 80, decoration: BoxDecoration(color: shimmerColor, borderRadius: BorderRadius.circular(4))),
-                  ]),
-                ),
-                Container(width: 44, height: 28, decoration: BoxDecoration(color: shimmerColor, borderRadius: BorderRadius.circular(20))),
-              ]),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(4, (_) => Container(width: 48, height: 36, decoration: BoxDecoration(color: shimmerColor, borderRadius: BorderRadius.circular(6)))),
-              ),
-            ]),
-          ),
-        );
-      },
-    );
-  }
-}
 
 // ─── Stat Item ─────────────────────────────────────────────────────────────
 class _StatItem extends StatelessWidget {

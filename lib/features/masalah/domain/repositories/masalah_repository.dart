@@ -1,4 +1,9 @@
+import 'package:isar/isar.dart';
+import 'package:manajemen_tahsin_app/features/tahfidz/data/models/tahfidz_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/pra_tahfidz/data/models/pra_tahfidz_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/progress/data/models/progress_santri_model.dart';
 import 'package:manajemen_tahsin_app/core/api/services/santri_catatan_api_service.dart';
+import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 
@@ -84,6 +89,44 @@ class MasalahRepository {
     return [];
   }
 
+  // ─── READ: Local DB ───────────────────────────────────────────────────────
+  Future<List<Map<String, dynamic>>> getLocalSantri(int activeId) async {
+    final isar = IsarDb.instance;
+    final List<Map<String, dynamic>> result = [];
+    
+    if (activeId > 0) {
+      final t1 = await isar.tahfidzSantriModels.filter().idKelompokEqualTo(activeId).findAll();
+      final t2 = await isar.praTahfidzSantriModels.filter().idKelompokEqualTo(activeId).findAll();
+      final t3 = await isar.progressSantriModels.filter().idKelompokEqualTo(activeId).findAll();
+      
+      for (var s in t1) {
+        result.add({
+          'nis': s.nis,
+          'nama_santri': s.namaSantri,
+          'tingkat': s.tingkat ?? s.idKelas?.toString(),
+        });
+      }
+      for (var s in t2) {
+        result.add({
+          'nis': s.nis,
+          'nama_santri': s.namaSantri,
+          'tingkat': s.tingkat ?? s.idKelas?.toString(),
+        });
+      }
+      for (var s in t3) {
+        result.add({
+          'nis': s.nis,
+          'nama_santri': s.namaSantri,
+          'tingkat': s.tingkat ?? s.idKelas?.toString(),
+        });
+      }
+    }
+    
+    // Sort alphabet
+    result.sort((a, b) => (a['nama_santri'] ?? '').toString().compareTo((b['nama_santri'] ?? '').toString()));
+    return result;
+  }
+
   // ─── WRITE: Optimistic UI ─────────────────────────────────────────────────
   Future<bool> updateMasalah(Map<String, dynamic> payload) async {
     if (await networkInfo.isConnected) {
@@ -96,10 +139,10 @@ class MasalahRepository {
         );
         return true;
       } catch (_) {
-        return _enqueuePayload('api/guru/masalah/update', payload);
+        return _enqueuePayload('api/guru/masalah/update', payload, 'catatan_masalah');
       }
     }
-    return _enqueuePayload('api/guru/masalah/update', payload);
+    return _enqueuePayload('api/guru/masalah/update', payload, 'catatan_masalah');
   }
 
   Future<bool> storeTahapMasalah(Map<String, dynamic> payload) async {
@@ -114,10 +157,10 @@ class MasalahRepository {
         );
         return true;
       } catch (_) {
-        return _enqueuePayload('api/guru/masalah/tahap', payload);
+        return _enqueuePayload('api/guru/masalah/tahap', payload, 'catatan_masalah');
       }
     }
-    return _enqueuePayload('api/guru/masalah/tahap', payload);
+    return _enqueuePayload('api/guru/masalah/tahap', payload, 'catatan_masalah');
   }
 
   Future<bool> storeMasalah(Map<String, dynamic> payload) async {
@@ -156,14 +199,15 @@ class MasalahRepository {
         );
         return true;
       } catch (_) {
-        return _enqueuePayload('api/guru/masalah/store', payload);
+        return _enqueuePayload('api/guru/masalah/store', payload, 'catatan_masalah');
       }
     }
-    return _enqueuePayload('api/guru/masalah/store', payload);
+    return _enqueuePayload('api/guru/masalah/store', payload, 'catatan_masalah');
   }
 
-  Future<bool> _enqueuePayload(String endpoint, Map<String, dynamic> payload) async {
-    await localDataSource.enqueueRequest(endpoint, payload);
+  Future<bool> _enqueuePayload(String endpoint, Map<String, dynamic> payload, String type) async {
+    payload['type'] = type;
+    await localDataSource.enqueueRequest(endpoint, payload, type: type);
     return true;
   }
 }

@@ -7,6 +7,7 @@ import 'package:manajemen_tahsin_app/features/santri/domain/repositories/santri_
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/generic_cache.dart';
 import 'package:manajemen_tahsin_app/features/progress/data/models/progress_santri_model.dart';
+import 'package:manajemen_tahsin_app/features/pra_tahfidz/domain/repositories/pra_tahfidz_repository.dart' as import_pra_tahfidz;
 import 'initial_sync_state.dart';
 
 class InitialSyncCubit extends Cubit<InitialSyncState> {
@@ -52,12 +53,25 @@ class InitialSyncCubit extends Cubit<InitialSyncState> {
       // 3. Progress Belajar
       emit(const InitialSyncInProgress(0.7, "Menyinkronkan progres terakhir..."));
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      await tahsinRepository.getProgressList(
-        idKelompok: activeKelompokId,
-        idKelas: null, // Ambil semua kelas
-        tanggal: today,
-        forceRefresh: true,
-      );
+      
+      if (activeKelompokId == 3) {
+        // PRA TAHFIDZ
+        import_pra_tahfidz.PraTahfidzRepository(
+          networkInfo: tahsinRepository.networkInfo,
+        ).getSantriList(
+          idKelompok: activeKelompokId,
+          tanggal: today,
+          forceRefresh: true,
+        ).catchError((_) => <String, dynamic>{}); // ignore error if any so sync can continue
+      } else {
+        // TAHSIN & LAINNYA
+        await tahsinRepository.getProgressList(
+          idKelompok: activeKelompokId,
+          idKelas: null, // Ambil semua kelas
+          tanggal: today,
+          forceRefresh: true,
+        );
+      }
 
       // 4. Hari Libur
       emit(const InitialSyncInProgress(0.9, "Memfinalisasi data..."));

@@ -73,11 +73,11 @@ class EmptyStateWidget extends StatelessWidget {
 }
 
 /// Widget state error yang seragam (wifi-off + tombol Coba Lagi).
-class ErrorStateWidget extends StatelessWidget {
+class GlobalErrorWidget extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const ErrorStateWidget({
+  const GlobalErrorWidget({
     super.key,
     required this.message,
     required this.onRetry,
@@ -129,12 +129,12 @@ class ErrorStateWidget extends StatelessWidget {
 }
 
 /// Skeleton list generik: N baris kotak abu-abu beranimasi untuk loading state.
-class SkeletonListWidget extends StatelessWidget {
+class GlobalSkeletonWidget extends StatelessWidget {
   final int itemCount;
   final double itemHeight;
   final EdgeInsetsGeometry padding;
 
-  const SkeletonListWidget({
+  const GlobalSkeletonWidget({
     super.key,
     this.itemCount = 6,
     this.itemHeight = 72,

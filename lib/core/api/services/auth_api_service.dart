@@ -190,9 +190,9 @@ class AuthApiService {
     }
   }
 
-  static Future<void> checkConnection() async {
+  static Future<void> checkConnection({int timeoutSeconds = 5}) async {
     try {
-      final client = await DioClient.getNewInstanceWithShortTimeout(5);
+      final client = await DioClient.getNewInstanceWithShortTimeout(timeoutSeconds);
       final response = await client.post('api/login', options: Options(validateStatus: (status) => true));
       debugPrint("Ping Server Sukses. Status Code: \${response.statusCode}");
       if (response.data is! Map) {

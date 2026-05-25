@@ -3,9 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/bloc/tahfidz_cubit.dart';
 import 'package:manajemen_tahsin_app/features/tahfidz/presentation/tahfidz_screen.dart'
-    show formatHal, formatJuz, formatTanggal, TahfidzSkeletonCard;
+    show formatHal, formatJuz, formatTanggal;
 import 'package:manajemen_tahsin_app/core/widgets/global_header_background.dart';
-
+import 'package:manajemen_tahsin_app/core/widgets/global_error_widget.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_skeleton_widget.dart';
 /// Halaman Detail Buku Prestasi Santri Tahfidz Al-Qur'an.
 /// Menampilkan: Rekap kumulatif + Riwayat setoran + Grafik (placeholder).
 class TahfidzDetailScreen extends StatefulWidget {
@@ -137,48 +138,13 @@ class _TahfidzDetailScreenState extends State<TahfidzDetailScreen> {
         ),
       ),
       body: _loading
-          ? ListView(
-              padding: const EdgeInsets.all(16),
-              children: List.generate(
-                5,
-                (_) => const TahfidzSkeletonCard(),
-              ),
+          ? const GlobalSkeletonWidget(
+              itemCount: 5,
             )
           : _error.isNotEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.wifi_off_rounded,
-                          size: 48,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _error,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () => _loadDetail(forceRefresh: true),
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text('Coba Lagi'),
-                        ),
-                      ],
-                    ),
-                  ),
+              ? GlobalErrorWidget(
+                  message: _error,
+                  onRetry: () => _loadDetail(forceRefresh: true),
                 )
               : RefreshIndicator(
                   onRefresh: () => _loadDetail(forceRefresh: true),

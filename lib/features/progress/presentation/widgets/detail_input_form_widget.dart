@@ -433,44 +433,49 @@ class DetailInputFormWidgetState extends State<DetailInputFormWidget> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: widget.isAkselerasi
-                        ? Colors.red.shade50
-                        : (widget.isLatihan
-                              ? Colors.teal.shade50
-                              : Colors.deepPurple.shade50),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color:
-                          (widget.isAkselerasi
-                                  ? Colors.red
-                                  : (widget.isLatihan
-                                        ? Colors.teal
-                                        : Colors.deepPurple))
-                              .withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Text(
-                    widget.isAkselerasi
-                        ? 'Mode: AKSELERASI ${widget.jmlTes > 0 ? widget.jmlTes : 1}'
-                        : (widget.isLatihan
-                              ? 'Mode: LATIHAN'
-                              : 'Mode: REGULER'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: widget.isAkselerasi
-                          ? Colors.red
-                          : (widget.isLatihan
-                                ? Colors.teal
-                                : Colors.deepPurple),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                Builder(
+                  builder: (context) {
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: widget.isAkselerasi
+                            ? (isDark ? Colors.red.withValues(alpha: 0.2) : Colors.red.shade50)
+                            : (widget.isLatihan
+                                  ? (isDark ? Colors.teal.withValues(alpha: 0.2) : Colors.teal.shade50)
+                                  : (isDark ? Colors.deepPurple.withValues(alpha: 0.2) : Colors.deepPurple.shade50)),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color:
+                              (widget.isAkselerasi
+                                      ? (isDark ? Colors.red.shade400 : Colors.red)
+                                      : (widget.isLatihan
+                                            ? (isDark ? Colors.teal.shade400 : Colors.teal)
+                                            : (isDark ? Colors.deepPurple.shade400 : Colors.deepPurple)))
+                                  .withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Text(
+                        widget.isAkselerasi
+                            ? 'Mode: AKSELERASI ${widget.jmlTes > 0 ? widget.jmlTes : 1}'
+                            : (widget.isLatihan
+                                  ? 'Mode: LATIHAN'
+                                  : 'Mode: REGULER'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: widget.isAkselerasi
+                              ? (isDark ? Colors.red.shade300 : Colors.red)
+                              : (widget.isLatihan
+                                    ? (isDark ? Colors.teal.shade300 : Colors.teal)
+                                    : (isDark ? Colors.deepPurple.shade300 : Colors.deepPurple)),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }
                 ),
               ],
             ),

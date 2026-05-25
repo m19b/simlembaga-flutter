@@ -73,6 +73,13 @@ class DashboardCubit extends Cubit<DashboardState> {
     final localData = await repository.getLocalData(null);
     if (localData != null) {
       _masterData = localData;
+      
+      // [AUTO-SET KELOMPOK SAAT LOKAL]
+      // Jika activeId masih 0, otomatis set ke idKelompok dari data lokal
+      if (activeKelompokCubit.state.activeId <= 0 && localData.idKelompok > 0) {
+        activeKelompokCubit.changeKelompok(localData.idKelompok);
+      }
+      
       _applyFilters(isRefreshing: true);
     } else {
       emit(DashboardLoading());

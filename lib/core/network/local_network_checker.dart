@@ -39,36 +39,37 @@ class LocalNetworkChecker {
     _connectivitySubscription?.cancel();
   }
 
-  bool _isPinging = false;
+  Future<bool>? _activePing;
 
   Future<bool> checkConnection() async {
-    if (_isPinging) return _currentStatus == LocalNetworkStatus.online;
-    _isPinging = true;
+    if (_activePing != null) return await _activePing!;
 
+    _activePing = _doPing();
+    final result = await _activePing!;
+    _activePing = null;
+    return result;
+  }
+
+  Future<bool> _doPing() async {
     try {
       final results = await Connectivity().checkConnectivity();
-      if (results.contains(ConnectivityResult.wifi) || 
-          results.contains(ConnectivityResult.ethernet)) {
+      if (!results.contains(ConnectivityResult.none) || results.isNotEmpty) {
         
         try {
           await AuthApiService.checkConnection();
           _updateStatus(LocalNetworkStatus.online);
-          _isPinging = false;
           return true;
         } catch (e) {
           _updateStatus(LocalNetworkStatus.offline);
-          _isPinging = false;
           return false;
         }
 
       } else {
         _updateStatus(LocalNetworkStatus.offline);
-        _isPinging = false;
         return false;
       }
     } catch (e) {
       _updateStatus(LocalNetworkStatus.offline);
-      _isPinging = false;
       return false;
     }
   }
@@ -78,10 +79,9 @@ class LocalNetworkChecker {
     // Jalankan tanpa peduli _isPinging, abaikan timer, langsung ping
     try {
       final results = await Connectivity().checkConnectivity();
-      if (results.contains(ConnectivityResult.wifi) || 
-          results.contains(ConnectivityResult.ethernet)) {
+      if (!results.contains(ConnectivityResult.none) || results.isNotEmpty) {
         try {
-          await AuthApiService.checkConnection();
+          await AuthApiService.checkConnection(timeoutSeconds: 2);
           _updateStatus(LocalNetworkStatus.online);
         } catch (e) {
           _updateStatus(LocalNetworkStatus.offline);

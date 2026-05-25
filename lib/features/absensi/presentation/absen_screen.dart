@@ -10,11 +10,8 @@ import 'package:manajemen_tahsin_app/core/constants/api_config.dart';
 import 'package:manajemen_tahsin_app/features/absensi/presentation/bottom.dart';
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
 import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
-import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
-import 'package:manajemen_tahsin_app/core/data/models/santri_binaan_cache.dart';
-import 'package:manajemen_tahsin_app/core/data/models/santri_universal_cache.dart';
-import 'package:manajemen_tahsin_app/core/data/models/guru_universal_cache.dart';
-import 'package:isar/isar.dart';
+import 'package:manajemen_tahsin_app/features/absensi/presentation/bloc/absensi_cubit.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 enum ScanState { waiting, success }
 
@@ -301,26 +298,9 @@ class _AbsenScreenState extends State<AbsenScreen>
   }
 
   Future<void> _handleOfflineScan(String cleanCode, String jamStr) async {
-    final isar = IsarDb.instance;
-    
-    // Fallback Chain 1: Santri Binaan
-    final cachedBinaan = await isar.santriBinaanCaches.filter().nisEqualTo(cleanCode).findFirst();
-    if (cachedBinaan != null) {
-      await _prosesOfflineFound(cleanCode, cachedBinaan.nama, cachedBinaan.nis, cachedBinaan.tingkatKelas ?? '-', jamStr, 'santri');
-      return;
-    }
-
-    // Fallback Chain 2: Santri Universal
-    final cachedSantriUniv = await isar.santriUniversalCaches.filter().nisEqualTo(cleanCode).findFirst();
-    if (cachedSantriUniv != null) {
-      await _prosesOfflineFound(cleanCode, cachedSantriUniv.nama, cachedSantriUniv.nis, cachedSantriUniv.tingkatKelas ?? '-', jamStr, 'santri');
-      return;
-    }
-
-    // Fallback Chain 3: Guru Universal
-    final cachedGuruUniv = await isar.guruUniversalCaches.filter().nigEqualTo(cleanCode).findFirst();
-    if (cachedGuruUniv != null) {
-      await _prosesOfflineFound(cleanCode, cachedGuruUniv.nama, cachedGuruUniv.nig, 'Guru/Staf', jamStr, 'guru');
+    final offlineData = await context.read<AbsensiCubit>().lookupOfflineData(cleanCode);
+    if (offlineData != null) {
+      await _prosesOfflineFound(cleanCode, offlineData['nama'], offlineData['id'], offlineData['tingkat'], jamStr, offlineData['jenis']);
       return;
     }
 
@@ -827,12 +807,22 @@ class _AbsenScreenState extends State<AbsenScreen>
     final String tipe = user['tipe'] ?? 'santri';
     final bool isGuru = tipe == 'guru';
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
-    final Color successBgColor = isGuru ? Colors.teal.shade50 : cs.primaryContainer;
-    final Color bgColor = isWarning ? Colors.orange.shade50 : successBgColor;
+    
+    final Color successBgColor = isGuru 
+        ? (isDark ? Colors.teal.withValues(alpha: 0.2) : Colors.teal.shade50) 
+        : cs.primaryContainer;
+    final Color bgColor = isWarning 
+        ? (isDark ? Colors.orange.withValues(alpha: 0.2) : Colors.orange.shade50) 
+        : successBgColor;
     final IconData statusIcon = isWarning ? Icons.info_outline : Icons.check;
-    final Color successIconColor = isGuru ? Colors.teal.shade700 : cs.onPrimaryContainer;
-    final Color successIconBg = isGuru ? Colors.teal.shade200 : cs.onPrimaryContainer.withValues(alpha: 0.2);
+    final Color successIconColor = isGuru 
+        ? (isDark ? Colors.teal.shade200 : Colors.teal.shade700) 
+        : cs.onPrimaryContainer;
+    final Color successIconBg = isGuru 
+        ? (isDark ? Colors.teal.withValues(alpha: 0.3) : Colors.teal.shade200) 
+        : cs.onPrimaryContainer.withValues(alpha: 0.2);
 
     return Padding(
       padding: const EdgeInsets.only(
@@ -851,7 +841,7 @@ class _AbsenScreenState extends State<AbsenScreen>
               height: 5,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -867,12 +857,16 @@ class _AbsenScreenState extends State<AbsenScreen>
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isWarning ? Colors.orange.shade200 : successIconBg,
+                    color: isWarning 
+                        ? (isDark ? Colors.orange.withValues(alpha: 0.3) : Colors.orange.shade200) 
+                        : successIconBg,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     statusIcon,
-                    color: isWarning ? Colors.orange.shade900 : successIconColor,
+                    color: isWarning 
+                        ? (isDark ? Colors.orange.shade300 : Colors.orange.shade900) 
+                        : successIconColor,
                     size: 24,
                   ),
                 ),
@@ -884,7 +878,9 @@ class _AbsenScreenState extends State<AbsenScreen>
                       Text(
                         isWarning ? 'Peringatan: Sudah Absen!' : (isGuru ? 'Absen Guru Berhasil!' : 'Absen Masuk Berhasil!'),
                         style: GoogleFonts.plusJakartaSans(
-                          color: isWarning ? Colors.orange.shade900 : successIconColor,
+                          color: isWarning 
+                              ? (isDark ? Colors.orange.shade300 : Colors.orange.shade900) 
+                              : successIconColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
@@ -893,7 +889,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                         user['pesan'],
                         style: GoogleFonts.dmSans(
                           color: isWarning
-                              ? Colors.orange.shade800
+                              ? (isDark ? Colors.orange.shade200 : Colors.orange.shade800)
                               : cs.onPrimaryContainer.withValues(alpha: 0.75),
                           fontSize: 11,
                         ),
@@ -904,7 +900,9 @@ class _AbsenScreenState extends State<AbsenScreen>
                 Text(
                   user['jam'],
                   style: GoogleFonts.dmMono(
-                    color: isWarning ? Colors.orange.shade900 : cs.onPrimaryContainer,
+                    color: isWarning 
+                        ? (isDark ? Colors.orange.shade300 : Colors.orange.shade900) 
+                        : cs.onPrimaryContainer,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -922,7 +920,7 @@ class _AbsenScreenState extends State<AbsenScreen>
                 height: 220,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.shade200,
+                  color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -933,13 +931,13 @@ class _AbsenScreenState extends State<AbsenScreen>
                 ),
                 clipBehavior: Clip.hardEdge,
                 child: user['foto_url'] == null
-                    ? const Icon(Icons.person, color: Colors.grey, size: 50)
+                    ? Icon(Icons.person, color: isDark ? Colors.grey.shade600 : Colors.grey, size: 50)
                     : Image.network(
                         user['foto_url'],
                         fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => const Icon(
+                        errorBuilder: (c, e, s) => Icon(
                           Icons.person,
-                          color: Colors.grey,
+                          color: isDark ? Colors.grey.shade600 : Colors.grey,
                           size: 50,
                         ),
                       ),

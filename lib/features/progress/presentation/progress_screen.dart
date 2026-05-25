@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-// import 'package:google_fonts/google_fonts.dart';
 import 'progress_detail_screen.dart';
 import 'progress_input_screen.dart';
 import 'riwayat_global_tab.dart';
-import 'package:manajemen_tahsin_app/core/api/services/tahsin_api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
@@ -17,9 +15,11 @@ import 'package:manajemen_tahsin_app/features/progress/presentation/bloc/tahsin_
 import 'package:manajemen_tahsin_app/shared/widgets/multi_segment_progress_bar.dart';
 import 'package:manajemen_tahsin_app/shared/widgets/custom_date_field.dart';
 
-
 import 'package:manajemen_tahsin_app/core/theme/app_theme.dart';
 import 'package:manajemen_tahsin_app/core/widgets/app_header_bar.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_skeleton_widget.dart';
+import 'package:manajemen_tahsin_app/core/widgets/global_error_widget.dart';
+import 'package:manajemen_tahsin_app/features/progress/presentation/widgets/tahsin_report_sheet.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
@@ -59,10 +59,13 @@ class _ProgressViewState extends State<_ProgressView>
   final ValueNotifier<List<Map<String, dynamic>>> _kelasListNotifier =
       ValueNotifier([]);
   final ValueNotifier<int?> _selectedKelasNotifier = ValueNotifier(null);
-  final GlobalKey<ProgressInputScreenState> _inputKey = GlobalKey<ProgressInputScreenState>();
+  final GlobalKey<ProgressInputScreenState> _inputKey =
+      GlobalKey<ProgressInputScreenState>();
 
-  final GlobalKey<RiwayatGlobalTabState> _riwayatKey = GlobalKey<RiwayatGlobalTabState>();
+  final GlobalKey<RiwayatGlobalTabState> _riwayatKey =
+      GlobalKey<RiwayatGlobalTabState>();
   DateTime _riwayatTanggal = DateTime.now();
+  bool _isSavingProgress = false;
 
   // ValueNotifier untuk tab index — menghindari setState penuh setiap kali tab berubah
   final ValueNotifier<int> _tabIndexNotifier = ValueNotifier(0);
@@ -102,29 +105,43 @@ class _ProgressViewState extends State<_ProgressView>
           valueListenable: _tabIndexNotifier,
           builder: (context, tabIdx, _) {
             return _isSearchOpen && tabIdx == 0
-              ? TextField(
-                  controller: _searchCtrl,
-                  autofocus: true,
-                  style: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Cari Santri...',
-                    hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)),
-                    border: InputBorder.none,
-                    suffixIcon: IconButton(
-                      icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onPrimary),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() => _isSearchOpen = false);
-                      },
+                ? TextField(
+                    controller: _searchCtrl,
+                    autofocus: true,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
                     ),
-                  ),
-                )
-              : Text(
-                  tabIdx == 0 ? 'Progres'
-                    : tabIdx == 1 ? 'Input Evaluasi'
-                    : 'Riwayat Kelas',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                );
+                    decoration: InputDecoration(
+                      hintText: 'Cari Santri...',
+                      hintStyle: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary.withValues(alpha: 0.7),
+                      ),
+                      border: InputBorder.none,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _isSearchOpen = false);
+                        },
+                      ),
+                    ),
+                  )
+                : Text(
+                    tabIdx == 0
+                        ? 'Progres'
+                        : tabIdx == 1
+                        ? 'Input Evaluasi'
+                        : 'Riwayat Kelas',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  );
           },
         ),
         actions: [
@@ -143,12 +160,21 @@ class _ProgressViewState extends State<_ProgressView>
                         builder: (context, selectedKelasId, child) {
                           return Container(
                             height: 26,
-                            margin: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                            margin: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 8,
+                            ),
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.15),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Theme.of(context).extension<AppCustomStyles>()!.headerBorder),
+                              border: Border.all(
+                                color: Theme.of(
+                                  context,
+                                ).extension<AppCustomStyles>()!.headerBorder,
+                              ),
                             ),
                             child: DropdownButtonHideUnderline(
                               child: Theme(
@@ -156,23 +182,53 @@ class _ProgressViewState extends State<_ProgressView>
                                   popupMenuTheme: PopupMenuThemeData(
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide(color: Theme.of(context).extension<AppCustomStyles>()!.headerBorder),
+                                      side: BorderSide(
+                                        color: Theme.of(context)
+                                            .extension<AppCustomStyles>()!
+                                            .headerBorder,
+                                      ),
                                     ),
                                   ),
                                 ),
                                 child: DropdownButton<int?>(
                                   value: selectedKelasId,
                                   isDense: true,
-                                  dropdownColor: Theme.of(context).brightness == Brightness.dark ? Colors.black : Theme.of(context).colorScheme.primary,
-                                  icon: Icon(Icons.arrow_drop_down, size: 16, color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.7)),
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                                  onChanged: (val) => _selectedKelasNotifier.value = val,
+                                  dropdownColor:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.black
+                                      : Theme.of(context).colorScheme.primary,
+                                  icon: Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 16,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimary
+                                        .withValues(alpha: 0.7),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  onChanged: (val) =>
+                                      _selectedKelasNotifier.value = val,
                                   items: [
-                                    const DropdownMenuItem<int?>(value: null, child: Text('Semua')),
+                                    const DropdownMenuItem<int?>(
+                                      value: null,
+                                      child: Text('Semua'),
+                                    ),
                                     ...kelasList.map((k) {
-                                      final id = int.tryParse(k['id_kelas']?.toString() ?? '0') ?? 0;
+                                      final id =
+                                          int.tryParse(
+                                            k['id_kelas']?.toString() ?? '0',
+                                          ) ??
+                                          0;
                                       final t = k['tingkat']?.toString() ?? '-';
-                                      return DropdownMenuItem<int?>(value: id, child: Text(t));
+                                      return DropdownMenuItem<int?>(
+                                        value: id,
+                                        child: Text(t),
+                                      );
                                     }),
                                   ],
                                 ),
@@ -192,18 +248,57 @@ class _ProgressViewState extends State<_ProgressView>
                 if (tabIdx == 1) ...[
                   Padding(
                     padding: const EdgeInsets.only(right: 8.0),
-                    child: ElevatedButton.icon(
-                      onPressed: () => _inputKey.currentState?.simpan(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        minimumSize: const Size(0, 32),
-                      ),
-                      icon: const Icon(Icons.save, size: 16),
-                      label: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    child: StatefulBuilder(
+                      builder: (context, setBtnState) {
+                        return ElevatedButton.icon(
+                          onPressed: _isSavingProgress
+                              ? null
+                              : () async {
+                                  setState(() => _isSavingProgress = true);
+                                  setBtnState(() {}); // re-render btn
+                                  try {
+                                    await _inputKey.currentState?.simpan();
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _isSavingProgress = false);
+                                      setBtnState(() {});
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.green.shade300,
+                            disabledForegroundColor: Colors.white70,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 0,
+                            ),
+                            minimumSize: const Size(0, 32),
+                          ),
+                          icon: _isSavingProgress
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.save, size: 16),
+                          label: Text(
+                            _isSavingProgress ? 'Menyimpan...' : 'Simpan',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -244,12 +339,12 @@ class _ProgressViewState extends State<_ProgressView>
             selectedKelasNotifier: _selectedKelasNotifier,
           ),
           ProgressInputScreen(key: _inputKey), // Component tab Input
-            RiwayatGlobalTab(
-              key: _riwayatKey,
-              repository: context.read<TahsinCubit>().repository,
-            ),
-          ],
-        ),
+          RiwayatGlobalTab(
+            key: _riwayatKey,
+            repository: context.read<TahsinCubit>().repository,
+          ),
+        ],
+      ),
       bottomNavigationBar: _buildCustomBottomNav(),
     );
   }
@@ -283,63 +378,87 @@ class _ProgressViewState extends State<_ProgressView>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Expanded(child: _buildNavItem(0, Icons.bar_chart_rounded, 'Progress', tabIdx)),
-            Expanded(child: _buildNavItem(1, Icons.edit_document, 'Input', tabIdx)),
-            Expanded(child: _buildNavItem(2, Icons.history_edu, 'Riwayat', tabIdx)),
+            Expanded(
+              child: _buildNavItem(
+                0,
+                Icons.bar_chart_rounded,
+                'Progress',
+                tabIdx,
+              ),
+            ),
+            Expanded(
+              child: _buildNavItem(1, Icons.edit_document, 'Input', tabIdx),
+            ),
+            Expanded(
+              child: _buildNavItem(2, Icons.history_edu, 'Riwayat', tabIdx),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label, int currentTabIdx) {
+  Widget _buildNavItem(
+    int index,
+    IconData icon,
+    String label,
+    int currentTabIdx,
+  ) {
     final isSelected = currentTabIdx == index;
     return InkWell(
       onTap: () {
         _tabController.animateTo(index);
         _tabIndexNotifier.value = index;
       },
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? (Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
-                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1))
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey,
-                size: 20,
-              ),
-              const SizedBox(width: 4),
-              if (isSelected || MediaQuery.of(context).size.width > 360)
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected 
-                          ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Theme.of(context).colorScheme.primary) 
-                          : Colors.grey,
-                    ),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.15)
+                    : Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 4),
+            if (isSelected || MediaQuery.of(context).size.width > 360)
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected
+                        ? (Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.primary)
+                        : Colors.grey,
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   void _showSendReportSheet(BuildContext context) {
@@ -349,191 +468,7 @@ class _ProgressViewState extends State<_ProgressView>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => const _SendReportBottomSheet(),
-    );
-  }
-}
-
-class _SendReportBottomSheet extends StatefulWidget {
-  const _SendReportBottomSheet();
-
-  @override
-  State<_SendReportBottomSheet> createState() => _SendReportBottomSheetState();
-}
-
-class _SendReportBottomSheetState extends State<_SendReportBottomSheet> {
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _endDate = DateTime.now();
-  bool _sending = false;
-
-  Future<void> _pickRange() async {
-    final range = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).colorScheme.primary,
-              onPrimary: Colors.white,
-              onSurface: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (range != null) {
-      setState(() {
-        _startDate = range.start;
-        _endDate = range.end;
-      });
-    }
-  }
-
-  Future<void> _send() async {
-    setState(() => _sending = true);
-    try {
-      final df = DateFormat('yyyy-MM-dd');
-      final res = await TahsinApiService.sendKolektifWaReport(
-        tglMulai: df.format(_startDate),
-        tglAkhir: df.format(_endDate),
-      );
-
-      if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res['message'] ?? 'Laporan berhasil dikirim!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal mengirim: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dfDisplay = DateFormat('dd MMM yyyy');
-    return Padding(
-      padding: EdgeInsets.only(
-        top: 24,
-        left: 24,
-        right: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 32,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.picture_as_pdf, color: Colors.red),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Kirim Laporan Perbandingan',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Laporan ini berisi perbandingan performa seluruh santri di kelas Anda dalam periode tertentu.',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Periode Laporan:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: _pickRange,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Theme.of(context).dividerColor),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 18, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '${dfDisplay.format(_startDate)} - ${dfDisplay.format(_endDate)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const Icon(Icons.edit, size: 16, color: Colors.grey),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              onPressed: _sending ? null : _send,
-              child: _sending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text(
-                      'Kirim Laporan ke WA Saya',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
+      builder: (context) => const TahsinReportSheet(),
     );
   }
 }
@@ -574,7 +509,7 @@ class _SantriListTabState extends State<_SantriListTab>
     super.initState();
     widget.searchCtrl.addListener(_onSearch);
     widget.selectedKelasNotifier.addListener(_onKelasFilterChanged);
-    
+
     // Inisialisasi kelompok ID dari cubit global agar tidak null
     _selectedKelompokId = ActiveKelompokCubit.activeKelompokId;
     if (_selectedKelompokId == 0 || _selectedKelompokId == null) {
@@ -582,7 +517,9 @@ class _SantriListTabState extends State<_SantriListTab>
       if (activeState.activeId > 0) {
         _selectedKelompokId = activeState.activeId;
       } else if (activeState.allowedKelompok.isNotEmpty) {
-        _selectedKelompokId = int.tryParse(activeState.allowedKelompok.first['id_kelompok']?.toString() ?? '0');
+        _selectedKelompokId = int.tryParse(
+          activeState.allowedKelompok.first['id_kelompok']?.toString() ?? '0',
+        );
       }
     }
 
@@ -653,7 +590,7 @@ class _SantriListTabState extends State<_SantriListTab>
         if (state is TahsinLoaded) {
           final raw = state.data['data'] ?? state.data;
           List<Map<String, dynamic>> list = [];
-          
+
           if (raw is Map) {
             final fm = raw['filter_meta'];
             if (fm is Map) {
@@ -685,9 +622,12 @@ class _SantriListTabState extends State<_SantriListTab>
               }
             }
 
-            dynamic globalCheckpoints = raw['checkpoints'] ?? raw['t_kelas_checkpoint'];
+            dynamic globalCheckpoints =
+                raw['checkpoints'] ?? raw['t_kelas_checkpoint'];
             if (globalCheckpoints is String) {
-              try { globalCheckpoints = jsonDecode(globalCheckpoints); } catch (_) {}
+              try {
+                globalCheckpoints = json.decode(globalCheckpoints);
+              } catch (_) {}
             }
 
             final rawList = raw['santri_list'];
@@ -695,7 +635,8 @@ class _SantriListTabState extends State<_SantriListTab>
               list = rawList.whereType<Map>().map((e) {
                 final Map<String, dynamic> safeMap = {};
                 e.forEach((k, v) => safeMap[k.toString()] = v);
-                if (globalCheckpoints != null && safeMap['checkpoints'] == null) {
+                if (globalCheckpoints != null &&
+                    safeMap['checkpoints'] == null) {
                   safeMap['checkpoints'] = globalCheckpoints;
                 }
                 return safeMap;
@@ -728,47 +669,16 @@ class _SantriListTabState extends State<_SantriListTab>
         }
       },
       builder: (context, state) {
-        if (_loading && _allSantri.isEmpty) return _buildSkeleton();
-        if (_error.isNotEmpty && _allSantri.isEmpty) return _buildError();
+        if (_loading && _allSantri.isEmpty)
+          return const GlobalSkeletonWidget(itemCount: 8);
+        if (_error.isNotEmpty && _allSantri.isEmpty) {
+          return GlobalErrorWidget(
+            message: _error,
+            onRetry: () => _load(forceRefresh: true),
+          );
+        }
         return _buildBody();
       },
-    );
-  }
-
-  Widget _buildSkeleton() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: 8,
-      itemBuilder: (_, i) => const _SkeletonCard(),
-    );
-  }
-
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              _error,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).extension<AppCustomStyles>()!.success),
-              onPressed: _load,
-              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-              label: Text('Coba Lagi', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -830,9 +740,8 @@ class _SantriListTabState extends State<_SantriListTab>
                           style: TextStyle(
                             color: isSel
                                 ? Colors.white
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                : Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.6),
                             fontWeight: isSel
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -856,24 +765,17 @@ class _SantriListTabState extends State<_SantriListTab>
         _buildFilterBar(),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const GlobalSkeletonWidget(itemCount: 5)
               : _error.isNotEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _load,
-                        child: const Text('Coba Lagi'),
-                      ),
-                    ],
-                  ),
+              ? GlobalErrorWidget(
+                  message: _error,
+                  onRetry: () => _load(forceRefresh: true),
                 )
               : RefreshIndicator(
                   onRefresh: () => _load(forceRefresh: true),
-                  color: Theme.of(context).extension<AppCustomStyles>()!.success,
+                  color: Theme.of(
+                    context,
+                  ).extension<AppCustomStyles>()!.success,
                   backgroundColor: Theme.of(context).cardColor,
                   child: _filtered.isEmpty
                       ? ListView(
@@ -893,9 +795,10 @@ class _SantriListTabState extends State<_SantriListTab>
                                   Text(
                                     'Tidak ada data santri.',
                                     style: TextStyle(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurface.withValues(alpha: 0.6),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.6),
                                     ),
                                   ),
                                   const SizedBox(height: 20),
@@ -903,12 +806,18 @@ class _SantriListTabState extends State<_SantriListTab>
                                     onPressed: _load,
                                     icon: Icon(
                                       Icons.refresh_rounded,
-                                      color: Theme.of(context).extension<AppCustomStyles>()!.success,
+                                      color: Theme.of(
+                                        context,
+                                      ).extension<AppCustomStyles>()!.success,
                                       size: 18,
                                     ),
                                     label: Text(
                                       'Refresh',
-                                      style: TextStyle(color: Theme.of(context).extension<AppCustomStyles>()!.success),
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).extension<AppCustomStyles>()!.success,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -1046,7 +955,9 @@ class _SantriCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
+        border: Border.all(
+          color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1107,10 +1018,17 @@ class _SantriCard extends StatelessWidget {
                             santri['nis'] ?? '-',
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          _chip(kelompok, Theme.of(context).extension<AppCustomStyles>()!.success),
+                          _chip(
+                            kelompok,
+                            Theme.of(
+                              context,
+                            ).extension<AppCustomStyles>()!.success,
+                          ),
                           _chip(kelas, Theme.of(context).colorScheme.secondary),
                         ],
                       ),
@@ -1129,11 +1047,20 @@ class _SantriCard extends StatelessWidget {
                         capai: capaiHal,
                         total: totalHal,
                         baseHal: baseHal,
-                        checkpoints: santri['checkpoints'] ?? santri['checkpoint'] ?? santri['t_kelas_checkpoint'] ?? santri['check_points'],
+                        checkpoints:
+                            santri['checkpoints'] ??
+                            santri['checkpoint'] ??
+                            santri['t_kelas_checkpoint'] ??
+                            santri['check_points'],
                         baseColor: const Color(0xFF6610F2),
                         trailingText: Text(
                           '(${santri['sisa_tm_baku'] ?? 0} TM)',
-                          style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -1162,9 +1089,7 @@ class _SantriCard extends StatelessWidget {
                                 'Selesaikan halaman dulu',
                                 style: TextStyle(
                                   fontSize: 11,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
+                                  color: Theme.of(context).colorScheme.onSurface
                                       .withValues(alpha: 0.6),
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -1179,7 +1104,11 @@ class _SantriCard extends StatelessWidget {
                           capai: latSek,
                           total: targetLat,
                           baseHal: baseHal,
-                          checkpoints: santri['checkpoints'] ?? santri['checkpoint'] ?? santri['t_kelas_checkpoint'] ?? santri['check_points'],
+                          checkpoints:
+                              santri['checkpoints'] ??
+                              santri['checkpoint'] ??
+                              santri['t_kelas_checkpoint'] ??
+                              santri['check_points'],
                           baseColor: const Color(0xFF14B8A6),
                         ),
                       ],
@@ -1324,77 +1253,4 @@ class _SantriCard extends StatelessWidget {
       style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
     ),
   );
-}
-
-class _SkeletonCard extends StatefulWidget {
-  const _SkeletonCard();
-  @override
-  State<_SkeletonCard> createState() => _SkeletonCardState();
-}
-
-class _SkeletonCardState extends State<_SkeletonCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.3, end: 0.9).animate(_ctrl);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, __) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).extension<AppCustomStyles>()!.cardBorder),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color.lerp(Theme.of(context).extension<AppCustomStyles>()!.shimmerBase, Theme.of(context).extension<AppCustomStyles>()!.shimmerHighlight, _anim.value),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 14,
-                    color: Color.lerp(Theme.of(context).extension<AppCustomStyles>()!.shimmerBase, Theme.of(context).extension<AppCustomStyles>()!.shimmerHighlight, _anim.value),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 10,
-                    width: 160,
-                    color: Color.lerp(Theme.of(context).extension<AppCustomStyles>()!.shimmerBase, Theme.of(context).extension<AppCustomStyles>()!.shimmerHighlight, _anim.value),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

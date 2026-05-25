@@ -4,14 +4,19 @@ import 'package:isar/isar.dart';
 import 'package:manajemen_tahsin_app/core/api/services/santri_catatan_api_service.dart';
 import 'package:manajemen_tahsin_app/core/data/isar_db.dart';
 import 'package:manajemen_tahsin_app/core/data/models/generic_cache.dart';
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import 'package:manajemen_tahsin_app/core/data/models/offline_queue.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
 import 'package:manajemen_tahsin_app/core/enums/jalur_enum.dart';
 
 class DaftarTesRepository {
   final NetworkInfo networkInfo;
+  final LocalDataSource localDataSource;
   
-  DaftarTesRepository({required this.networkInfo});
+  DaftarTesRepository({
+    required this.networkInfo,
+    required this.localDataSource,
+  });
 
   Isar get _isar => IsarDb.instance;
   
@@ -165,11 +170,11 @@ class DaftarTesRepository {
          return true;
       } catch (e) {
          await _optimisticUpdateDaftar(nis, kodeJalur);
-         return _enqueuePayload('api/guru/tes/daftarkan', payload);
+         return _enqueuePayload('api/guru/tes/daftarkan', payload, 'daftar_tes');
       }
     }
     await _optimisticUpdateDaftar(nis, kodeJalur);
-    return _enqueuePayload('api/guru/tes/daftarkan', payload);
+    return _enqueuePayload('api/guru/tes/daftarkan', payload, 'daftar_tes');
   }
 
   // 4. BATALKAN TES
@@ -199,23 +204,16 @@ class DaftarTesRepository {
         }
       });
     } else {
-      await _enqueuePayload('api/guru/tes/batalkan', payload);
+      await _enqueuePayload('api/guru/tes/batalkan', payload, 'daftar_tes');
     }
     await _optimisticUpdateBatal(idDaftar);
     return true;
   }
 
   // 5. OFFLINE QUEUE HELPER
-  Future<bool> _enqueuePayload(String endpoint, Map<String, dynamic> payload) async {
-    final request = OfflineQueue()
-      ..endpoint = endpoint
-      ..payloadJson = await compute(_encodeJsonString, payload)
-      ..timestamp = DateTime.now()
-      ..status = 'pending';
-
-    await _isar.writeTxn(() async {
-      await _isar.offlineQueues.put(request);
-    });
+  Future<bool> _enqueuePayload(String endpoint, Map<String, dynamic> payload, String type) async {
+    payload['type'] = type;
+    await localDataSource.enqueueRequest(endpoint, payload, type: type);
     return true;
   }
 

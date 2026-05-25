@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:manajemen_tahsin_app/core/api/services/auth_api_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -92,6 +94,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isOfflineWarning = resp['is_offline_fallback'] == true;
         _isLoadingData = false;
       });
+
+      // Update local user cache so dashboard header and other places reflect immediately
+      final prefs = await SharedPreferences.getInstance();
+      final userStr = prefs.getString('LOGGED_IN_USER');
+      if (userStr != null) {
+        final userJson = json.decode(userStr) as Map<String, dynamic>;
+        if (_fotoUrl.isNotEmpty) {
+           userJson['foto_user'] = _fotoUrl;
+           await prefs.setString('cached_foto_profil', _fotoUrl);
+        }
+        if (_namaTampilCtrl.text.isNotEmpty) {
+           userJson['username'] = _namaTampilCtrl.text;
+           await prefs.setString('cached_nama_guru', _namaTampilCtrl.text);
+        }
+        await prefs.setString('LOGGED_IN_USER', json.encode(userJson));
+      }
     } catch (e) {
       setState(() {
         _errorMsg = e.toString().replaceFirst('Exception: ', '');
@@ -359,12 +377,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  Icon(Icons.wifi_off_rounded, color: Colors.orange.shade800, size: 16),
+                  Icon(
+                    Icons.wifi_off_rounded,
+                    color: Colors.orange.shade800,
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Anda sedang offline. Menampilkan data lokal terakhir.',
-                      style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                      'Anda sedang offline. Menampilkan data lokal.',
+                      style: TextStyle(
+                        color: Colors.orange.shade900,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -451,7 +476,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ).colorScheme.primary.withValues(alpha: 0.1),
                     backgroundImage: _pickedImageFile != null
                         ? FileImage(_pickedImageFile!) as ImageProvider
-                        : (_fotoUrl.isNotEmpty ? CachedNetworkImageProvider(_fotoUrl) : null),
+                        : (_fotoUrl.isNotEmpty
+                              ? CachedNetworkImageProvider(_fotoUrl)
+                              : null),
                     child: (_pickedImageFile == null && _fotoUrl.isEmpty)
                         ? Icon(
                             Icons.person,

@@ -82,6 +82,10 @@ class MasalahCubit extends Cubit<MasalahState> {
     return ok;
   }
 
+  Future<List<Map<String, dynamic>>> getLocalSantri(int activeId) async {
+    return repository.getLocalSantri(activeId);
+  }
+
   @override
   Future<void> close() {
     _kelompokSub.cancel();

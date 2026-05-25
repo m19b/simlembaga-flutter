@@ -13,6 +13,7 @@ import 'package:manajemen_tahsin_app/core/enums/jalur_enum.dart';
 
 import 'package:manajemen_tahsin_app/core/network/local_network_checker.dart';
 import 'package:manajemen_tahsin_app/core/network/network_info.dart';
+import 'package:manajemen_tahsin_app/core/data/local_data_source.dart';
 import '../domain/repositories/daftar_tes_repository.dart';
 
 class DaftarTesScreen extends StatelessWidget {
@@ -22,6 +23,7 @@ class DaftarTesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = DaftarTesRepository(
       networkInfo: NetworkInfoImpl(LocalNetworkChecker()),
+      localDataSource: LocalDataSourceImpl(),
     );
     return RepositoryProvider<DaftarTesRepository>.value(
       value: repository,
